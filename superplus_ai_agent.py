@@ -194,6 +194,8 @@ Your job: Extract business data from WhatsApp messages.
 WHAT TO EXTRACT:
 
 1. **Date** - Look for dates like "28.01.26" or "Wednesday 28,2026"
+   - If NO date mentioned, return "TODAY" as the date
+   - Price updates without dates should use "TODAY"
 2. **Store Sales** - Look for "Sales $XXX" - this is ONLY the community store
 3. **Phone Cards** - Separate revenue stream (Western Union area)
 4. **Deli/Restaurant** - Separate revenue stream (food service)
@@ -209,8 +211,10 @@ WHAT TO EXTRACT:
 IMPORTANT:
 - "Sales $XXX" = Store ONLY (not total of all businesses)
 - Phone Cards and Deli are SEPARATE from Store Sales
+- If NO DATE mentioned, use "TODAY" (especially for price updates)
 - Ignore competitor prices (Jamgas, Total Greenvale, Yaadman, Spur Tree)
 - Ignore opening/closing dips (operational data only)
+- Opening dips like "87-9,231" are NOT litres sold (ignore these)
 
 EXAMPLES:
 
@@ -250,7 +254,7 @@ Output: {
 
 Input: "Gas Prices\\nGas mart\\n87-174.60\\n90-184.40\\nAdo-188.30\\nUlsd-195.50"
 Output: {
-  "date": null,
+  "date": "TODAY",
   "store_sales": null,
   "phone_cards": null,
   "deli_sales": null,
@@ -265,9 +269,26 @@ Output: {
   "notes": "Price update"
 }
 
+Input: "Good morning: opening dips\\n87-9,231\\n90-6,756\\nAdo-10,696\\nUlsd-5,229"
+Output: {
+  "date": null,
+  "store_sales": null,
+  "phone_cards": null,
+  "deli_sales": null,
+  "gas_87": null,
+  "gas_90": null,
+  "gas_ado": null,
+  "gas_ulsd": null,
+  "gasmart_87_price": null,
+  "gasmart_90_price": null,
+  "gasmart_ado_price": null,
+  "gasmart_ulsd_price": null,
+  "notes": "Opening dips - not litres sold"
+}
+
 Return as JSON:
 {
-  "date": "YYYY-MM-DD" or null,
+  "date": "YYYY-MM-DD" or "TODAY" or null,
   "store_sales": number or null,
   "phone_cards": number or null,
   "deli_sales": number or null,
@@ -307,11 +328,19 @@ Be flexible with number formats (commas, periods, spaces)."""
             
             data = json.loads(result_text)
             
+            # Handle "TODAY" date
+            from datetime import datetime
+            if data.get("date") == "TODAY":
+                data["date"] = datetime.now().strftime("%Y-%m-%d")
+                print(f"📅 No date in message, using today: {data['date']}")
+            
             print(f"✅ Extracted data: {json.dumps(data, indent=2)}")
             
             # Update Google Sheet
-            if self.sheet:
+            if self.sheet and data.get("date"):
                 self.update_google_sheet(data)
+            elif not data.get("date"):
+                print("⚠️ No date found, skipping sheet update")
             
             return f"Data extracted and stored: {data.get('date')}"
             
@@ -359,8 +388,22 @@ Be flexible with number formats (commas, periods, spaces)."""
             # Parse date and get day of week
             from datetime import datetime
             date_str = data.get("date")
+            
+            # Special handling for price updates without dates
+            if not date_str and any([data.get("gasmart_87_price"), data.get("gasmart_90_price")]):
+                # Price update - use today's date or most recent row's date
+                existing_dates = worksheet.col_values(1)[1:]  # Skip header
+                if existing_dates:
+                    # Use most recent date in sheet
+                    date_str = existing_dates[-1]
+                    print(f"💲 Price update - using most recent date: {date_str}")
+                else:
+                    # Use today's date
+                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    print(f"💲 Price update - using today's date: {date_str}")
+            
             if not date_str:
-                print("⚠️ No date found in message, skipping...")
+                print("⚠️ No date found and no price data, skipping...")
                 return
                 
             try:
@@ -387,21 +430,6 @@ Be flexible with number formats (commas, periods, spaces)."""
             price_ado = data.get("gasmart_ado_price") or ""
             price_ulsd = data.get("gasmart_ulsd_price") or ""
             
-            # Calculate gas revenue (if we have both litres and prices)
-            gas_revenue = ""
-            if all([gas_87, gas_90, price_87, price_90]):
-                gas_revenue = (gas_87 * price_87) + (gas_90 * price_90)
-                if gas_ado and price_ado:
-                    gas_revenue += gas_ado * price_ado
-                if gas_ulsd and price_ulsd:
-                    gas_revenue += gas_ulsd * price_ulsd
-            
-            # Calculate total revenue (sum of all 4 businesses)
-            total_revenue = ""
-            revenue_parts = [store_sales, phone_cards, deli_sales, gas_revenue]
-            if all(isinstance(x, (int, float)) and x != "" for x in revenue_parts):
-                total_revenue = sum(revenue_parts)
-            
             # Check if we already have data for this date
             existing_dates = worksheet.col_values(1)[1:]  # Skip header
             if date_str in existing_dates:
@@ -410,6 +438,37 @@ Be flexible with number formats (commas, periods, spaces)."""
                 print(f"📝 Updating existing row for {date_str}")
                 
                 existing_row = worksheet.row_values(row_index)
+                
+                # Get current prices from row for gas revenue calculation
+                current_price_87 = price_87 if price_87 != "" else (float(existing_row[12].replace('$','').replace(',','')) if len(existing_row) > 12 and existing_row[12] else 0)
+                current_price_90 = price_90 if price_90 != "" else (float(existing_row[13].replace('$','').replace(',','')) if len(existing_row) > 13 and existing_row[13] else 0)
+                current_price_ado = price_ado if price_ado != "" else (float(existing_row[14].replace('$','').replace(',','')) if len(existing_row) > 14 and existing_row[14] else 0)
+                current_price_ulsd = price_ulsd if price_ulsd != "" else (float(existing_row[15].replace('$','').replace(',','')) if len(existing_row) > 15 and existing_row[15] else 0)
+                
+                # Get current litres
+                current_gas_87 = gas_87 if gas_87 else (float(existing_row[7].replace(',','')) if len(existing_row) > 7 and existing_row[7] else 0)
+                current_gas_90 = gas_90 if gas_90 else (float(existing_row[8].replace(',','')) if len(existing_row) > 8 and existing_row[8] else 0)
+                current_gas_ado = gas_ado if gas_ado else (float(existing_row[9].replace(',','')) if len(existing_row) > 9 and existing_row[9] else 0)
+                current_gas_ulsd = gas_ulsd if gas_ulsd else (float(existing_row[10].replace(',','')) if len(existing_row) > 10 and existing_row[10] else 0)
+                
+                # Calculate gas revenue with updated data
+                gas_revenue = ""
+                if all([current_gas_87, current_gas_90, current_price_87, current_price_90]):
+                    gas_revenue = (current_gas_87 * current_price_87) + (current_gas_90 * current_price_90)
+                    if current_gas_ado and current_price_ado:
+                        gas_revenue += current_gas_ado * current_price_ado
+                    if current_gas_ulsd and current_price_ulsd:
+                        gas_revenue += current_gas_ulsd * current_price_ulsd
+                
+                # Get current store/phone/deli for total calc
+                current_store = store_sales if store_sales != "" else (float(existing_row[2].replace('$','').replace(',','')) if len(existing_row) > 2 and existing_row[2] else 0)
+                current_phone = phone_cards if phone_cards != "" else (float(existing_row[3].replace('$','').replace(',','')) if len(existing_row) > 3 and existing_row[3] else 0)
+                current_deli = deli_sales if deli_sales != "" else (float(existing_row[4].replace('$','').replace(',','')) if len(existing_row) > 4 and existing_row[4] else 0)
+                
+                # Calculate total revenue
+                total_revenue = ""
+                if any([current_store, current_phone, current_deli, gas_revenue]):
+                    total_revenue = sum([x for x in [current_store, current_phone, current_deli, gas_revenue] if x])
                 
                 # Merge new data with existing
                 row = [
@@ -420,10 +479,10 @@ Be flexible with number formats (commas, periods, spaces)."""
                     deli_sales if deli_sales != "" else (existing_row[4] if len(existing_row) > 4 else ""),
                     gas_revenue if gas_revenue != "" else (existing_row[5] if len(existing_row) > 5 else ""),
                     total_revenue if total_revenue != "" else (existing_row[6] if len(existing_row) > 6 else ""),
-                    gas_87 if gas_87 else (existing_row[7] if len(existing_row) > 7 else ""),
-                    gas_90 if gas_90 else (existing_row[8] if len(existing_row) > 8 else ""),
-                    gas_ado if gas_ado else (existing_row[9] if len(existing_row) > 9 else ""),
-                    gas_ulsd if gas_ulsd else (existing_row[10] if len(existing_row) > 10 else ""),
+                    current_gas_87 if current_gas_87 else "",
+                    current_gas_90 if current_gas_90 else "",
+                    current_gas_ado if current_gas_ado else "",
+                    current_gas_ulsd if current_gas_ulsd else "",
                     total_litres if total_litres != "" else (existing_row[11] if len(existing_row) > 11 else ""),
                     price_87 if price_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),
                     price_90 if price_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),
@@ -437,6 +496,21 @@ Be flexible with number formats (commas, periods, spaces)."""
                 
             else:
                 # Append new row
+                # Calculate gas revenue for new row
+                gas_revenue = ""
+                if all([gas_87, gas_90, price_87, price_90]):
+                    gas_revenue = (gas_87 * price_87) + (gas_90 * price_90)
+                    if gas_ado and price_ado:
+                        gas_revenue += gas_ado * price_ado
+                    if gas_ulsd and price_ulsd:
+                        gas_revenue += gas_ulsd * price_ulsd
+                
+                # Calculate total revenue
+                total_revenue = ""
+                revenue_parts = [store_sales, phone_cards, deli_sales, gas_revenue]
+                if any([isinstance(x, (int, float)) and x != "" for x in revenue_parts]):
+                    total_revenue = sum([x for x in revenue_parts if isinstance(x, (int, float)) and x != ""])
+                
                 row = [
                     date_str,
                     day_of_week,
