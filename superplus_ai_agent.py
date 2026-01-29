@@ -63,21 +63,53 @@ class SuperPlusAgent:
     def setup_google_sheets(self):
         """Initialize Google Sheets connection"""
         try:
-            # Load credentials from environment
+            # Try multiple credential sources
+            creds_dict = None
+            
+            # Method 1: Direct JSON string
             creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if creds_json:
-                creds_dict = json.loads(creds_json)
+            if creds_json and creds_json.strip():
+                try:
+                    creds_dict = json.loads(creds_json)
+                    print("✅ Loaded credentials from GOOGLE_CREDENTIALS")
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ Failed to parse GOOGLE_CREDENTIALS: {e}")
+            
+            # Method 2: Base64 encoded
+            if not creds_dict:
+                import base64
+                creds_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
+                if creds_base64:
+                    try:
+                        decoded = base64.b64decode(creds_base64)
+                        creds_dict = json.loads(decoded)
+                        print("✅ Loaded credentials from GOOGLE_CREDENTIALS_BASE64")
+                    except Exception as e:
+                        print(f"⚠️ Failed to decode GOOGLE_CREDENTIALS_BASE64: {e}")
+            
+            # Method 3: File path (if running locally)
+            if not creds_dict:
+                creds_file = os.getenv('GOOGLE_CREDENTIALS_FILE', 'google-credentials.json')
+                if os.path.exists(creds_file):
+                    with open(creds_file, 'r') as f:
+                        creds_dict = json.load(f)
+                    print(f"✅ Loaded credentials from file: {creds_file}")
+            
+            if creds_dict:
                 scopes = ['https://www.googleapis.com/auth/spreadsheets']
                 credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
                 self.gc = gspread.authorize(credentials)
                 self.sheet = self.gc.open_by_key(self.sheet_id)
-                print("✅ Google Sheets connected")
+                print(f"✅ Google Sheets connected: {self.sheet_id}")
             else:
-                print("⚠️ Google Sheets credentials not found")
+                print("❌ No Google Sheets credentials found in any format")
                 self.gc = None
                 self.sheet = None
+                
         except Exception as e:
             print(f"❌ Error connecting to Google Sheets: {e}")
+            import traceback
+            traceback.print_exc()
             self.gc = None
             self.sheet = None
     
