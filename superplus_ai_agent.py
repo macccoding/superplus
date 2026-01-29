@@ -380,9 +380,13 @@ def webhook():
     
     elif request.method == 'POST':
         # Process incoming message
-        data = request.get_json() or request.form.to_dict()
+        # Twilio sends form data, not JSON
+        data = request.form.to_dict() if request.form else request.get_json()
         
-        print(f"\n📨 Webhook received: {json.dumps(data, indent=2)[:200]}...")
+        if not data:
+            return jsonify({"error": "No data received"}), 400
+        
+        print(f"\n📨 Webhook received: {json.dumps(data, indent=2)[:500]}...")
         
         if agent:
             result = agent.process_whatsapp_message(data)
