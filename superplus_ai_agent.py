@@ -181,93 +181,108 @@ class SuperPlusAgent:
         AI agent analyzes message and decides what to do
         """
         
-        system_prompt = """You are the AI Business Manager for SuperPlus in Jamaica.
+        system_prompt = """You are the AI Business Manager for SuperPlus (GasMart) in Jamaica.
 
-Your job: Analyze incoming WhatsApp messages from staff and extract business data.
+CRITICAL: SuperPlus has 4 SEPARATE business units:
+1. Gas Station (tracked by litres sold)
+2. Community Store (the "Total Sales" or "Sales" figure)
+3. Phone Cards (Western Union area - separate)
+4. Deli/Restaurant (food service - separate)
 
-Staff send daily reports like:
-"Sales $702,327.66
-Phone Cards $63,427
-Restaurant/Deli $186,059.97
+Your job: Extract business data from WhatsApp messages.
 
-Gas litres:
-87-2316
-90-6151
-Ado-931
-Ulsd-4356.90"
+WHAT TO EXTRACT:
 
-OR simpler versions like:
-"Wednesday Jan 29
-Total: 500k
-Phone cards: 50k
-Restaurant: 100k boxes sold: 35"
+1. **Date** - Look for dates like "28.01.26" or "Wednesday 28,2026"
+2. **Store Sales** - Look for "Sales $XXX" - this is ONLY the community store
+3. **Phone Cards** - Separate revenue stream (Western Union area)
+4. **Deli/Restaurant** - Separate revenue stream (food service)
+5. **Gas Litres Sold** - Look for "Litres sales DD.MM.YY":
+   - 87: XXXX litres (regular)
+   - 90: XXXX litres (premium)
+   - ADO: XXXX litres (diesel)
+   - ULSD: XXXX litres (ultra-low sulfur diesel)
+6. **GasMart Fuel Prices** - Under "Gas mart" section:
+   - 87, 90, ADO, ULSD prices per litre
+7. **Notes** - Deliveries, power outages, busy periods, issues
 
-Extract:
-1. Date (if mentioned, else use today's date)
-2. Total sales
-3. Phone cards revenue
-4. Restaurant revenue
-5. Store revenue (calculate: total - phone - restaurant, or use explicit store amount)
-6. Gas litres by type (87, 90, ADO, ULSD)
-7. Restaurant boxes sold (if mentioned)
-8. Any notes/context (power outage, busy day, issues, etc.)
+IMPORTANT:
+- "Sales $XXX" = Store ONLY (not total of all businesses)
+- Phone Cards and Deli are SEPARATE from Store Sales
+- Ignore competitor prices (Jamgas, Total Greenvale, Yaadman, Spur Tree)
+- Ignore opening/closing dips (operational data only)
 
-IMPORTANT RULES:
-- Be flexible with formats - staff might write differently each time
-- Look for keywords: "sales", "total", "revenue", "boxes", "litres", "L"
-- Dates can be any format - parse them intelligently
-- If no date mentioned, use current date
-- Notes should capture: weather, incidents, busy periods, issues, anything unusual
-- Numbers might have commas, $ signs, or "k" for thousands - handle all formats
+EXAMPLES:
 
-Return as JSON:
-{
-  "date": "YYYY-MM-DD",
-  "total_sales": number (or null),
-  "phone_cards": number (or null),
-  "restaurant": number (or null),
-  "store": number (or null),
-  "gas_87": number (or null),
-  "gas_90": number (or null),
-  "gas_ado": number (or null),
-  "gas_ulsd": number (or null),
-  "restaurant_boxes": number (or null),
-  "notes": "summary of any context, incidents, or unusual information"
-}
-
-Examples:
-
-Input: "Jan 29 Sales 500k Phone 50k Restaurant 80k boxes 45 Power out 2-3pm"
+Input: "Good night Sir\\nWednesday 28,2026\\nSales $702,327.66\\nPhone Cards $63,427\\nDeli $186,059.97"
 Output: {
-  "date": "2026-01-29",
-  "total_sales": 500000,
-  "phone_cards": 50000,
-  "restaurant": 80000,
-  "store": 370000,
+  "date": "2026-01-28",
+  "store_sales": 702327.66,
+  "phone_cards": 63427,
+  "deli_sales": 186059.97,
   "gas_87": null,
   "gas_90": null,
   "gas_ado": null,
   "gas_ulsd": null,
-  "restaurant_boxes": 45,
-  "notes": "Power outage 2-3pm"
-}
-
-Input: "Wednesday total 702327.66 phone cards 63427 restaurant 186059.97 87-2316L 90-6151L ado-931 ulsd-4356"
-Output: {
-  "date": "2026-01-29",
-  "total_sales": 702327.66,
-  "phone_cards": 63427,
-  "restaurant": 186059.97,
-  "store": 452840.69,
-  "gas_87": 2316,
-  "gas_90": 6151,
-  "gas_ado": 931,
-  "gas_ulsd": 4356,
-  "restaurant_boxes": null,
+  "gasmart_87_price": null,
+  "gasmart_90_price": null,
+  "gasmart_ado_price": null,
+  "gasmart_ulsd_price": null,
   "notes": ""
 }
 
-If data is unclear or incomplete, note what's missing in "notes" field but still extract what you can."""
+Input: "Litres sales 28.01.26\\n87-2316\\n90-6151\\nAdo-931\\nUlsd-4356.90"
+Output: {
+  "date": "2026-01-28",
+  "store_sales": null,
+  "phone_cards": null,
+  "deli_sales": null,
+  "gas_87": 2316,
+  "gas_90": 6151,
+  "gas_ado": 931,
+  "gas_ulsd": 4356.90,
+  "gasmart_87_price": null,
+  "gasmart_90_price": null,
+  "gasmart_ado_price": null,
+  "gasmart_ulsd_price": null,
+  "notes": ""
+}
+
+Input: "Gas Prices\\nGas mart\\n87-174.60\\n90-184.40\\nAdo-188.30\\nUlsd-195.50"
+Output: {
+  "date": null,
+  "store_sales": null,
+  "phone_cards": null,
+  "deli_sales": null,
+  "gas_87": null,
+  "gas_90": null,
+  "gas_ado": null,
+  "gas_ulsd": null,
+  "gasmart_87_price": 174.60,
+  "gasmart_90_price": 184.40,
+  "gasmart_ado_price": 188.30,
+  "gasmart_ulsd_price": 195.50,
+  "notes": "Price update"
+}
+
+Return as JSON:
+{
+  "date": "YYYY-MM-DD" or null,
+  "store_sales": number or null,
+  "phone_cards": number or null,
+  "deli_sales": number or null,
+  "gas_87": number or null,
+  "gas_90": number or null,
+  "gas_ado": number or null,
+  "gas_ulsd": number or null,
+  "gasmart_87_price": number or null,
+  "gasmart_90_price": number or null,
+  "gasmart_ado_price": number or null,
+  "gasmart_ulsd_price": number or null,
+  "notes": "any important context"
+}
+
+Be flexible with number formats (commas, periods, spaces)."""
 
         try:
             response = self.client.messages.create(
@@ -311,27 +326,31 @@ If data is unclear or incomplete, note what's missing in "notes" field but still
             try:
                 worksheet = self.sheet.worksheet("Daily_Report")
             except:
-                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=15)
-                # Add headers with better formatting
+                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=20)
+                # Headers for 4 separate business units
                 headers = [
                     "Date", 
-                    "Day", 
-                    "Total_Sales", 
-                    "Phone_Cards", 
-                    "Restaurant", 
+                    "Day",
                     "Store_Sales",
+                    "Phone_Cards", 
+                    "Deli_Sales",
+                    "Gas_Revenue_Est",
+                    "Total_Revenue",
                     "Gas_87_Litres", 
                     "Gas_90_Litres", 
                     "Gas_ADO_Litres", 
                     "Gas_ULSD_Litres",
                     "Total_Litres",
-                    "Restaurant_Boxes",
+                    "GasMart_87_Price",
+                    "GasMart_90_Price",
+                    "GasMart_ADO_Price",
+                    "GasMart_ULSD_Price",
                     "Notes"
                 ]
                 worksheet.append_row(headers)
                 
                 # Format header row
-                worksheet.format('A1:M1', {
+                worksheet.format('A1:Q1', {
                     "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.86},
                     "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
                     "horizontalAlignment": "CENTER"
@@ -339,57 +358,122 @@ If data is unclear or incomplete, note what's missing in "notes" field but still
             
             # Parse date and get day of week
             from datetime import datetime
-            date_str = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+            date_str = data.get("date")
+            if not date_str:
+                print("⚠️ No date found in message, skipping...")
+                return
+                
             try:
                 date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-                day_of_week = date_obj.strftime("%A")  # Monday, Tuesday, etc.
+                day_of_week = date_obj.strftime("%A")
             except:
                 day_of_week = ""
             
-            # Calculate totals
-            gas_87 = data.get("gas_87", 0) or 0
-            gas_90 = data.get("gas_90", 0) or 0
-            gas_ado = data.get("gas_ado", 0) or 0
-            gas_ulsd = data.get("gas_ulsd", 0) or 0
-            total_litres = gas_87 + gas_90 + gas_ado + gas_ulsd
+            # Get business unit data
+            store_sales = data.get("store_sales") or ""
+            phone_cards = data.get("phone_cards") or ""
+            deli_sales = data.get("deli_sales") or ""
             
-            # Calculate store sales (Total - Phone Cards - Restaurant)
-            total = data.get("total_sales", 0) or 0
-            phone = data.get("phone_cards", 0) or 0
-            restaurant = data.get("restaurant", 0) or 0
-            store = total - phone - restaurant if total > 0 else (data.get("store", 0) or 0)
+            # Gas data
+            gas_87 = data.get("gas_87") or 0
+            gas_90 = data.get("gas_90") or 0
+            gas_ado = data.get("gas_ado") or 0
+            gas_ulsd = data.get("gas_ulsd") or 0
+            total_litres = gas_87 + gas_90 + gas_ado + gas_ulsd if any([gas_87, gas_90, gas_ado, gas_ulsd]) else ""
             
-            # Prepare row data
-            row = [
-                date_str,
-                day_of_week,
-                total,
-                phone,
-                restaurant,
-                store,
-                gas_87,
-                gas_90,
-                gas_ado,
-                gas_ulsd,
-                total_litres,
-                data.get("restaurant_boxes", ""),
-                data.get("notes", "")
-            ]
+            # Pricing data
+            price_87 = data.get("gasmart_87_price") or ""
+            price_90 = data.get("gasmart_90_price") or ""
+            price_ado = data.get("gasmart_ado_price") or ""
+            price_ulsd = data.get("gasmart_ulsd_price") or ""
             
-            # Append to sheet
-            worksheet.append_row(row)
+            # Calculate gas revenue (if we have both litres and prices)
+            gas_revenue = ""
+            if all([gas_87, gas_90, price_87, price_90]):
+                gas_revenue = (gas_87 * price_87) + (gas_90 * price_90)
+                if gas_ado and price_ado:
+                    gas_revenue += gas_ado * price_ado
+                if gas_ulsd and price_ulsd:
+                    gas_revenue += gas_ulsd * price_ulsd
             
-            # Format the new row (currency for money columns, numbers for litres)
-            last_row = len(worksheet.get_all_values())
+            # Calculate total revenue (sum of all 4 businesses)
+            total_revenue = ""
+            revenue_parts = [store_sales, phone_cards, deli_sales, gas_revenue]
+            if all(isinstance(x, (int, float)) and x != "" for x in revenue_parts):
+                total_revenue = sum(revenue_parts)
             
-            # Currency format for columns C-F (Total, Phone Cards, Restaurant, Store)
-            worksheet.format(f'C{last_row}:F{last_row}', {
+            # Check if we already have data for this date
+            existing_dates = worksheet.col_values(1)[1:]  # Skip header
+            if date_str in existing_dates:
+                # Update existing row
+                row_index = existing_dates.index(date_str) + 2
+                print(f"📝 Updating existing row for {date_str}")
+                
+                existing_row = worksheet.row_values(row_index)
+                
+                # Merge new data with existing
+                row = [
+                    date_str,
+                    day_of_week,
+                    store_sales if store_sales != "" else (existing_row[2] if len(existing_row) > 2 else ""),
+                    phone_cards if phone_cards != "" else (existing_row[3] if len(existing_row) > 3 else ""),
+                    deli_sales if deli_sales != "" else (existing_row[4] if len(existing_row) > 4 else ""),
+                    gas_revenue if gas_revenue != "" else (existing_row[5] if len(existing_row) > 5 else ""),
+                    total_revenue if total_revenue != "" else (existing_row[6] if len(existing_row) > 6 else ""),
+                    gas_87 if gas_87 else (existing_row[7] if len(existing_row) > 7 else ""),
+                    gas_90 if gas_90 else (existing_row[8] if len(existing_row) > 8 else ""),
+                    gas_ado if gas_ado else (existing_row[9] if len(existing_row) > 9 else ""),
+                    gas_ulsd if gas_ulsd else (existing_row[10] if len(existing_row) > 10 else ""),
+                    total_litres if total_litres != "" else (existing_row[11] if len(existing_row) > 11 else ""),
+                    price_87 if price_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),
+                    price_90 if price_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),
+                    price_ado if price_ado != "" else (existing_row[14] if len(existing_row) > 14 else ""),
+                    price_ulsd if price_ulsd != "" else (existing_row[15] if len(existing_row) > 15 else ""),
+                    data.get("notes", existing_row[16] if len(existing_row) > 16 else "")
+                ]
+                
+                worksheet.update(f'A{row_index}:Q{row_index}', [row])
+                last_row = row_index
+                
+            else:
+                # Append new row
+                row = [
+                    date_str,
+                    day_of_week,
+                    store_sales,
+                    phone_cards,
+                    deli_sales,
+                    gas_revenue,
+                    total_revenue,
+                    gas_87 if gas_87 else "",
+                    gas_90 if gas_90 else "",
+                    gas_ado if gas_ado else "",
+                    gas_ulsd if gas_ulsd else "",
+                    total_litres,
+                    price_87,
+                    price_90,
+                    price_ado,
+                    price_ulsd,
+                    data.get("notes", "")
+                ]
+                
+                worksheet.append_row(row)
+                last_row = len(worksheet.get_all_values())
+            
+            # Format the row
+            # Currency format for revenue columns (C-G)
+            worksheet.format(f'C{last_row}:G{last_row}', {
                 "numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"}
             })
             
-            # Number format for litres (columns G-K)
-            worksheet.format(f'G{last_row}:K{last_row}', {
-                "numberFormat": {"type": "NUMBER", "pattern": "#,##0"}
+            # Number format for litres (columns H-L)
+            worksheet.format(f'H{last_row}:L{last_row}', {
+                "numberFormat": {"type": "NUMBER", "pattern": "#,##0.00"}
+            })
+            
+            # Currency format for prices (columns M-P)
+            worksheet.format(f'M{last_row}:P{last_row}', {
+                "numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"}
             })
             
             print(f"✅ Updated Google Sheet with data for {date_str} ({day_of_week})")
