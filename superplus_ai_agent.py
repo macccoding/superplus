@@ -196,30 +196,78 @@ Gas litres:
 Ado-931
 Ulsd-4356.90"
 
+OR simpler versions like:
+"Wednesday Jan 29
+Total: 500k
+Phone cards: 50k
+Restaurant: 100k boxes sold: 35"
+
 Extract:
-1. Date (if mentioned, else use today)
+1. Date (if mentioned, else use today's date)
 2. Total sales
 3. Phone cards revenue
 4. Restaurant revenue
-5. Store revenue (calculate: total - phone - restaurant)
+5. Store revenue (calculate: total - phone - restaurant, or use explicit store amount)
 6. Gas litres by type (87, 90, ADO, ULSD)
-7. Any notes/context (power outage, busy day, etc)
+7. Restaurant boxes sold (if mentioned)
+8. Any notes/context (power outage, busy day, issues, etc.)
+
+IMPORTANT RULES:
+- Be flexible with formats - staff might write differently each time
+- Look for keywords: "sales", "total", "revenue", "boxes", "litres", "L"
+- Dates can be any format - parse them intelligently
+- If no date mentioned, use current date
+- Notes should capture: weather, incidents, busy periods, issues, anything unusual
+- Numbers might have commas, $ signs, or "k" for thousands - handle all formats
 
 Return as JSON:
 {
   "date": "YYYY-MM-DD",
-  "total_sales": number,
-  "phone_cards": number,
-  "restaurant": number,
-  "store": number,
-  "gas_87": number,
-  "gas_90": number,
-  "gas_ado": number,
-  "gas_ulsd": number,
-  "notes": "any context mentioned"
+  "total_sales": number (or null),
+  "phone_cards": number (or null),
+  "restaurant": number (or null),
+  "store": number (or null),
+  "gas_87": number (or null),
+  "gas_90": number (or null),
+  "gas_ado": number (or null),
+  "gas_ulsd": number (or null),
+  "restaurant_boxes": number (or null),
+  "notes": "summary of any context, incidents, or unusual information"
 }
 
-If data is unclear or incomplete, note what's missing in "notes" field."""
+Examples:
+
+Input: "Jan 29 Sales 500k Phone 50k Restaurant 80k boxes 45 Power out 2-3pm"
+Output: {
+  "date": "2026-01-29",
+  "total_sales": 500000,
+  "phone_cards": 50000,
+  "restaurant": 80000,
+  "store": 370000,
+  "gas_87": null,
+  "gas_90": null,
+  "gas_ado": null,
+  "gas_ulsd": null,
+  "restaurant_boxes": 45,
+  "notes": "Power outage 2-3pm"
+}
+
+Input: "Wednesday total 702327.66 phone cards 63427 restaurant 186059.97 87-2316L 90-6151L ado-931 ulsd-4356"
+Output: {
+  "date": "2026-01-29",
+  "total_sales": 702327.66,
+  "phone_cards": 63427,
+  "restaurant": 186059.97,
+  "store": 452840.69,
+  "gas_87": 2316,
+  "gas_90": 6151,
+  "gas_ado": 931,
+  "gas_ulsd": 4356,
+  "restaurant_boxes": null,
+  "notes": ""
+}
+
+If data is unclear or incomplete, note what's missing in "notes" field but still extract what you can."""
 
         try:
             response = self.client.messages.create(
@@ -263,34 +311,93 @@ If data is unclear or incomplete, note what's missing in "notes" field."""
             try:
                 worksheet = self.sheet.worksheet("Daily_Report")
             except:
-                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=20)
-                # Add headers
+                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=15)
+                # Add headers with better formatting
                 headers = [
-                    "Date", "Total_Sales", "Phone_Cards", "Restaurant", 
-                    "Store", "Gas_87", "Gas_90", "Gas_ADO", "Gas_ULSD", "Notes"
+                    "Date", 
+                    "Day", 
+                    "Total_Sales", 
+                    "Phone_Cards", 
+                    "Restaurant", 
+                    "Store_Sales",
+                    "Gas_87_Litres", 
+                    "Gas_90_Litres", 
+                    "Gas_ADO_Litres", 
+                    "Gas_ULSD_Litres",
+                    "Total_Litres",
+                    "Restaurant_Boxes",
+                    "Notes"
                 ]
                 worksheet.append_row(headers)
+                
+                # Format header row
+                worksheet.format('A1:M1', {
+                    "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.86},
+                    "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
+                    "horizontalAlignment": "CENTER"
+                })
+            
+            # Parse date and get day of week
+            from datetime import datetime
+            date_str = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                day_of_week = date_obj.strftime("%A")  # Monday, Tuesday, etc.
+            except:
+                day_of_week = ""
+            
+            # Calculate totals
+            gas_87 = data.get("gas_87", 0) or 0
+            gas_90 = data.get("gas_90", 0) or 0
+            gas_ado = data.get("gas_ado", 0) or 0
+            gas_ulsd = data.get("gas_ulsd", 0) or 0
+            total_litres = gas_87 + gas_90 + gas_ado + gas_ulsd
+            
+            # Calculate store sales (Total - Phone Cards - Restaurant)
+            total = data.get("total_sales", 0) or 0
+            phone = data.get("phone_cards", 0) or 0
+            restaurant = data.get("restaurant", 0) or 0
+            store = total - phone - restaurant if total > 0 else (data.get("store", 0) or 0)
             
             # Prepare row data
             row = [
-                data.get("date", datetime.now().strftime("%Y-%m-%d")),
-                data.get("total_sales", 0),
-                data.get("phone_cards", 0),
-                data.get("restaurant", 0),
-                data.get("store", 0),
-                data.get("gas_87", 0),
-                data.get("gas_90", 0),
-                data.get("gas_ado", 0),
-                data.get("gas_ulsd", 0),
+                date_str,
+                day_of_week,
+                total,
+                phone,
+                restaurant,
+                store,
+                gas_87,
+                gas_90,
+                gas_ado,
+                gas_ulsd,
+                total_litres,
+                data.get("restaurant_boxes", ""),
                 data.get("notes", "")
             ]
             
             # Append to sheet
             worksheet.append_row(row)
-            print(f"✅ Updated Google Sheet with data for {data.get('date')}")
+            
+            # Format the new row (currency for money columns, numbers for litres)
+            last_row = len(worksheet.get_all_values())
+            
+            # Currency format for columns C-F (Total, Phone Cards, Restaurant, Store)
+            worksheet.format(f'C{last_row}:F{last_row}', {
+                "numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"}
+            })
+            
+            # Number format for litres (columns G-K)
+            worksheet.format(f'G{last_row}:K{last_row}', {
+                "numberFormat": {"type": "NUMBER", "pattern": "#,##0"}
+            })
+            
+            print(f"✅ Updated Google Sheet with data for {date_str} ({day_of_week})")
             
         except Exception as e:
             print(f"❌ Error updating Google Sheet: {e}")
+            import traceback
+            traceback.print_exc()
     
     def run_weekly_analysis(self):
         """Run comprehensive weekly analysis"""
