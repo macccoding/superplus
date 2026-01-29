@@ -558,38 +558,135 @@ Be flexible with number formats (commas, periods, spaces)."""
             traceback.print_exc()
     
     def run_weekly_analysis(self):
-        """Run comprehensive weekly analysis"""
+        """Run comprehensive weekly analysis with autonomous insights"""
         print("\n" + "="*60)
-        print("📊 RUNNING WEEKLY ANALYSIS")
+        print("📊 RUNNING WEEKLY AUTONOMOUS ANALYSIS")
         print("="*60)
         
         try:
-            # Get last 7 days of data from Google Sheet
+            from datetime import datetime, timedelta
+            
+            # Get data from Google Sheet
             worksheet = self.sheet.worksheet("Daily_Report")
             all_data = worksheet.get_all_records()
             
-            # Get last 7 days
-            recent_data = all_data[-7:] if len(all_data) >= 7 else all_data
+            if len(all_data) < 7:
+                print(f"⚠️ Only {len(all_data)} days of data available")
             
-            print(f"📈 Analyzing {len(recent_data)} days of data")
+            # Get last 7 days AND previous 7 days for comparison
+            this_week = all_data[-7:] if len(all_data) >= 7 else all_data
+            last_week = all_data[-14:-7] if len(all_data) >= 14 else []
             
-            # Send to Claude for analysis
-            analysis_prompt = f"""Analyze this week's SuperPlus business data and provide:
+            # Calculate key metrics
+            metrics = self.calculate_weekly_metrics(this_week, last_week)
+            
+            print(f"📈 Analyzing {len(this_week)} days of data")
+            print(f"📊 Week-over-week comparison: {len(last_week)} days vs {len(this_week)} days")
+            
+            # Enhanced analysis prompt with business context
+            analysis_prompt = f"""You are the AI Business Advisor for SuperPlus (GasMart) in rural Jamaica.
 
-1. Executive summary (2-3 sentences)
-2. Key wins (top 3)
-3. Key concerns (top 3)
-4. Specific action items for next week
-5. Projections for next week
+BUSINESS CONTEXT:
+- 4 separate revenue streams: Gas Station, Community Store, Phone Cards (Western Union), Deli
+- Only business within 5-mile radius (competitive moat)
+- Serves rural community: farmers, government workers, local residents
+- Open 6am-9pm daily
+- Payday cycles: Government workers (monthly), local businesses (bi-weekly)
+- Weather impacts: Rain reduces foot traffic, hurricane season July-November
 
-Data:
-{json.dumps(recent_data, indent=2)}
+THIS WEEK'S DATA:
+{json.dumps(this_week, indent=2)}
 
-Be specific and actionable. Focus on revenue, patterns, and opportunities."""
+LAST WEEK'S DATA (for comparison):
+{json.dumps(last_week, indent=2) if last_week else "No previous week data available"}
+
+CALCULATED METRICS:
+{json.dumps(metrics, indent=2)}
+
+YOUR TASK - Provide a comprehensive autonomous business analysis:
+
+## 📈 EXECUTIVE SUMMARY
+- 2-3 sentences: Overall performance, key trends, business health
+
+## 🎯 KEY INSIGHTS (Top 5)
+Identify the most important findings:
+1. Revenue trends across all 4 businesses
+2. Gas volume/margin patterns
+3. Customer behavior patterns (day-of-week, time trends)
+4. Operational issues or wins
+5. Market opportunities
+
+## ⚠️ CONCERNS & RISKS (Top 3)
+What needs immediate attention? Be specific with impact:
+- Revenue decline in specific area?
+- Inventory issues?
+- Margin compression?
+- Competitive threats?
+
+## 💡 AUTONOMOUS RECOMMENDATIONS
+Provide SPECIFIC, ACTIONABLE recommendations with expected ROI:
+
+**IMMEDIATE (This Week):**
+- What to do Monday morning
+- Quick wins (low effort, high impact)
+- Problems to fix now
+
+**SHORT-TERM (2-4 Weeks):**
+- Process improvements
+- Inventory optimizations
+- Staffing adjustments
+- Pricing strategies
+
+**STRATEGIC (1-3 Months):**
+- Revenue diversification
+- Market expansion
+- Operational efficiency
+- Customer retention
+
+## 📊 NEXT WEEK PROJECTIONS
+Based on patterns, predict next week's performance:
+- **Best Case:** If positive trends continue + favorable conditions
+- **Base Case:** Most likely scenario
+- **Cautious Case:** If risks materialize
+
+Provide specific numbers for:
+- Total Revenue projection
+- Each business unit
+- Key metrics to watch
+
+## 🔍 PATTERNS DETECTED
+What patterns has the agent learned?
+- Day-of-week trends
+- Payday effects
+- Weather correlations
+- Pricing sweet spots
+- Customer behavior
+
+## 📋 METRICS TO MONITOR
+What should I (the agent) watch closely this week?
+- Leading indicators
+- Early warning signs
+- Opportunity signals
+
+## 🤖 AGENT LEARNING
+What has the agent learned that improves future analysis?
+- New patterns discovered
+- Refined understanding
+- Hypothesis to test
+
+FORMAT:
+- Be conversational but professional
+- Use specific numbers and percentages
+- Focus on ACTIONABLE insights (not just reporting)
+- Think like a business advisor, not a data analyst
+- Highlight Jamaica-specific factors (payday cycles, weather, community dynamics)
+- Make bold recommendations with confidence when data supports it
+
+CRITICAL: Be an ADVISOR, not just a reporter. The owner should finish reading and know EXACTLY what to do."""
 
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=2000,
+                max_tokens=4000,
                 temperature=0.3,
                 messages=[{
                     "role": "user",
@@ -599,16 +696,151 @@ Be specific and actionable. Focus on revenue, patterns, and opportunities."""
             
             analysis = response.content[0].text
             
-            print("\n" + analysis)
+            # Log the analysis
+            print("\n" + "="*60)
+            print("WEEKLY ANALYSIS REPORT")
+            print("="*60)
+            print(analysis)
+            print("="*60 + "\n")
             
-            # TODO: Send analysis via WhatsApp/Email to owner
-            # For now, just log it
+            # Send to owner via WhatsApp
+            self.send_weekly_report(analysis, metrics)
+            
+            # Update agent memory with new patterns
+            self.update_agent_memory(analysis, metrics)
             
             return analysis
             
         except Exception as e:
             print(f"❌ Error running analysis: {e}")
+            import traceback
+            traceback.print_exc()
             return None
+    
+    def calculate_weekly_metrics(self, this_week: List[Dict], last_week: List[Dict]) -> Dict:
+        """Calculate key metrics for analysis"""
+        def safe_sum(data, field):
+            return sum([float(row.get(field, 0) or 0) for row in data])
+        
+        def safe_avg(data, field):
+            values = [float(row.get(field, 0) or 0) for row in data if row.get(field)]
+            return sum(values) / len(values) if values else 0
+        
+        # This week metrics
+        tw_store = safe_sum(this_week, 'Store_Sales')
+        tw_phone = safe_sum(this_week, 'Phone_Cards')
+        tw_deli = safe_sum(this_week, 'Deli_Sales')
+        tw_gas_rev = safe_sum(this_week, 'Gas_Revenue_Est')
+        tw_total = safe_sum(this_week, 'Total_Revenue')
+        
+        tw_litres = safe_sum(this_week, 'Total_Litres')
+        tw_87 = safe_sum(this_week, 'Gas_87_Litres')
+        tw_90 = safe_sum(this_week, 'Gas_90_Litres')
+        
+        tw_avg_price_87 = safe_avg(this_week, 'GasMart_87_Price')
+        tw_avg_price_90 = safe_avg(this_week, 'GasMart_90_Price')
+        
+        # Last week metrics (for comparison)
+        lw_total = safe_sum(last_week, 'Total_Revenue') if last_week else 0
+        lw_litres = safe_sum(last_week, 'Total_Litres') if last_week else 0
+        
+        # Calculate week-over-week changes
+        wow_revenue = ((tw_total - lw_total) / lw_total * 100) if lw_total > 0 else 0
+        wow_litres = ((tw_litres - lw_litres) / lw_litres * 100) if lw_litres > 0 else 0
+        
+        # Business unit percentages
+        total_rev = tw_total if tw_total > 0 else 1
+        
+        return {
+            "this_week": {
+                "total_revenue": tw_total,
+                "store_sales": tw_store,
+                "phone_cards": tw_phone,
+                "deli_sales": tw_deli,
+                "gas_revenue": tw_gas_rev,
+                "total_litres": tw_litres,
+                "litres_87": tw_87,
+                "litres_90": tw_90,
+                "avg_price_87": tw_avg_price_87,
+                "avg_price_90": tw_avg_price_90,
+                "daily_avg_revenue": tw_total / len(this_week) if this_week else 0
+            },
+            "last_week": {
+                "total_revenue": lw_total,
+                "total_litres": lw_litres
+            },
+            "week_over_week": {
+                "revenue_change_pct": wow_revenue,
+                "litres_change_pct": wow_litres
+            },
+            "business_mix": {
+                "gas_pct": (tw_gas_rev / total_rev * 100) if tw_gas_rev else 0,
+                "store_pct": (tw_store / total_rev * 100) if tw_store else 0,
+                "phone_pct": (tw_phone / total_rev * 100) if tw_phone else 0,
+                "deli_pct": (tw_deli / total_rev * 100) if tw_deli else 0
+            },
+            "fuel_mix": {
+                "regular_87_pct": (tw_87 / tw_litres * 100) if tw_litres > 0 else 0,
+                "premium_90_pct": (tw_90 / tw_litres * 100) if tw_litres > 0 else 0
+            }
+        }
+    
+    def send_weekly_report(self, analysis: str, metrics: Dict):
+        """Send weekly report to owner via WhatsApp"""
+        try:
+            # Create concise WhatsApp message (full report too long)
+            summary = f"""📊 **SUPERPLUS WEEKLY REPORT**
+Week ending {datetime.now().strftime('%B %d, %Y')}
+
+💰 **REVENUE:** JMD ${metrics['this_week']['total_revenue']:,.0f}
+📈 **vs Last Week:** {metrics['week_over_week']['revenue_change_pct']:+.1f}%
+
+⛽ **GAS:** {metrics['this_week']['total_litres']:,.0f} litres ({metrics['week_over_week']['litres_change_pct']:+.1f}%)
+🏪 **STORE:** JMD ${metrics['this_week']['store_sales']:,.0f}
+🍽️ **DELI:** JMD ${metrics['this_week']['deli_sales']:,.0f}
+💳 **PHONE CARDS:** JMD ${metrics['this_week']['phone_cards']:,.0f}
+
+Check your email for the full detailed analysis with recommendations.
+
+- Your AI Business Agent"""
+            
+            # Send via Twilio WhatsApp
+            if self.twilio_sid and self.twilio_token:
+                from twilio.rest import Client
+                client = Client(self.twilio_sid, self.twilio_token)
+                
+                message = client.messages.create(
+                    from_=f'whatsapp:{self.twilio_number}',
+                    body=summary,
+                    to=f'whatsapp:{self.owner_phone}'
+                )
+                
+                print(f"✅ Weekly summary sent via WhatsApp to {self.owner_phone}")
+            
+            # TODO: Send full analysis via email
+            # For now, just log that it would be sent
+            print(f"📧 Full analysis would be emailed to: {self.owner_email}")
+            
+        except Exception as e:
+            print(f"⚠️ Could not send report: {e}")
+    
+    def update_agent_memory(self, analysis: str, metrics: Dict):
+        """Update agent's long-term memory with new patterns"""
+        try:
+            # Store key patterns for future reference
+            self.memory["patterns"]["last_analysis_date"] = datetime.now().isoformat()
+            self.memory["patterns"]["recent_metrics"] = metrics
+            
+            # TODO: Store more sophisticated patterns:
+            # - Day-of-week preferences
+            # - Payday cycle correlations
+            # - Weather impact patterns
+            # - Pricing elasticity
+            
+            print("✅ Agent memory updated with new patterns")
+            
+        except Exception as e:
+            print(f"⚠️ Could not update memory: {e}")
 
 
 # ============================================
