@@ -719,11 +719,24 @@ CRITICAL: Be an ADVISOR, not just a reporter. The owner should finish reading an
     
     def calculate_weekly_metrics(self, this_week: List[Dict], last_week: List[Dict]) -> Dict:
         """Calculate key metrics for analysis"""
+        def safe_float(value):
+            """Safely convert any value to float, handling currency formatting"""
+            if value is None or value == '':
+                return 0
+            if isinstance(value, (int, float)):
+                return float(value)
+            # Remove currency symbols, commas, spaces
+            cleaned = str(value).replace('$', '').replace(',', '').replace(' ', '').strip()
+            try:
+                return float(cleaned) if cleaned else 0
+            except (ValueError, AttributeError):
+                return 0
+        
         def safe_sum(data, field):
-            return sum([float(row.get(field, 0) or 0) for row in data])
+            return sum([safe_float(row.get(field, 0)) for row in data])
         
         def safe_avg(data, field):
-            values = [float(row.get(field, 0) or 0) for row in data if row.get(field)]
+            values = [safe_float(row.get(field, 0)) for row in data if row.get(field)]
             return sum(values) / len(values) if values else 0
         
         # This week metrics

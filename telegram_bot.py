@@ -199,18 +199,34 @@ Format as brief Telegram message (200 words max)."""
         await update.message.reply_text("⛽ Analyzing gas station...")
         
         try:
+            def safe_float(value):
+                """Safely convert any value to float"""
+                if value is None or value == '':
+                    return 0
+                if isinstance(value, (int, float)):
+                    return float(value)
+                cleaned = str(value).replace('$', '').replace(',', '').replace(' ', '').strip()
+                try:
+                    return float(cleaned) if cleaned else 0
+                except (ValueError, AttributeError):
+                    return 0
+            
             worksheet = self.agent.sheet.worksheet("Daily_Report")
             all_data = worksheet.get_all_records()
             this_week = all_data[-7:] if len(all_data) >= 7 else all_data
             
-            # Calculate gas metrics
-            total_litres = sum([row.get('Total_Litres', 0) or 0 for row in this_week])
-            litres_87 = sum([row.get('Gas_87_Litres', 0) or 0 for row in this_week])
-            litres_90 = sum([row.get('Gas_90_Litres', 0) or 0 for row in this_week])
-            gas_revenue = sum([row.get('Gas_Revenue_Est', 0) or 0 for row in this_week])
+            # Calculate gas metrics with safe conversion
+            total_litres = sum([safe_float(row.get('Total_Litres', 0)) for row in this_week])
+            litres_87 = sum([safe_float(row.get('Gas_87_Litres', 0)) for row in this_week])
+            litres_90 = sum([safe_float(row.get('Gas_90_Litres', 0)) for row in this_week])
+            gas_revenue = sum([safe_float(row.get('Gas_Revenue_Est', 0)) for row in this_week])
             
-            avg_price_87 = sum([row.get('GasMart_87_Price', 0) or 0 for row in this_week if row.get('GasMart_87_Price')]) / len([r for r in this_week if r.get('GasMart_87_Price')]) if any([r.get('GasMart_87_Price') for r in this_week]) else 0
-            avg_price_90 = sum([row.get('GasMart_90_Price', 0) or 0 for row in this_week if row.get('GasMart_90_Price')]) / len([r for r in this_week if r.get('GasMart_90_Price')]) if any([r.get('GasMart_90_Price') for r in this_week]) else 0
+            # Calculate average prices
+            prices_87 = [safe_float(row.get('GasMart_87_Price', 0)) for row in this_week if row.get('GasMart_87_Price')]
+            prices_90 = [safe_float(row.get('GasMart_90_Price', 0)) for row in this_week if row.get('GasMart_90_Price')]
+            
+            avg_price_87 = sum(prices_87) / len(prices_87) if prices_87 else 0
+            avg_price_90 = sum(prices_90) / len(prices_90) if prices_90 else 0
             
             report = f"""⛽ **GAS STATION ANALYSIS**
 This Week (Last {len(this_week)} days)
