@@ -3,11 +3,7 @@
 SuperPlus AI Business Agent - Production Version
 Includes Flask web server for WhatsApp webhooks
 """
-# At top of file
-from telegram_bot import initialize_telegram_bot
 
-# In main() function, after agent = SuperPlusAgent():
-telegram_bot = initialize_telegram_bot(agent)
 import anthropic
 import os
 from datetime import datetime, timedelta
@@ -958,6 +954,18 @@ def main():
     # Initialize agent
     agent = SuperPlusAgent()
     
+    # Initialize Telegram bot (if configured)
+    telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if telegram_bot_token:
+        try:
+            from telegram_bot import initialize_telegram_bot
+            telegram_bot = initialize_telegram_bot(agent)
+            print("✅ Telegram bot initialized")
+        except Exception as e:
+            print(f"⚠️ Telegram bot not available: {e}")
+    else:
+        print("⚠️ Telegram bot disabled (no token)")
+    
     # Set up scheduled tasks
     schedule_tasks()
     
@@ -970,6 +978,8 @@ def main():
     print(f"📡 Webhook URL: https://YOUR-RAILWAY-URL/webhook")
     print(f"📊 Dashboard: https://YOUR-RAILWAY-URL/dashboard")
     print(f"🏥 Health check: https://YOUR-RAILWAY-URL/")
+    if telegram_bot_token:
+        print(f"📱 Telegram: Send /start to your bot")
     print("="*60 + "\n")
     
     # Start Flask web server
