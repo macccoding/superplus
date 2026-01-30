@@ -10,6 +10,7 @@ from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
 import json
 from datetime import datetime
 import io
+from typing import Dict, List
 
 class DriveArchiver:
     """
