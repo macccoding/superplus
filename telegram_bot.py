@@ -219,36 +219,47 @@ Format as brief Telegram message (200 words max)."""
             total_litres = sum([safe_float(row.get('Total_Litres', 0)) for row in this_week])
             litres_87 = sum([safe_float(row.get('Gas_87_Litres', 0)) for row in this_week])
             litres_90 = sum([safe_float(row.get('Gas_90_Litres', 0)) for row in this_week])
+            litres_ado = sum([safe_float(row.get('Gas_ADO_Litres', 0)) for row in this_week])
+            litres_ulsd = sum([safe_float(row.get('Gas_ULSD_Litres', 0)) for row in this_week])
             gas_revenue = sum([safe_float(row.get('Gas_Revenue_Est', 0)) for row in this_week])
             
             # Calculate average prices
             prices_87 = [safe_float(row.get('GasMart_87_Price', 0)) for row in this_week if row.get('GasMart_87_Price')]
             prices_90 = [safe_float(row.get('GasMart_90_Price', 0)) for row in this_week if row.get('GasMart_90_Price')]
+            prices_ado = [safe_float(row.get('GasMart_ADO_Price', 0)) for row in this_week if row.get('GasMart_ADO_Price')]
+            prices_ulsd = [safe_float(row.get('GasMart_ULSD_Price', 0)) for row in this_week if row.get('GasMart_ULSD_Price')]
             
             avg_price_87 = sum(prices_87) / len(prices_87) if prices_87 else 0
             avg_price_90 = sum(prices_90) / len(prices_90) if prices_90 else 0
+            avg_price_ado = sum(prices_ado) / len(prices_ado) if prices_ado else 0
+            avg_price_ulsd = sum(prices_ulsd) / len(prices_ulsd) if prices_ulsd else 0
             
             report = f"""⛽ **GAS STATION ANALYSIS**
 This Week (Last {len(this_week)} days)
 
-**VOLUME:**
+**VOLUME BY FUEL TYPE:**
 Total: {total_litres:,.0f} litres
-87 (Regular): {litres_87:,.0f}L ({litres_87/total_litres*100:.0f}%)
-90 (Premium): {litres_90:,.0f}L ({litres_90/total_litres*100:.0f}%)
+• 87 (Regular): {litres_87:,.0f}L ({litres_87/total_litres*100:.0f}%)
+• 90 (Premium): {litres_90:,.0f}L ({litres_90/total_litres*100:.0f}%)
+• ADO (Diesel): {litres_ado:,.0f}L ({litres_ado/total_litres*100:.0f}%)
+• ULSD (Ultra Low): {litres_ulsd:,.0f}L ({litres_ulsd/total_litres*100:.0f}%)
+
 Daily Avg: {total_litres/len(this_week):,.0f}L
 
 **REVENUE:**
 Total: JMD ${gas_revenue:,.0f}
 Daily Avg: JMD ${gas_revenue/len(this_week):,.0f}
 
-**PRICING:**
+**CURRENT PRICING:**
 87: JMD ${avg_price_87:.2f}/L
 90: JMD ${avg_price_90:.2f}/L
+ADO: JMD ${avg_price_ado:.2f}/L
+ULSD: JMD ${avg_price_ulsd:.2f}/L
 
 **MARGIN EST:**
 ~JMD ${gas_revenue * 0.08:,.0f} (assuming 8% margin)
 
-📈 **INSIGHT:** {"Regular 87 is your volume driver" if litres_87 > litres_90 else "Premium 90 performing well"}"""
+📈 **INSIGHT:** {"Regular 87 is your volume driver" if litres_87 > litres_90 else "Premium 90 performing strong"}"""
             
             await update.message.reply_text(report, parse_mode='Markdown')
             
