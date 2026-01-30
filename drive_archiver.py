@@ -19,7 +19,12 @@ class DriveArchiver:
     
     def __init__(self):
         self.setup_drive()
-        self.reports_folder_id = None
+        # Use shared folder if provided, otherwise create folder structure
+        self.reports_folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')
+        if self.reports_folder_id:
+            print(f"📁 Using shared Drive folder: {self.reports_folder_id}")
+        else:
+            print("⚠️ No GOOGLE_DRIVE_FOLDER_ID set - will try to create folders")
         
     def setup_drive(self):
         """Initialize Google Drive API"""
@@ -153,12 +158,33 @@ class DriveArchiver:
                 print("❌ Google Drive service not initialized")
                 return None
             
+            # Use shared folder or set up folder structure
             if not self.reports_folder_id:
+                print("📁 No shared folder configured, attempting to create folder structure...")
                 self.setup_folder_structure()
             
             if not self.reports_folder_id:
-                print("❌ Could not create Drive folder structure")
+                print("❌ Could not access Drive folder")
                 return None
+            
+            # If using shared folder, create year/month subfolders within it
+            target_folder_id = self.reports_folder_id
+            
+            # Optionally create year/month subfolders for organization
+            if os.getenv('GOOGLE_DRIVE_FOLDER_ID'):
+                # We have a shared folder, create subfolders within it
+                year = datetime.now().strftime("%Y")
+                month = datetime.now().strftime("%B")
+                
+                try:
+                    year_folder = self.get_or_create_folder(year, self.reports_folder_id)
+                    if year_folder:
+                        month_folder = self.get_or_create_folder(month, year_folder)
+                        if month_folder:
+                            target_folder_id = month_folder
+                            print(f"📁 Using subfolder: {year}/{month}")
+                except Exception as e:
+                    print(f"⚠️ Could not create subfolders, using root shared folder: {e}")
             
             # Generate filename
             week_ending = datetime.now().strftime("%Y-%m-%d")
@@ -169,7 +195,7 @@ class DriveArchiver:
             # Create file metadata
             file_metadata = {
                 'name': filename,
-                'parents': [self.reports_folder_id],
+                'parents': [target_folder_id],
                 'mimeType': 'text/html'
             }
             
