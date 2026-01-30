@@ -1,6 +1,6 @@
 """
 SuperPlus AI Agent - Telegram Bot Integration
-Provides on-demand analysis via Telegram commands
+Complete with Advanced Features: Inventory, Margins, Competitors, Alerts
 """
 
 import os
@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import anthropic
 from datetime import datetime, timedelta
 import json
+from advanced_features import AdvancedFeatures
 
 class TelegramBot:
     """
@@ -20,6 +21,9 @@ class TelegramBot:
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
         self.authorized_users = os.getenv('TELEGRAM_AUTHORIZED_USERS', '').split(',')
         
+        # Initialize advanced features
+        self.features = AdvancedFeatures(agent)
+        
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Welcome message"""
         user_id = str(update.effective_user.id)
@@ -30,17 +34,26 @@ class TelegramBot:
         
         welcome = """👋 **Welcome to SuperPlus AI Agent**
 
-I'm your autonomous business advisor. Ask me anything!
+I'm your autonomous business advisor with advanced analytics!
 
-**Quick Commands:**
+**📊 Status & Analysis:**
 /status - Current week summary
-/today - Today's performance  
-/yesterday - Yesterday's results
-/compare - Compare to last week
+/compare - vs last week
 /forecast - Tomorrow's projection
-/gas - Gas station analysis
-/deli - Restaurant analysis
-/store - Store performance
+/gas - Gas station details
+/morning - Morning briefing
+
+**💰 Profit & Margins:**
+/margins - Profit margin analysis
+/setcost - Update fuel costs
+
+**📦 Inventory:**
+/dips - Inventory levels & alerts
+
+**🏁 Competition:**
+/competitors - Competitor prices
+
+**❓ Help:**
 /help - Full command list
 
 **Natural Language:**
@@ -95,16 +108,6 @@ Total: {metrics['this_week']['total_litres']:,.0f} litres
 🎯 **STATUS:** {"Great week!" if metrics['week_over_week']['revenue_change_pct'] > 3 else "On track" if metrics['week_over_week']['revenue_change_pct'] > 0 else "Needs attention"}"""
             
             await update.message.reply_text(report, parse_mode='Markdown')
-            
-            # Add quick action buttons
-            keyboard = [
-                [InlineKeyboardButton("📊 Compare", callback_data='compare'),
-                 InlineKeyboardButton("🔮 Forecast", callback_data='forecast')],
-                [InlineKeyboardButton("⛽ Gas Details", callback_data='gas'),
-                 InlineKeyboardButton("🍽️ Deli Details", callback_data='deli')]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("Quick actions:", reply_markup=reply_markup)
             
         except Exception as e:
             await update.message.reply_text(f"❌ Error: {str(e)}")
@@ -163,7 +166,6 @@ Total: JMD ${metrics['last_week']['total_revenue']:,.0f}
             worksheet = self.agent.sheet.worksheet("Daily_Report")
             all_data = worksheet.get_all_records()
             
-            # Use AI to generate intelligent forecast
             recent_data = all_data[-14:] if len(all_data) >= 14 else all_data
             
             forecast_prompt = f"""Based on this SuperPlus business data, forecast tomorrow's performance:
@@ -215,7 +217,7 @@ Format as brief Telegram message (200 words max)."""
             all_data = worksheet.get_all_records()
             this_week = all_data[-7:] if len(all_data) >= 7 else all_data
             
-            # Calculate gas metrics with safe conversion
+            # Calculate gas metrics with safe conversion - INCLUDING ADO AND ULSD
             total_litres = sum([safe_float(row.get('Total_Litres', 0)) for row in this_week])
             litres_87 = sum([safe_float(row.get('Gas_87_Litres', 0)) for row in this_week])
             litres_90 = sum([safe_float(row.get('Gas_90_Litres', 0)) for row in this_week])
@@ -242,7 +244,7 @@ Total: {total_litres:,.0f} litres
 • 87 (Regular): {litres_87:,.0f}L ({litres_87/total_litres*100:.0f}%)
 • 90 (Premium): {litres_90:,.0f}L ({litres_90/total_litres*100:.0f}%)
 • ADO (Diesel): {litres_ado:,.0f}L ({litres_ado/total_litres*100:.0f}%)
-• ULSD (Ultra Low): {litres_ulsd:,.0f}L ({litres_ulsd/total_litres*100:.0f}%)
+• ULSD (Ultra Low Sulfur): {litres_ulsd:,.0f}L ({litres_ulsd/total_litres*100:.0f}%)
 
 Daily Avg: {total_litres/len(this_week):,.0f}L
 
@@ -266,6 +268,232 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
         except Exception as e:
             await update.message.reply_text(f"❌ Error: {str(e)}")
     
+    # ============================================
+    # NEW: ADVANCED FEATURES
+    # ============================================
+    
+    async def inventory_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show inventory levels and days remaining"""
+        if not self.is_authorized(update):
+            return
+        
+        await update.message.reply_text("📦 Checking inventory...")
+        
+        try:
+            worksheet = self.agent.sheet.worksheet("Daily_Report")
+            all_data = worksheet.get_all_records()
+            
+            inventory = self.features.calculate_inventory_status(all_data)
+            alerts = self.features.check_inventory_alerts(inventory)
+            
+            report = "**📦 INVENTORY STATUS**\n\n"
+            
+            for fuel, data in inventory.items():
+                fuel_name = {
+                    '87': 'Gas 87 (Regular)',
+                    '90': 'Gas 90 (Premium)',
+                    'ado': 'ADO (Diesel)',
+                    'ulsd': 'ULSD (Ultra Low Sulfur)'
+                }.get(fuel, fuel)
+                
+                status_icon = "🚨" if data['days_remaining'] < 1.5 else "⚠️" if data['days_remaining'] < 2.5 else "✅"
+                
+                report += f"{status_icon} **{fuel_name}**\n"
+                report += f"Current: {data['opening']:,.0f}L\n"
+                report += f"Daily use: {data['avg_daily']:,.0f}L\n"
+                report += f"Days left: **{data['days_remaining']:.1f} days**\n\n"
+            
+            if alerts:
+                report += "**🚨 ALERTS:**\n"
+                for alert in alerts:
+                    report += f"{alert['message']}\n"
+            
+            await update.message.reply_text(report, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    
+    async def margin_analysis(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show profit margin analysis"""
+        if not self.is_authorized(update):
+            return
+        
+        await update.message.reply_text("💰 Calculating margins...")
+        
+        try:
+            worksheet = self.agent.sheet.worksheet("Daily_Report")
+            all_data = worksheet.get_all_records()
+            
+            margins = self.features.calculate_margins(all_data)
+            
+            report = "**💰 PROFIT MARGIN ANALYSIS**\nLast 7 Days\n\n"
+            
+            for fuel in ['87', '90', 'ado', 'ulsd']:
+                data = margins.get(fuel, {})
+                if data and data.get('litres_sold', 0) > 0:
+                    fuel_name = {
+                        '87': '87 (Regular)',
+                        '90': '90 (Premium)',
+                        'ado': 'ADO (Diesel)',
+                        'ulsd': 'ULSD (Ultra Low Sulfur)'
+                    }.get(fuel, fuel)
+                    
+                    report += f"**{fuel_name}:**\n"
+                    report += f"Sold: {data['litres_sold']:,.0f}L @ ${data['avg_price']:.2f}/L\n"
+                    report += f"Cost: ${data['cost']:.2f}/L\n"
+                    report += f"Margin: ${data['margin_per_litre']:.2f}/L ({data['margin_pct']:.1f}%)\n"
+                    report += f"**Profit: JMD ${data['total_profit']:,.0f}**\n\n"
+            
+            report += f"📊 **TOTAL GAS PROFIT:** JMD ${margins.get('total_profit', 0):,.0f}\n"
+            report += f"Average Margin: {margins.get('avg_margin_pct', 0):.1f}%\n\n"
+            
+            if margins.get('avg_margin_pct', 0) < 8:
+                report += "⚠️ Margin below 8% target - review costs or prices"
+            else:
+                report += "✅ Margins healthy"
+            
+            await update.message.reply_text(report, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    
+    async def competitor_prices(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show competitor price comparison"""
+        if not self.is_authorized(update):
+            return
+        
+        await update.message.reply_text("🏁 Checking competitor prices...")
+        
+        try:
+            worksheet = self.agent.sheet.worksheet("Daily_Report")
+            all_data = worksheet.get_all_records()
+            
+            # Extract competitor prices from recent notes
+            recent = all_data[-3:] if len(all_data) >= 3 else all_data
+            
+            all_competitors = {}
+            for row in recent:
+                notes = row.get('Notes', '')
+                if notes:
+                    comp_prices = self.features.extract_competitor_prices(notes)
+                    all_competitors.update(comp_prices)
+            
+            if not all_competitors:
+                await update.message.reply_text("No competitor prices found in recent data.")
+                return
+            
+            # Get our current prices
+            latest = all_data[-1] if all_data else {}
+            
+            def safe_float(val):
+                if not val or val == '':
+                    return 0
+                try:
+                    return float(str(val).replace(',', '').replace('$', '').strip())
+                except:
+                    return 0
+            
+            our_prices = {
+                '87': safe_float(latest.get('GasMart_87_Price', 0)),
+                '90': safe_float(latest.get('GasMart_90_Price', 0))
+            }
+            
+            report = "**🏁 COMPETITOR PRICE COMPARISON**\n\n"
+            
+            for competitor, their_prices in all_competitors.items():
+                report += f"**{competitor}:**\n"
+                for fuel, price in their_prices.items():
+                    our_price = our_prices.get(fuel, 0)
+                    if our_price > 0:
+                        diff = our_price - price
+                        status = "cheaper ✅" if diff < 0 else "MORE expensive ⚠️" if diff > 0 else "same"
+                        report += f"{fuel}: ${price} (we're ${our_price:.2f}, {status})\n"
+                report += "\n"
+            
+            await update.message.reply_text(report, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    
+    async def set_fuel_cost(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Set fuel cost - Usage: /setcost 87 160.00"""
+        if not self.is_authorized(update):
+            return
+        
+        try:
+            if len(context.args) != 2:
+                await update.message.reply_text(
+                    "Usage: /setcost <fuel> <cost>\n"
+                    "Example: /setcost 87 160.00\n\n"
+                    "Fuel types: 87, 90, ado, ulsd"
+                )
+                return
+            
+            fuel_type = context.args[0].lower()
+            new_cost = float(context.args[1])
+            
+            success = self.features.update_fuel_cost(fuel_type, new_cost)
+            
+            if success:
+                await update.message.reply_text(
+                    f"✅ Updated {fuel_type.upper()} cost to ${new_cost:.2f}/L\n\n"
+                    "Use /margins to see updated profit analysis."
+                )
+            else:
+                await update.message.reply_text(f"❌ Invalid fuel type: {fuel_type}")
+            
+        except ValueError:
+            await update.message.reply_text("❌ Invalid cost value. Use format: /setcost 87 160.00")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    
+    async def morning_alert(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show morning status alert"""
+        if not self.is_authorized(update):
+            return
+        
+        try:
+            worksheet = self.agent.sheet.worksheet("Daily_Report")
+            all_data = worksheet.get_all_records()
+            
+            alert = self.features.generate_morning_alert(all_data)
+            
+            await update.message.reply_text(alert, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show all available commands"""
+        help_text = """**📱 SUPERPLUS AI AGENT COMMANDS**
+
+**📊 Status & Analysis:**
+/status - Current week summary
+/compare - vs last week
+/forecast - Tomorrow's projection
+/gas - Gas station details
+/morning - Morning briefing
+
+**💰 Profit & Margins:**
+/margins - Profit margin analysis
+/setcost - Update fuel costs
+Example: /setcost 87 160.00
+
+**📦 Inventory:**
+/dips - Inventory levels & alerts
+
+**🏁 Competition:**
+/competitors - Competitor prices
+
+**❓ Help:**
+/help - This message
+
+**Natural Language:**
+Just ask! "How are we doing?" or "What's trending?"
+"""
+        
+        await update.message.reply_text(help_text, parse_mode='Markdown')
+    
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle natural language queries"""
         if not self.is_authorized(update):
@@ -282,12 +510,18 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             await self.forecast(update, context)
         elif 'gas' in message:
             await self.gas_analysis(update, context)
+        elif any(word in message for word in ['inventory', 'dips', 'stock']):
+            await self.inventory_status(update, context)
+        elif any(word in message for word in ['margin', 'profit']):
+            await self.margin_analysis(update, context)
+        elif any(word in message for word in ['competitor', 'competition', 'prices']):
+            await self.competitor_prices(update, context)
         else:
             await update.message.reply_text(
                 "I didn't understand that. Try:\n"
                 "• /status - Current week\n"
-                "• /compare - vs last week\n"
-                "• /forecast - Tomorrow's projection\n"
+                "• /margins - Profit analysis\n"
+                "• /dips - Inventory\n"
                 "• /help - All commands"
             )
     
@@ -310,12 +544,20 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
         try:
             application = Application.builder().token(self.bot_token).build()
             
-            # Add command handlers
+            # Add ALL command handlers
             application.add_handler(CommandHandler("start", self.start))
             application.add_handler(CommandHandler("status", self.status))
             application.add_handler(CommandHandler("compare", self.compare))
             application.add_handler(CommandHandler("forecast", self.forecast))
             application.add_handler(CommandHandler("gas", self.gas_analysis))
+            
+            # NEW: Advanced feature commands
+            application.add_handler(CommandHandler("dips", self.inventory_status))
+            application.add_handler(CommandHandler("margins", self.margin_analysis))
+            application.add_handler(CommandHandler("competitors", self.competitor_prices))
+            application.add_handler(CommandHandler("setcost", self.set_fuel_cost))
+            application.add_handler(CommandHandler("morning", self.morning_alert))
+            application.add_handler(CommandHandler("help", self.help_command))
             
             # Add message handler for natural language
             application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
