@@ -9,6 +9,7 @@ from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileT
 import base64
 from datetime import datetime
 import json
+from typing import Dict
 
 class EmailReporter:
     """
