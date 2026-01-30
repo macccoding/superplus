@@ -832,16 +832,39 @@ Check your email for the full detailed analysis with recommendations.
             
             # Send via Email (if configured)
             sendgrid_key = os.getenv('SENDGRID_API_KEY')
+            html_content = None
+            
             if sendgrid_key:
                 try:
                     from email_reporter import EmailReporter
                     email_reporter = EmailReporter()
+                    html_content = email_reporter.generate_weekly_html(analysis, metrics)
                     email_reporter.send_weekly_report(analysis, metrics)
                     print(f"✅ Weekly report sent via Email")
                 except Exception as e:
                     print(f"⚠️ Could not send email: {e}")
             else:
                 print(f"⚠️ SendGrid not configured - skipping email")
+            
+            # Archive to Google Drive (if configured)
+            if self.sheet:  # If we have Google credentials, we can use Drive
+                try:
+                    from drive_archiver import DriveArchiver
+                    drive = DriveArchiver()
+                    
+                    # Upload HTML report
+                    if html_content:
+                        drive_url = drive.upload_weekly_report(html_content, metrics)
+                        if drive_url:
+                            print(f"✅ Report archived to Google Drive")
+                    
+                    # Backup raw data
+                    worksheet = self.sheet.worksheet("Daily_Report")
+                    all_data = worksheet.get_all_records()
+                    drive.upload_data_backup(all_data)
+                    
+                except Exception as e:
+                    print(f"⚠️ Could not archive to Drive: {e}")
             
         except Exception as e:
             print(f"⚠️ Could not send report: {e}")
@@ -977,6 +1000,53 @@ def test_email():
             
     except Exception as e:
         print(f"❌ Test email error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/test-drive')
+def test_drive():
+    """Test endpoint to upload report to Google Drive"""
+    try:
+        if not agent:
+            return jsonify({"error": "Agent not initialized"}), 500
+        
+        print("📁 Testing Google Drive upload...")
+        
+        # Get recent data
+        worksheet = agent.sheet.worksheet("Daily_Report")
+        all_data = worksheet.get_all_records()
+        
+        this_week = all_data[-7:] if len(all_data) >= 7 else all_data
+        last_week = all_data[-14:-7] if len(all_data) >= 14 else []
+        
+        if not this_week:
+            return jsonify({"error": "No data available"}), 400
+        
+        # Calculate metrics
+        metrics = agent.calculate_weekly_metrics(this_week, last_week)
+        
+        # Generate test HTML
+        from email_reporter import EmailReporter
+        email_reporter = EmailReporter()
+        html_content = email_reporter.generate_weekly_html("Test report uploaded to Drive", metrics)
+        
+        # Upload to Drive
+        from drive_archiver import DriveArchiver
+        drive = DriveArchiver()
+        drive_url = drive.upload_weekly_report(html_content, metrics)
+        
+        if drive_url:
+            return jsonify({
+                "status": "success",
+                "message": "Report uploaded to Google Drive!",
+                "url": drive_url
+            })
+        else:
+            return jsonify({"error": "Failed to upload to Drive"}), 500
+            
+    except Exception as e:
+        print(f"❌ Test Drive error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
