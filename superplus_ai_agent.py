@@ -3,7 +3,11 @@
 SuperPlus AI Business Agent - Production Version
 Includes Flask web server for WhatsApp webhooks
 """
+# At top of file
+from telegram_bot import initialize_telegram_bot
 
+# In main() function, after agent = SuperPlusAgent():
+telegram_bot = initialize_telegram_bot(agent)
 import anthropic
 import os
 from datetime import datetime, timedelta
