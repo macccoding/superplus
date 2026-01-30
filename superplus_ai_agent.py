@@ -191,68 +191,82 @@ CRITICAL: SuperPlus has 4 SEPARATE business units:
 
 Your job: Extract business data from WhatsApp messages.
 
+CRITICAL DISTINCTIONS:
+
+**Opening Dips vs Litres Sold:**
+- "Opening dips" or "morning dips" = starting inventory (NOT sales)
+- "Litres sales" or "litres sold" = actual fuel sold that day
+- These are DIFFERENT! Opening dips go in opening_* fields, litres sold go in gas_* fields
+- IGNORE "closing dips" - we don't track those
+
+**Competitor Prices:**
+- Extract competitor names and their prices
+- Common competitors: Jamgas, Total, Greenvale, Yaadman, Spur Tree, Rubis
+- Format as array of objects with competitor name and prices
+
 WHAT TO EXTRACT:
 
-1. **Date** - Look for dates like "28.01.26" or "Wednesday 28,2026"
-   - If NO date mentioned, return "TODAY" as the date
-   - Price updates without dates should use "TODAY"
-2. **Store Sales** - Look for "Sales $XXX" - this is ONLY the community store
-3. **Phone Cards** - Separate revenue stream (Western Union area)
-4. **Deli/Restaurant** - Separate revenue stream (food service)
-5. **Gas Litres Sold** - Look for "Litres sales DD.MM.YY":
-   - 87: XXXX litres (regular)
-   - 90: XXXX litres (premium)
-   - ADO: XXXX litres (diesel)
-   - ULSD: XXXX litres (ultra-low sulfur diesel)
-6. **GasMart Fuel Prices** - Under "Gas mart" section:
-   - 87, 90, ADO, ULSD prices per litre
-7. **Notes** - Deliveries, power outages, busy periods, issues
-
-IMPORTANT:
-- "Sales $XXX" = Store ONLY (not total of all businesses)
-- Phone Cards and Deli are SEPARATE from Store Sales
-- If NO DATE mentioned, use "TODAY" (especially for price updates)
-- Ignore competitor prices (Jamgas, Total Greenvale, Yaadman, Spur Tree)
-- Ignore opening/closing dips (operational data only)
-- Opening dips like "87-9,231" are NOT litres sold (ignore these)
+1. **Date** - Look for dates, if none use "TODAY"
+2. **Store Sales** - "Sales $XXX" - ONLY the community store
+3. **Phone Cards** - Western Union revenue
+4. **Deli Sales** - Restaurant revenue
+5. **Gas Litres SOLD** (NOT opening dips):
+   - 87 (Regular)
+   - 90 (Premium)
+   - ADO (Diesel)
+   - ULSD (Ultra low sulfur diesel)
+6. **Opening Dips** (Morning inventory):
+   - opening_87, opening_90, opening_ado, opening_ulsd
+7. **Prices** - GasMart selling prices
+8. **Competitor Prices** - Extract and format as array
 
 EXAMPLES:
 
-Input: "Good night Sir\\nWednesday 28,2026\\nSales $702,327.66\\nPhone Cards $63,427\\nDeli $186,059.97"
+Input: "Thursday 28/01/26\nStore: $702,327\nPhone: $63,427\nDeli: $186,059\nLitres: 87-2316, 90-6151, ADO-931, ULSD-4357"
 Output: {
   "date": "2026-01-28",
-  "store_sales": 702327.66,
+  "store_sales": 702327,
   "phone_cards": 63427,
-  "deli_sales": 186059.97,
+  "deli_sales": 186059,
+  "gas_87": 2316,
+  "gas_90": 6151,
+  "gas_ado": 931,
+  "gas_ulsd": 4357,
+  "opening_87": null,
+  "opening_90": null,
+  "opening_ado": null,
+  "opening_ulsd": null,
+  "gasmart_87_price": null,
+  "gasmart_90_price": null,
+  "gasmart_ado_price": null,
+  "gasmart_ulsd_price": null,
+  "competitor_prices": [],
+  "notes": ""
+}
+
+Input: "Morning dips Jan 30:\n87: 9,231L\n90: 6,756L\nADO: 10,696L\nULSD: 5,229L"
+Output: {
+  "date": "2026-01-30",
+  "store_sales": null,
+  "phone_cards": null,
+  "deli_sales": null,
   "gas_87": null,
   "gas_90": null,
   "gas_ado": null,
   "gas_ulsd": null,
+  "opening_87": 9231,
+  "opening_90": 6756,
+  "opening_ado": 10696,
+  "opening_ulsd": 5229,
   "gasmart_87_price": null,
   "gasmart_90_price": null,
   "gasmart_ado_price": null,
   "gasmart_ulsd_price": null,
-  "notes": ""
+  "competitor_prices": [],
+  "notes": "Morning inventory levels"
 }
 
-Input: "Litres sales 28.01.26\\n87-2316\\n90-6151\\nAdo-931\\nUlsd-4356.90"
-Output: {
-  "date": "2026-01-28",
-  "store_sales": null,
-  "phone_cards": null,
-  "deli_sales": null,
-  "gas_87": 2316,
-  "gas_90": 6151,
-  "gas_ado": 931,
-  "gas_ulsd": 4356.90,
-  "gasmart_87_price": null,
-  "gasmart_90_price": null,
-  "gasmart_ado_price": null,
-  "gasmart_ulsd_price": null,
-  "notes": ""
-}
-
-Input: "Gas Prices\\nGas mart\\n87-174.60\\n90-184.40\\nAdo-188.30\\nUlsd-195.50"
+Input: "Competitor prices:\nJamgas: 87-172, 90-182\nTotal Greenvale: 87-173, 90-183"
 Output: {
   "date": "TODAY",
   "store_sales": null,
@@ -262,28 +276,19 @@ Output: {
   "gas_90": null,
   "gas_ado": null,
   "gas_ulsd": null,
-  "gasmart_87_price": 174.60,
-  "gasmart_90_price": 184.40,
-  "gasmart_ado_price": 188.30,
-  "gasmart_ulsd_price": 195.50,
-  "notes": "Price update"
-}
-
-Input: "Good morning: opening dips\\n87-9,231\\n90-6,756\\nAdo-10,696\\nUlsd-5,229"
-Output: {
-  "date": null,
-  "store_sales": null,
-  "phone_cards": null,
-  "deli_sales": null,
-  "gas_87": null,
-  "gas_90": null,
-  "gas_ado": null,
-  "gas_ulsd": null,
+  "opening_87": null,
+  "opening_90": null,
+  "opening_ado": null,
+  "opening_ulsd": null,
   "gasmart_87_price": null,
   "gasmart_90_price": null,
   "gasmart_ado_price": null,
   "gasmart_ulsd_price": null,
-  "notes": "Opening dips - not litres sold"
+  "competitor_prices": [
+    {"competitor": "Jamgas", "fuel_87": 172, "fuel_90": 182},
+    {"competitor": "Total Greenvale", "fuel_87": 173, "fuel_90": 183}
+  ],
+  "notes": "Competitor price check"
 }
 
 Return as JSON:
@@ -292,18 +297,23 @@ Return as JSON:
   "store_sales": number or null,
   "phone_cards": number or null,
   "deli_sales": number or null,
-  "gas_87": number or null,
-  "gas_90": number or null,
-  "gas_ado": number or null,
-  "gas_ulsd": number or null,
+  "gas_87": number or null (LITRES SOLD, not opening dips),
+  "gas_90": number or null (LITRES SOLD, not opening dips),
+  "gas_ado": number or null (LITRES SOLD, not opening dips),
+  "gas_ulsd": number or null (LITRES SOLD, not opening dips),
+  "opening_87": number or null (MORNING DIPS/OPENING INVENTORY),
+  "opening_90": number or null (MORNING DIPS/OPENING INVENTORY),
+  "opening_ado": number or null (MORNING DIPS/OPENING INVENTORY),
+  "opening_ulsd": number or null (MORNING DIPS/OPENING INVENTORY),
   "gasmart_87_price": number or null,
   "gasmart_90_price": number or null,
   "gasmart_ado_price": number or null,
   "gasmart_ulsd_price": number or null,
+  "competitor_prices": [{"competitor": "name", "fuel_87": price, "fuel_90": price}] or [],
   "notes": "any important context"
 }
 
-Be flexible with number formats (commas, periods, spaces)."""
+Be flexible with number formats (commas, periods, spaces, K for thousands)."""
 
         try:
             response = self.client.messages.create(
@@ -370,16 +380,21 @@ Be flexible with number formats (commas, periods, spaces)."""
                     "Gas_ADO_Litres", 
                     "Gas_ULSD_Litres",
                     "Total_Litres",
+                    "Opening_87_Litres",
+                    "Opening_90_Litres",
+                    "Opening_ADO_Litres",
+                    "Opening_ULSD_Litres",
                     "GasMart_87_Price",
                     "GasMart_90_Price",
                     "GasMart_ADO_Price",
                     "GasMart_ULSD_Price",
+                    "Competitor_Prices",
                     "Notes"
                 ]
                 worksheet.append_row(headers)
                 
                 # Format header row
-                worksheet.format('A1:Q1', {
+                worksheet.format('A1:V1', {
                     "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.86},
                     "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
                     "horizontalAlignment": "CENTER"
@@ -429,6 +444,16 @@ Be flexible with number formats (commas, periods, spaces)."""
             price_90 = data.get("gasmart_90_price") or ""
             price_ado = data.get("gasmart_ado_price") or ""
             price_ulsd = data.get("gasmart_ulsd_price") or ""
+            
+            # Morning dips data (NEW)
+            opening_87 = data.get("opening_87") or ""
+            opening_90 = data.get("opening_90") or ""
+            opening_ado = data.get("opening_ado") or ""
+            opening_ulsd = data.get("opening_ulsd") or ""
+            
+            # Competitor prices (NEW - store as JSON string)
+            competitor_prices = data.get("competitor_prices", [])
+            competitor_str = json.dumps(competitor_prices) if competitor_prices else ""
             
             # Check if we already have data for this date
             existing_dates = worksheet.col_values(1)[1:]  # Skip header
@@ -484,14 +509,19 @@ Be flexible with number formats (commas, periods, spaces)."""
                     current_gas_ado if current_gas_ado else "",
                     current_gas_ulsd if current_gas_ulsd else "",
                     total_litres if total_litres != "" else (existing_row[11] if len(existing_row) > 11 else ""),
-                    price_87 if price_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),
-                    price_90 if price_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),
-                    price_ado if price_ado != "" else (existing_row[14] if len(existing_row) > 14 else ""),
-                    price_ulsd if price_ulsd != "" else (existing_row[15] if len(existing_row) > 15 else ""),
-                    data.get("notes", existing_row[16] if len(existing_row) > 16 else "")
+                    opening_87 if opening_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),
+                    opening_90 if opening_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),
+                    opening_ado if opening_ado != "" else (existing_row[14] if len(existing_row) > 14 else ""),
+                    opening_ulsd if opening_ulsd != "" else (existing_row[15] if len(existing_row) > 15 else ""),
+                    price_87 if price_87 != "" else (existing_row[16] if len(existing_row) > 16 else ""),
+                    price_90 if price_90 != "" else (existing_row[17] if len(existing_row) > 17 else ""),
+                    price_ado if price_ado != "" else (existing_row[18] if len(existing_row) > 18 else ""),
+                    price_ulsd if price_ulsd != "" else (existing_row[19] if len(existing_row) > 19 else ""),
+                    competitor_str if competitor_str != "" else (existing_row[20] if len(existing_row) > 20 else ""),
+                    data.get("notes", existing_row[21] if len(existing_row) > 21 else "")
                 ]
                 
-                worksheet.update(f'A{row_index}:Q{row_index}', [row])
+                worksheet.update(f'A{row_index}:V{row_index}', [row])
                 last_row = row_index
                 
             else:
@@ -524,10 +554,15 @@ Be flexible with number formats (commas, periods, spaces)."""
                     gas_ado if gas_ado else "",
                     gas_ulsd if gas_ulsd else "",
                     total_litres,
+                    opening_87,
+                    opening_90,
+                    opening_ado,
+                    opening_ulsd,
                     price_87,
                     price_90,
                     price_ado,
                     price_ulsd,
+                    competitor_str,
                     data.get("notes", "")
                 ]
                 
