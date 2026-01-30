@@ -50,13 +50,21 @@ class DriveArchiver:
                     self.service = None
                     return
                 
+                # Use the same scopes as gspread for compatibility
                 scopes = [
-                    'https://www.googleapis.com/auth/drive.file',
-                    'https://www.googleapis.com/auth/drive.folder'
+                    'https://www.googleapis.com/auth/spreadsheets',
+                    'https://www.googleapis.com/auth/drive'
                 ]
                 
                 try:
-                    credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                    credentials = Credentials.from_service_account_info(
+                        creds_dict, 
+                        scopes=scopes
+                    )
+                    # Force refresh to get access token
+                    from google.auth.transport.requests import Request
+                    credentials.refresh(Request())
+                    
                     self.service = build('drive', 'v3', credentials=credentials)
                     print("✅ Google Drive API connected")
                 except Exception as e:
