@@ -799,9 +799,9 @@ CRITICAL: Be an ADVISOR, not just a reporter. The owner should finish reading an
         }
     
     def send_weekly_report(self, analysis: str, metrics: Dict):
-        """Send weekly report to owner via WhatsApp"""
+        """Send weekly report to owner via WhatsApp and Email"""
         try:
-            # Create concise WhatsApp message (full report too long)
+            # Send WhatsApp summary
             summary = f"""📊 **SUPERPLUS WEEKLY REPORT**
 Week ending {datetime.now().strftime('%B %d, %Y')}
 
@@ -830,9 +830,18 @@ Check your email for the full detailed analysis with recommendations.
                 
                 print(f"✅ Weekly summary sent via WhatsApp to {self.owner_phone}")
             
-            # TODO: Send full analysis via email
-            # For now, just log that it would be sent
-            print(f"📧 Full analysis would be emailed to: {self.owner_email}")
+            # Send via Email (if configured)
+            sendgrid_key = os.getenv('SENDGRID_API_KEY')
+            if sendgrid_key:
+                try:
+                    from email_reporter import EmailReporter
+                    email_reporter = EmailReporter()
+                    email_reporter.send_weekly_report(analysis, metrics)
+                    print(f"✅ Weekly report sent via Email")
+                except Exception as e:
+                    print(f"⚠️ Could not send email: {e}")
+            else:
+                print(f"⚠️ SendGrid not configured - skipping email")
             
         except Exception as e:
             print(f"⚠️ Could not send report: {e}")
@@ -913,12 +922,64 @@ def dashboard():
             "messages_processed": len(agent.memory.get("messages", [])),
             "last_processed": agent.memory.get("last_processed"),
             "patterns_learned": len(agent.memory.get("patterns", {})),
-            "sheet_connected": agent.sheet is not None
+            "sheet_connected": agent.sheet is not None,
+            "whatsapp_configured": agent.twilio_sid is not None,
+            "telegram_configured": os.getenv('TELEGRAM_BOT_TOKEN') is not None,
+            "email_configured": os.getenv('SENDGRID_API_KEY') is not None
         }
     else:
         status = {"status": "not initialized"}
     
     return jsonify(status), 200
+
+@app.route('/test-email')
+def test_email():
+    """Test endpoint to send email report immediately"""
+    try:
+        if not agent:
+            return jsonify({"error": "Agent not initialized"}), 500
+        
+        print("📧 Testing email report...")
+        
+        # Get recent data
+        worksheet = agent.sheet.worksheet("Daily_Report")
+        all_data = worksheet.get_all_records()
+        
+        this_week = all_data[-7:] if len(all_data) >= 7 else all_data
+        last_week = all_data[-14:-7] if len(all_data) >= 14 else []
+        
+        if not this_week:
+            return jsonify({"error": "No data available"}), 400
+        
+        # Calculate metrics
+        metrics = agent.calculate_weekly_metrics(this_week, last_week)
+        
+        # Generate test analysis
+        analysis = "This is a test email report generated manually. Your weekly automated reports will contain full AI analysis with insights, trends, and recommendations."
+        
+        # Send email
+        sendgrid_key = os.getenv('SENDGRID_API_KEY')
+        if not sendgrid_key:
+            return jsonify({"error": "SendGrid not configured"}), 400
+        
+        from email_reporter import EmailReporter
+        email_reporter = EmailReporter()
+        success = email_reporter.send_weekly_report(analysis, metrics)
+        
+        if success:
+            return jsonify({
+                "status": "success",
+                "message": "Test email sent! Check your inbox.",
+                "recipient": os.getenv('OWNER_EMAIL')
+            })
+        else:
+            return jsonify({"error": "Failed to send email"}), 500
+            
+    except Exception as e:
+        print(f"❌ Test email error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/run-analysis', methods=['POST'])
 def run_analysis_endpoint():
