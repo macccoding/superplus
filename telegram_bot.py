@@ -273,22 +273,41 @@ Daily Avg: JMD ${gas_revenue/len(this_week):,.0f}
         return True
     
     def run(self):
-        """Start the Telegram bot"""
-        application = Application.builder().token(self.bot_token).build()
+        """Start the Telegram bot with proper async handling"""
+        import asyncio
         
-        # Add command handlers
-        application.add_handler(CommandHandler("start", self.start))
-        application.add_handler(CommandHandler("status", self.status))
-        application.add_handler(CommandHandler("compare", self.compare))
-        application.add_handler(CommandHandler("forecast", self.forecast))
-        application.add_handler(CommandHandler("gas", self.gas_analysis))
+        # Create and set new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
-        # Add message handler for natural language
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-        
-        # Start polling
-        print("🤖 Telegram bot started!")
-        application.run_polling()
+        try:
+            application = Application.builder().token(self.bot_token).build()
+            
+            # Add command handlers
+            application.add_handler(CommandHandler("start", self.start))
+            application.add_handler(CommandHandler("status", self.status))
+            application.add_handler(CommandHandler("compare", self.compare))
+            application.add_handler(CommandHandler("forecast", self.forecast))
+            application.add_handler(CommandHandler("gas", self.gas_analysis))
+            
+            # Add message handler for natural language
+            application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+            
+            # Start polling
+            print("🤖 Telegram bot started!")
+            
+            # Run the application with the event loop
+            loop.run_until_complete(application.initialize())
+            loop.run_until_complete(application.start())
+            loop.run_until_complete(application.updater.start_polling())
+            
+            # Keep running
+            loop.run_forever()
+            
+        except Exception as e:
+            print(f"❌ Telegram bot error: {e}")
+        finally:
+            loop.close()
 
 
 # Add to main agent initialization
