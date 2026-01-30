@@ -24,22 +24,55 @@ class DriveArchiver:
     def setup_drive(self):
         """Initialize Google Drive API"""
         try:
-            # Use same credentials as Sheets
-            creds_json = os.getenv('GOOGLE_CREDENTIALS')
-            if creds_json:
-                creds_dict = json.loads(creds_json)
+            # Try base64 encoded credentials first (same as sheets)
+            creds_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
+            creds_json_str = None
+            
+            if creds_base64:
+                print("📁 Loading Drive credentials from GOOGLE_CREDENTIALS_BASE64")
+                import base64
+                try:
+                    creds_json_str = base64.b64decode(creds_base64).decode('utf-8')
+                except Exception as e:
+                    print(f"❌ Failed to decode base64 credentials: {e}")
+            
+            # Fallback to plain JSON
+            if not creds_json_str:
+                creds_json_str = os.getenv('GOOGLE_CREDENTIALS')
+                if creds_json_str:
+                    print("📁 Loading Drive credentials from GOOGLE_CREDENTIALS")
+            
+            if creds_json_str:
+                try:
+                    creds_dict = json.loads(creds_json_str)
+                except json.JSONDecodeError as e:
+                    print(f"❌ Failed to parse credentials JSON: {e}")
+                    self.service = None
+                    return
+                
                 scopes = [
                     'https://www.googleapis.com/auth/drive.file',
                     'https://www.googleapis.com/auth/drive.folder'
                 ]
-                credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-                self.service = build('drive', 'v3', credentials=credentials)
-                print("✅ Google Drive connected")
+                
+                try:
+                    credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                    self.service = build('drive', 'v3', credentials=credentials)
+                    print("✅ Google Drive API connected")
+                except Exception as e:
+                    print(f"❌ Failed to create Drive credentials: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    self.service = None
             else:
-                print("⚠️ Google Drive credentials not found")
+                print("⚠️ Google Drive credentials not found in environment")
+                print("   Looking for: GOOGLE_CREDENTIALS_BASE64 or GOOGLE_CREDENTIALS")
                 self.service = None
+                
         except Exception as e:
             print(f"❌ Error connecting to Google Drive: {e}")
+            import traceback
+            traceback.print_exc()
             self.service = None
     
     def get_or_create_folder(self, folder_name: str, parent_id: str = None) -> str:
@@ -108,12 +141,22 @@ class DriveArchiver:
     def upload_weekly_report(self, html_content: str, metrics: Dict) -> str:
         """Upload weekly report as HTML file"""
         try:
+            if not self.service:
+                print("❌ Google Drive service not initialized")
+                return None
+            
             if not self.reports_folder_id:
                 self.setup_folder_structure()
+            
+            if not self.reports_folder_id:
+                print("❌ Could not create Drive folder structure")
+                return None
             
             # Generate filename
             week_ending = datetime.now().strftime("%Y-%m-%d")
             filename = f"Weekly Report - Week Ending {week_ending}.html"
+            
+            print(f"📁 Uploading: {filename}")
             
             # Create file metadata
             file_metadata = {
@@ -135,12 +178,6 @@ class DriveArchiver:
                 fields='id, webViewLink'
             ).execute()
             
-            # Make file accessible (optional - or keep private)
-            # self.service.permissions().create(
-            #     fileId=file['id'],
-            #     body={'type': 'anyone', 'role': 'reader'}
-            # ).execute()
-            
             file_url = file.get('webViewLink')
             print(f"✅ Report uploaded to Google Drive: {filename}")
             print(f"   URL: {file_url}")
@@ -149,6 +186,8 @@ class DriveArchiver:
             
         except Exception as e:
             print(f"❌ Error uploading report: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def upload_data_backup(self, data: list) -> str:
