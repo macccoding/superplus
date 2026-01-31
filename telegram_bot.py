@@ -368,23 +368,27 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             worksheet = self.agent.sheet.worksheet("Daily_Report")
             all_data = worksheet.get_all_records()
             
-            # Extract competitor prices from recent notes
-            recent = all_data[-3:] if len(all_data) >= 3 else all_data
+            # Get most recent competitor data from Competitor_Prices column
+            latest = all_data[-1] if all_data else {}
             
-            all_competitors = {}
-            for row in recent:
-                notes = row.get('Notes', '')
-                if notes:
-                    comp_prices = self.features.extract_competitor_prices(notes)
-                    all_competitors.update(comp_prices)
+            competitor_data_str = latest.get('Competitor_Prices', '')
             
-            if not all_competitors:
-                await update.message.reply_text("No competitor prices found in recent data.")
+            if not competitor_data_str:
+                await update.message.reply_text("No competitor prices found in recent data.\n\nMake sure staff includes competitor prices in their daily WhatsApp report.")
+                return
+            
+            # Parse JSON competitor data
+            try:
+                competitor_data = json.loads(competitor_data_str)
+            except:
+                await update.message.reply_text("Error parsing competitor data.")
+                return
+            
+            if not competitor_data:
+                await update.message.reply_text("No competitor prices available.")
                 return
             
             # Get our current prices
-            latest = all_data[-1] if all_data else {}
-            
             def safe_float(val):
                 if not val or val == '':
                     return 0
@@ -395,20 +399,51 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             
             our_prices = {
                 '87': safe_float(latest.get('GasMart_87_Price', 0)),
-                '90': safe_float(latest.get('GasMart_90_Price', 0))
+                '90': safe_float(latest.get('GasMart_90_Price', 0)),
+                'ado': safe_float(latest.get('GasMart_ADO_Price', 0)),
+                'ulsd': safe_float(latest.get('GasMart_ULSD_Price', 0))
             }
             
             report = "**🏁 COMPETITOR PRICE COMPARISON**\n\n"
             
-            for competitor, their_prices in all_competitors.items():
-                report += f"**{competitor}:**\n"
-                for fuel, price in their_prices.items():
-                    our_price = our_prices.get(fuel, 0)
-                    if our_price > 0:
-                        diff = our_price - price
-                        status = "cheaper ✅" if diff < 0 else "MORE expensive ⚠️" if diff > 0 else "same"
-                        report += f"{fuel}: ${price} (we're ${our_price:.2f}, {status})\n"
+            # Process each competitor
+            for comp in competitor_data:
+                competitor_name = comp.get('competitor', 'Unknown')
+                report += f"**{competitor_name}:**\n"
+                
+                # Check each fuel type
+                for fuel_key in ['fuel_87', 'fuel_90', 'fuel_ado', 'fuel_ulsd']:
+                    if fuel_key in comp:
+                        their_price = comp[fuel_key]
+                        
+                        # Map to our price key
+                        fuel_type = fuel_key.replace('fuel_', '')
+                        our_price = our_prices.get(fuel_type, 0)
+                        
+                        fuel_label = {
+                            '87': '87 (Regular)',
+                            '90': '90 (Premium)',
+                            'ado': 'ADO (Diesel)',
+                            'ulsd': 'ULSD'
+                        }.get(fuel_type, fuel_type)
+                        
+                        if our_price > 0:
+                            diff = our_price - their_price
+                            if diff < -0.5:
+                                status = "cheaper ✅"
+                            elif diff > 0.5:
+                                status = "MORE expensive ⚠️"
+                            else:
+                                status = "~same"
+                            
+                            report += f"  {fuel_label}: ${their_price:.2f} (we're ${our_price:.2f}, {status})\n"
+                        else:
+                            report += f"  {fuel_label}: ${their_price:.2f}\n"
+                
                 report += "\n"
+            
+            # Add summary
+            report += "💡 **Tip:** Use /gas to see our current volume by fuel type"
             
             await update.message.reply_text(report, parse_mode='Markdown')
             
