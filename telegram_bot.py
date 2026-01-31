@@ -49,6 +49,7 @@ I'm your autonomous business advisor with advanced analytics!
 
 **📦 Inventory:**
 /dips - Inventory levels & alerts
+/shrinkage - Fuel loss detection
 
 **🏁 Competition:**
 /competitors - Competitor prices
@@ -498,6 +499,125 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
         except Exception as e:
             await update.message.reply_text(f"❌ Error: {str(e)}")
     
+    async def shrinkage_analysis(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Analyse fuel shrinkage: opening - sold - closing = gap"""
+        if not self.is_authorized(update):
+            return
+        
+        try:
+            worksheet = self.agent.sheet.worksheet("Daily_Report")
+            all_data = worksheet.get_all_records()
+            
+            if not all_data:
+                await update.message.reply_text("📦 No data yet.")
+                return
+            
+            def sf(val):
+                if not val or val == '':
+                    return None
+                try:
+                    return float(str(val).replace(',','').replace('$','').strip())
+                except:
+                    return None
+            
+            fuels = [
+                ("87 (Regular)",  "Opening_87_Litres",  "Gas_87_Litres",  "Closing_87_Litres",  "Delivery_87_Litres"),
+                ("90 (Premium)",  "Opening_90_Litres",  "Gas_90_Litres",  "Closing_90_Litres",  "Delivery_90_Litres"),
+                ("ADO (Diesel)",  "Opening_ADO_Litres", "Gas_ADO_Litres", "Closing_ADO_Litres", "Delivery_ADO_Litres"),
+                ("ULSD",          "Opening_ULSD_Litres","Gas_ULSD_Litres","Closing_ULSD_Litres","Delivery_ULSD_Litres"),
+            ]
+            
+            # Find rows that have BOTH opening and closing dips
+            days_with_full = []
+            for row in all_data:
+                has_opening  = any(sf(row.get(f[1])) for f in fuels)
+                has_closing  = any(sf(row.get(f[3])) for f in fuels)
+                if has_opening and has_closing:
+                    days_with_full.append(row)
+            
+            if not days_with_full:
+                await update.message.reply_text(
+                    "📊 *Shrinkage Analysis*\n\n"
+                    "No days with both opening AND closing dips yet.\n\n"
+                    "Once staff sends closing dips to the bot, "
+                    "shrinkage will be calculated automatically.\n\n"
+                    "Formula per fuel:\n"
+                    "`Expected closing = Opening + Deliveries - Litres Sold`\n"
+                    "`Shrinkage = Expected closing - Actual closing`",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Calculate shrinkage per fuel across available days
+            msg = "📊 *Shrinkage Analysis*\n"
+            msg += f"_(based on {len(days_with_full)} day(s) with full data)_\n"
+            
+            total_shrinkage_litres = 0
+            total_shrinkage_value  = 0
+            fuel_costs = {
+                "87 (Regular)": float(os.getenv('COST_87', '160')),
+                "90 (Premium)": float(os.getenv('COST_90', '170')),
+                "ADO (Diesel)": float(os.getenv('COST_ADO', '175')),
+                "ULSD":         float(os.getenv('COST_ULSD','180')),
+            }
+            
+            for label, o_key, s_key, c_key, d_key in fuels:
+                fuel_shrinkage = 0
+                fuel_days = 0
+                
+                for row in days_with_full:
+                    opening   = sf(row.get(o_key)) or 0
+                    sold      = sf(row.get(s_key)) or 0
+                    closing   = sf(row.get(c_key)) or 0
+                    delivery  = sf(row.get(d_key)) or 0
+                    
+                    if opening == 0 and closing == 0:
+                        continue  # skip if this fuel had no data this day
+                    
+                    expected_closing = opening + delivery - sold
+                    shrinkage        = expected_closing - closing  # positive = lost fuel
+                    fuel_shrinkage  += shrinkage
+                    fuel_days       += 1
+                
+                if fuel_days == 0:
+                    continue
+                
+                avg_shrinkage = fuel_shrinkage / fuel_days
+                cost          = fuel_costs.get(label, 0)
+                value         = fuel_shrinkage * cost
+                
+                total_shrinkage_litres += fuel_shrinkage
+                total_shrinkage_value  += value
+                
+                # Flag colour
+                if avg_shrinkage > 50:
+                    flag = "🔴"
+                elif avg_shrinkage > 10:
+                    flag = "🟡"
+                else:
+                    flag = "🟢"
+                
+                msg += f"\n{flag} *{label}*\n"
+                msg += f"   Total shrinkage: {fuel_shrinkage:+.0f}L over {fuel_days} day(s)\n"
+                msg += f"   Avg/day: {avg_shrinkage:+.1f}L  |  Est. cost: ${value:,.0f}"
+            
+            # Summary
+            msg += f"\n\n{'─'*30}\n"
+            msg += f"📉 *Total shrinkage: {total_shrinkage_litres:+.0f}L*\n"
+            msg += f"💰 *Estimated cost: ${total_shrinkage_value:,.0f}*\n"
+            
+            if total_shrinkage_litres > 100:
+                msg += "\n⚠️ Shrinkage is elevated — worth investigating.\n"
+            else:
+                msg += "\n✅ Shrinkage looks normal.\n"
+            
+            msg += "\n_Legend: 🟢 <10L/day  🟡 10–50L/day  🔴 >50L/day_"
+            
+            await update.message.reply_text(msg, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
+    
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show all available commands"""
         help_text = """**📱 SUPERPLUS AI AGENT COMMANDS**
@@ -516,6 +636,7 @@ Example: /setcost 87 160.00
 
 **📦 Inventory:**
 /dips - Inventory levels & alerts
+/shrinkage - Fuel loss detection
 
 **🏁 Competition:**
 /competitors - Competitor prices
@@ -547,6 +668,8 @@ Just ask! "How are we doing?" or "What's trending?"
             await self.gas_analysis(update, context)
         elif any(word in message for word in ['inventory', 'dips', 'stock']):
             await self.inventory_status(update, context)
+        elif any(word in message for word in ['shrinkage', 'loss', 'shrink', 'losing']):
+            await self.shrinkage_analysis(update, context)
         elif any(word in message for word in ['margin', 'profit']):
             await self.margin_analysis(update, context)
         elif any(word in message for word in ['competitor', 'competition', 'prices']):
@@ -588,6 +711,7 @@ Just ask! "How are we doing?" or "What's trending?"
             
             # NEW: Advanced feature commands
             application.add_handler(CommandHandler("dips", self.inventory_status))
+            application.add_handler(CommandHandler("shrinkage", self.shrinkage_analysis))
             application.add_handler(CommandHandler("margins", self.margin_analysis))
             application.add_handler(CommandHandler("competitors", self.competitor_prices))
             application.add_handler(CommandHandler("setcost", self.set_fuel_cost))

@@ -193,11 +193,16 @@ Your job: Extract business data from WhatsApp messages.
 
 CRITICAL DISTINCTIONS:
 
-**Opening Dips vs Litres Sold:**
-- "Opening dips" or "morning dips" = starting inventory (NOT sales)
-- "Litres sales" or "litres sold" = actual fuel sold that day
-- These are DIFFERENT! Opening dips go in opening_* fields, litres sold go in gas_* fields
-- IGNORE "closing dips" - we don't track those
+**Opening Dips vs Closing Dips vs Litres Sold:**
+- "Opening dips" or "morning dips" = starting inventory at open → opening_* fields
+- "Closing dips" or "end of day dips" or "EOD dips" = inventory at close → closing_* fields
+- "Litres sold" or just "litres" with sales context = actual fuel sold → gas_* fields
+- These are THREE DIFFERENT things. Do NOT mix them up.
+
+**Fuel Deliveries:**
+- "Delivery" or "tanker" or "load" = fuel received from supplier
+- Extract fuel type and litres delivered
+- Example: "Delivery 87 - 15,000L" or "tanker arrived, 90: 10000"
 
 **Competitor Prices:**
 - Extract competitor names and their prices
@@ -210,15 +215,19 @@ WHAT TO EXTRACT:
 2. **Store Sales** - "Sales $XXX" - ONLY the community store
 3. **Phone Cards** - Western Union revenue
 4. **Deli Sales** - Restaurant revenue
-5. **Gas Litres SOLD** (NOT opening dips):
+5. **Gas Litres SOLD** (NOT dips):
    - 87 (Regular)
    - 90 (Premium)
    - ADO (Diesel)
    - ULSD (Ultra low sulfur diesel)
 6. **Opening Dips** (Morning inventory):
    - opening_87, opening_90, opening_ado, opening_ulsd
-7. **Prices** - GasMart selling prices
-8. **Competitor Prices** - Extract and format as array
+7. **Closing Dips** (End of day inventory):
+   - closing_87, closing_90, closing_ado, closing_ulsd
+8. **Fuel Deliveries** (Tanker arrivals):
+   - delivery_87, delivery_90, delivery_ado, delivery_ulsd (litres received)
+9. **Prices** - GasMart selling prices
+10. **Competitor Prices** - Extract and format as array
 
 EXAMPLES:
 
@@ -266,6 +275,66 @@ Output: {
   "notes": "Morning inventory levels"
 }
 
+Input: "Closing dips: 87-7200, 90-4100, ADO-9500, ULSD-3800"
+Output: {
+  "date": "TODAY",
+  "store_sales": null,
+  "phone_cards": null,
+  "deli_sales": null,
+  "gas_87": null,
+  "gas_90": null,
+  "gas_ado": null,
+  "gas_ulsd": null,
+  "opening_87": null,
+  "opening_90": null,
+  "opening_ado": null,
+  "opening_ulsd": null,
+  "closing_87": 7200,
+  "closing_90": 4100,
+  "closing_ado": 9500,
+  "closing_ulsd": 3800,
+  "delivery_87": null,
+  "delivery_90": null,
+  "delivery_ado": null,
+  "delivery_ulsd": null,
+  "gasmart_87_price": null,
+  "gasmart_90_price": null,
+  "gasmart_ado_price": null,
+  "gasmart_ulsd_price": null,
+  "competitor_prices": [],
+  "notes": "End of day closing dips"
+}
+
+Input: "Tanker just arrived. 87 - 15000L, ADO - 20000L"
+Output: {
+  "date": "TODAY",
+  "store_sales": null,
+  "phone_cards": null,
+  "deli_sales": null,
+  "gas_87": null,
+  "gas_90": null,
+  "gas_ado": null,
+  "gas_ulsd": null,
+  "opening_87": null,
+  "opening_90": null,
+  "opening_ado": null,
+  "opening_ulsd": null,
+  "closing_87": null,
+  "closing_90": null,
+  "closing_ado": null,
+  "closing_ulsd": null,
+  "delivery_87": 15000,
+  "delivery_90": null,
+  "delivery_ado": 20000,
+  "delivery_ulsd": null,
+  "gasmart_87_price": null,
+  "gasmart_90_price": null,
+  "gasmart_ado_price": null,
+  "gasmart_ulsd_price": null,
+  "competitor_prices": [],
+  "notes": "Fuel delivery received"
+}
+
 Input: "Competitor prices:\nJamgas: 87-172, 90-182\nTotal Greenvale: 87-173, 90-183"
 Output: {
   "date": "TODAY",
@@ -280,6 +349,14 @@ Output: {
   "opening_90": null,
   "opening_ado": null,
   "opening_ulsd": null,
+  "closing_87": null,
+  "closing_90": null,
+  "closing_ado": null,
+  "closing_ulsd": null,
+  "delivery_87": null,
+  "delivery_90": null,
+  "delivery_ado": null,
+  "delivery_ulsd": null,
   "gasmart_87_price": null,
   "gasmart_90_price": null,
   "gasmart_ado_price": null,
@@ -297,14 +374,22 @@ Return as JSON:
   "store_sales": number or null,
   "phone_cards": number or null,
   "deli_sales": number or null,
-  "gas_87": number or null (LITRES SOLD, not opening dips),
-  "gas_90": number or null (LITRES SOLD, not opening dips),
-  "gas_ado": number or null (LITRES SOLD, not opening dips),
-  "gas_ulsd": number or null (LITRES SOLD, not opening dips),
-  "opening_87": number or null (MORNING DIPS/OPENING INVENTORY),
-  "opening_90": number or null (MORNING DIPS/OPENING INVENTORY),
-  "opening_ado": number or null (MORNING DIPS/OPENING INVENTORY),
-  "opening_ulsd": number or null (MORNING DIPS/OPENING INVENTORY),
+  "gas_87": number or null (LITRES SOLD, not dips),
+  "gas_90": number or null (LITRES SOLD, not dips),
+  "gas_ado": number or null (LITRES SOLD, not dips),
+  "gas_ulsd": number or null (LITRES SOLD, not dips),
+  "opening_87": number or null (MORNING DIPS),
+  "opening_90": number or null (MORNING DIPS),
+  "opening_ado": number or null (MORNING DIPS),
+  "opening_ulsd": number or null (MORNING DIPS),
+  "closing_87": number or null (END OF DAY DIPS),
+  "closing_90": number or null (END OF DAY DIPS),
+  "closing_ado": number or null (END OF DAY DIPS),
+  "closing_ulsd": number or null (END OF DAY DIPS),
+  "delivery_87": number or null (LITRES DELIVERED by tanker),
+  "delivery_90": number or null (LITRES DELIVERED by tanker),
+  "delivery_ado": number or null (LITRES DELIVERED by tanker),
+  "delivery_ulsd": number or null (LITRES DELIVERED by tanker),
   "gasmart_87_price": number or null,
   "gasmart_90_price": number or null,
   "gasmart_ado_price": number or null,
@@ -384,17 +469,28 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     "Opening_90_Litres",
                     "Opening_ADO_Litres",
                     "Opening_ULSD_Litres",
+                    "Closing_87_Litres",
+                    "Closing_90_Litres",
+                    "Closing_ADO_Litres",
+                    "Closing_ULSD_Litres",
+                    "Delivery_87_Litres",
+                    "Delivery_90_Litres",
+                    "Delivery_ADO_Litres",
+                    "Delivery_ULSD_Litres",
                     "GasMart_87_Price",
                     "GasMart_90_Price",
                     "GasMart_ADO_Price",
                     "GasMart_ULSD_Price",
                     "Competitor_Prices",
+                    "Weather_Condition",
+                    "Weather_Temp_Max_C",
+                    "Weather_Rain_MM",
                     "Notes"
                 ]
                 worksheet.append_row(headers)
                 
                 # Format header row
-                worksheet.format('A1:V1', {
+                worksheet.format('A1:AG1', {
                     "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.86},
                     "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
                     "horizontalAlignment": "CENTER"
@@ -445,15 +541,41 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             price_ado = data.get("gasmart_ado_price") or ""
             price_ulsd = data.get("gasmart_ulsd_price") or ""
             
-            # Morning dips data (NEW)
+            # Morning dips data
             opening_87 = data.get("opening_87") or ""
             opening_90 = data.get("opening_90") or ""
             opening_ado = data.get("opening_ado") or ""
             opening_ulsd = data.get("opening_ulsd") or ""
             
-            # Competitor prices (NEW - store as JSON string)
+            # Closing dips data
+            closing_87 = data.get("closing_87") or ""
+            closing_90 = data.get("closing_90") or ""
+            closing_ado = data.get("closing_ado") or ""
+            closing_ulsd = data.get("closing_ulsd") or ""
+            
+            # Delivery data
+            delivery_87 = data.get("delivery_87") or ""
+            delivery_90 = data.get("delivery_90") or ""
+            delivery_ado = data.get("delivery_ado") or ""
+            delivery_ulsd = data.get("delivery_ulsd") or ""
+            
+            # Competitor prices (store as JSON string)
             competitor_prices = data.get("competitor_prices", [])
             competitor_str = json.dumps(competitor_prices) if competitor_prices else ""
+            
+            # Weather — auto-pull for this date
+            weather_condition = ""
+            weather_temp = ""
+            weather_rain = ""
+            try:
+                from weather_service import get_weather_for_date
+                weather = get_weather_for_date(date_str)
+                if weather:
+                    weather_condition = weather.get("condition", "")
+                    weather_temp = weather.get("temp_max_c", "")
+                    weather_rain = weather.get("rain_mm", "")
+            except Exception as e:
+                print(f"⚠️ Weather pull skipped: {e}")
             
             # Check if we already have data for this date
             existing_dates = worksheet.col_values(1)[1:]  # Skip header
@@ -465,10 +587,10 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 existing_row = worksheet.row_values(row_index)
                 
                 # Get current prices from row for gas revenue calculation
-                current_price_87 = price_87 if price_87 != "" else (float(existing_row[12].replace('$','').replace(',','')) if len(existing_row) > 12 and existing_row[12] else 0)
-                current_price_90 = price_90 if price_90 != "" else (float(existing_row[13].replace('$','').replace(',','')) if len(existing_row) > 13 and existing_row[13] else 0)
-                current_price_ado = price_ado if price_ado != "" else (float(existing_row[14].replace('$','').replace(',','')) if len(existing_row) > 14 and existing_row[14] else 0)
-                current_price_ulsd = price_ulsd if price_ulsd != "" else (float(existing_row[15].replace('$','').replace(',','')) if len(existing_row) > 15 and existing_row[15] else 0)
+                current_price_87 = price_87 if price_87 != "" else (float(existing_row[24].replace('$','').replace(',','')) if len(existing_row) > 24 and existing_row[24] else 0)
+                current_price_90 = price_90 if price_90 != "" else (float(existing_row[25].replace('$','').replace(',','')) if len(existing_row) > 25 and existing_row[25] else 0)
+                current_price_ado = price_ado if price_ado != "" else (float(existing_row[26].replace('$','').replace(',','')) if len(existing_row) > 26 and existing_row[26] else 0)
+                current_price_ulsd = price_ulsd if price_ulsd != "" else (float(existing_row[27].replace('$','').replace(',','')) if len(existing_row) > 27 and existing_row[27] else 0)
                 
                 # Get current litres
                 current_gas_87 = gas_87 if gas_87 else (float(existing_row[7].replace(',','')) if len(existing_row) > 7 and existing_row[7] else 0)
@@ -497,31 +619,42 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 
                 # Merge new data with existing
                 row = [
-                    date_str,
-                    day_of_week,
-                    store_sales if store_sales != "" else (existing_row[2] if len(existing_row) > 2 else ""),
-                    phone_cards if phone_cards != "" else (existing_row[3] if len(existing_row) > 3 else ""),
-                    deli_sales if deli_sales != "" else (existing_row[4] if len(existing_row) > 4 else ""),
-                    gas_revenue if gas_revenue != "" else (existing_row[5] if len(existing_row) > 5 else ""),
-                    total_revenue if total_revenue != "" else (existing_row[6] if len(existing_row) > 6 else ""),
-                    current_gas_87 if current_gas_87 else "",
-                    current_gas_90 if current_gas_90 else "",
-                    current_gas_ado if current_gas_ado else "",
-                    current_gas_ulsd if current_gas_ulsd else "",
-                    total_litres if total_litres != "" else (existing_row[11] if len(existing_row) > 11 else ""),
-                    opening_87 if opening_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),
-                    opening_90 if opening_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),
-                    opening_ado if opening_ado != "" else (existing_row[14] if len(existing_row) > 14 else ""),
-                    opening_ulsd if opening_ulsd != "" else (existing_row[15] if len(existing_row) > 15 else ""),
-                    price_87 if price_87 != "" else (existing_row[16] if len(existing_row) > 16 else ""),
-                    price_90 if price_90 != "" else (existing_row[17] if len(existing_row) > 17 else ""),
-                    price_ado if price_ado != "" else (existing_row[18] if len(existing_row) > 18 else ""),
-                    price_ulsd if price_ulsd != "" else (existing_row[19] if len(existing_row) > 19 else ""),
-                    competitor_str if competitor_str != "" else (existing_row[20] if len(existing_row) > 20 else ""),
-                    data.get("notes", existing_row[21] if len(existing_row) > 21 else "")
+                    date_str,                                                                          # A  col 0
+                    day_of_week,                                                                       # B  col 1
+                    store_sales if store_sales != "" else (existing_row[2] if len(existing_row) > 2 else ""),       # C  col 2
+                    phone_cards if phone_cards != "" else (existing_row[3] if len(existing_row) > 3 else ""),       # D  col 3
+                    deli_sales if deli_sales != "" else (existing_row[4] if len(existing_row) > 4 else ""),         # E  col 4
+                    gas_revenue if gas_revenue != "" else (existing_row[5] if len(existing_row) > 5 else ""),       # F  col 5
+                    total_revenue if total_revenue != "" else (existing_row[6] if len(existing_row) > 6 else ""),   # G  col 6
+                    current_gas_87 if current_gas_87 else "",                                          # H  col 7
+                    current_gas_90 if current_gas_90 else "",                                          # I  col 8
+                    current_gas_ado if current_gas_ado else "",                                        # J  col 9
+                    current_gas_ulsd if current_gas_ulsd else "",                                      # K  col 10
+                    total_litres if total_litres != "" else (existing_row[11] if len(existing_row) > 11 else ""),   # L  col 11
+                    opening_87 if opening_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),       # M  col 12
+                    opening_90 if opening_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),       # N  col 13
+                    opening_ado if opening_ado != "" else (existing_row[14] if len(existing_row) > 14 else ""),     # O  col 14
+                    opening_ulsd if opening_ulsd != "" else (existing_row[15] if len(existing_row) > 15 else ""),   # P  col 15
+                    closing_87 if closing_87 != "" else (existing_row[16] if len(existing_row) > 16 else ""),       # Q  col 16
+                    closing_90 if closing_90 != "" else (existing_row[17] if len(existing_row) > 17 else ""),       # R  col 17
+                    closing_ado if closing_ado != "" else (existing_row[18] if len(existing_row) > 18 else ""),     # S  col 18
+                    closing_ulsd if closing_ulsd != "" else (existing_row[19] if len(existing_row) > 19 else ""),   # T  col 19
+                    delivery_87 if delivery_87 != "" else (existing_row[20] if len(existing_row) > 20 else ""),     # U  col 20
+                    delivery_90 if delivery_90 != "" else (existing_row[21] if len(existing_row) > 21 else ""),     # V  col 21
+                    delivery_ado if delivery_ado != "" else (existing_row[22] if len(existing_row) > 22 else ""),   # W  col 22
+                    delivery_ulsd if delivery_ulsd != "" else (existing_row[23] if len(existing_row) > 23 else ""), # X  col 23
+                    price_87 if price_87 != "" else (existing_row[24] if len(existing_row) > 24 else ""),           # Y  col 24
+                    price_90 if price_90 != "" else (existing_row[25] if len(existing_row) > 25 else ""),           # Z  col 25
+                    price_ado if price_ado != "" else (existing_row[26] if len(existing_row) > 26 else ""),         # AA col 26
+                    price_ulsd if price_ulsd != "" else (existing_row[27] if len(existing_row) > 27 else ""),       # AB col 27
+                    competitor_str if competitor_str != "" else (existing_row[28] if len(existing_row) > 28 else ""),# AC col 28
+                    weather_condition if weather_condition != "" else (existing_row[29] if len(existing_row) > 29 else ""),  # AD col 29
+                    weather_temp if weather_temp != "" else (existing_row[30] if len(existing_row) > 30 else ""),   # AE col 30
+                    weather_rain if weather_rain != "" else (existing_row[31] if len(existing_row) > 31 else ""),   # AF col 31
+                    data.get("notes", existing_row[32] if len(existing_row) > 32 else "")                           # AG col 32
                 ]
                 
-                worksheet.update(f'A{row_index}:V{row_index}', [row])
+                worksheet.update(f'A{row_index}:AG{row_index}', [row])
                 last_row = row_index
                 
             else:
@@ -558,11 +691,22 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     opening_90,
                     opening_ado,
                     opening_ulsd,
+                    closing_87,
+                    closing_90,
+                    closing_ado,
+                    closing_ulsd,
+                    delivery_87,
+                    delivery_90,
+                    delivery_ado,
+                    delivery_ulsd,
                     price_87,
                     price_90,
                     price_ado,
                     price_ulsd,
                     competitor_str,
+                    weather_condition,
+                    weather_temp,
+                    weather_rain,
                     data.get("notes", "")
                 ]
                 
