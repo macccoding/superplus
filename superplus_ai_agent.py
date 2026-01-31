@@ -1098,6 +1098,40 @@ def run_analysis_endpoint():
     else:
         return jsonify({"error": "Agent not initialized"}), 500
 
+@app.route('/test-morning-alert')
+def test_morning_alert():
+    """Test morning briefing"""
+    try:
+        from alert_scheduler import AlertScheduler
+        alert_system = AlertScheduler(agent)
+        alert_system.send_morning_briefing()
+        return jsonify({
+            "status": "success",
+            "message": "Morning briefing sent! Check Telegram and WhatsApp."
+        })
+    except Exception as e:
+        print(f"❌ Test morning alert error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/test-evening-alert')
+def test_evening_alert():
+    """Test evening summary"""
+    try:
+        from alert_scheduler import AlertScheduler
+        alert_system = AlertScheduler(agent)
+        alert_system.send_evening_summary()
+        return jsonify({
+            "status": "success",
+            "message": "Evening summary sent! Check Telegram and WhatsApp."
+        })
+    except Exception as e:
+        print(f"❌ Test evening alert error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 # ============================================
 # SCHEDULER (runs in background)
@@ -1111,11 +1145,31 @@ def run_scheduler():
 
 def schedule_tasks():
     """Set up scheduled tasks"""
-    # Weekly analysis every Sunday at 8 PM Jamaica time
-    schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
-    
-    print("📅 Scheduled tasks configured:")
-    print("   - Weekly analysis: Sunday 8:00 PM")
+    # Import alert scheduler
+    try:
+        from alert_scheduler import AlertScheduler
+        alert_system = AlertScheduler(agent)
+        
+        # Daily morning briefing at 8:00 AM
+        schedule.every().day.at("08:00").do(lambda: alert_system.send_morning_briefing())
+        
+        # Daily evening summary at 10:00 PM
+        schedule.every().day.at("22:00").do(lambda: alert_system.send_evening_summary())
+        
+        # Weekly analysis every Sunday at 8:00 PM
+        schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
+        
+        print("📅 Scheduled tasks configured:")
+        print("   - Morning briefing: Daily 8:00 AM")
+        print("   - Evening summary: Daily 10:00 PM")
+        print("   - Weekly analysis: Sunday 8:00 PM")
+        
+    except Exception as e:
+        print(f"⚠️ Could not initialize alert scheduler: {e}")
+        # Fall back to just weekly analysis
+        schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
+        print("📅 Scheduled tasks configured:")
+        print("   - Weekly analysis: Sunday 8:00 PM")
 
 
 # ============================================
