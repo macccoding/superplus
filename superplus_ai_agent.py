@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-SuperPlus AI Business Agent - Production Version v2
-- Staff confirmation replies
-- Fuel delivery cost tracking
-- Profit report foundations
+SuperPlus AI Business Agent - Production Version v3
+Multi-tab sheet structure via sheet_manager
 """
 
 import anthropic
@@ -24,6 +22,7 @@ app = Flask(__name__)
 # Global agent instance
 agent = None
 
+
 class SuperPlusAgent:
     """
     Autonomous AI agent for SuperPlus business management
@@ -35,16 +34,16 @@ class SuperPlusAgent:
         self.client = anthropic.Anthropic(api_key=self.anthropic_api_key)
         self.model = "claude-sonnet-4-20250514"
         
-        # WhatsApp Cloud API (Meta) — inbound from staff group
+        # WhatsApp Cloud API (Meta)
         self.whatsapp_phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
         self.whatsapp_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
         
-        # Twilio — outbound weekly summary to owner
+        # Twilio
         self.twilio_sid = os.getenv('TWILIO_ACCOUNT_SID')
         self.twilio_token = os.getenv('TWILIO_AUTH_TOKEN')
         self.twilio_number = os.getenv('TWILIO_WHATSAPP_NUMBER')
         
-        # Google Sheets configuration
+        # Google Sheets
         self.sheet_id = os.getenv('GOOGLE_SHEET_ID')
         self.setup_google_sheets()
         
@@ -60,18 +59,15 @@ class SuperPlusAgent:
             "last_processed": None
         }
         
-        print("✅ SuperPlus AI Agent initialized (v2)")
+        print("✅ SuperPlus AI Agent initialized (v3 - multi-tab)")
         print(f"📊 Connected to Google Sheet: {self.sheet_id}")
-        print(f"📱 WhatsApp inbound:  {'Meta Cloud API ✅' if self.whatsapp_phone_id else 'NOT CONFIGURED ⚠️'}")
-        print(f"📱 WhatsApp outbound: {'Twilio ✅' if self.twilio_sid else 'NOT CONFIGURED ⚠️'}")
     
     def setup_google_sheets(self):
-        """Initialize Google Sheets connection"""
+        """Initialize Google Sheets connection and sheet manager"""
         try:
-            # Try multiple credential sources
             creds_dict = None
             
-            # Method 1: Direct JSON string
+            # Try loading credentials
             creds_json = os.getenv('GOOGLE_CREDENTIALS')
             if creds_json and creds_json.strip():
                 try:
@@ -80,7 +76,6 @@ class SuperPlusAgent:
                 except json.JSONDecodeError as e:
                     print(f"⚠️ Failed to parse GOOGLE_CREDENTIALS: {e}")
             
-            # Method 2: Base64 encoded
             if not creds_dict:
                 import base64
                 creds_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
@@ -92,24 +87,22 @@ class SuperPlusAgent:
                     except Exception as e:
                         print(f"⚠️ Failed to decode GOOGLE_CREDENTIALS_BASE64: {e}")
             
-            # Method 3: File path (if running locally)
-            if not creds_dict:
-                creds_file = os.getenv('GOOGLE_CREDENTIALS_FILE', 'google-credentials.json')
-                if os.path.exists(creds_file):
-                    with open(creds_file, 'r') as f:
-                        creds_dict = json.load(f)
-                    print(f"✅ Loaded credentials from file: {creds_file}")
-            
             if creds_dict:
                 scopes = ['https://www.googleapis.com/auth/spreadsheets']
                 credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
                 self.gc = gspread.authorize(credentials)
                 self.sheet = self.gc.open_by_key(self.sheet_id)
-                print(f"✅ Google Sheets connected: {self.sheet_id}")
+                
+                # Initialize sheet manager for multi-tab routing
+                from sheet_manager import SheetManager
+                self.sheet_manager = SheetManager(self.sheet)
+                
+                print(f"✅ Google Sheets connected with multi-tab structure")
             else:
-                print("❌ No Google Sheets credentials found in any format")
+                print("❌ No Google Sheets credentials found")
                 self.gc = None
                 self.sheet = None
+                self.sheet_manager = None
                 
         except Exception as e:
             print(f"❌ Error connecting to Google Sheets: {e}")
@@ -117,66 +110,54 @@ class SuperPlusAgent:
             traceback.print_exc()
             self.gc = None
             self.sheet = None
+            self.sheet_manager = None
     
     def process_whatsapp_message(self, message_data: Dict) -> Dict:
-        """
-        Process incoming WhatsApp message using AI agent reasoning
-        """
+        """Process incoming WhatsApp message"""
         try:
-            # Extract message content
             message_text = self.extract_message_text(message_data)
             sender = self.extract_sender(message_data)
             
             print(f"\n📱 New message from {sender}")
             print(f"Content preview: {message_text[:100]}...")
             
-            # Store in memory
             self.memory["messages"].append({
                 "timestamp": datetime.now().isoformat(),
                 "sender": sender,
                 "content": message_text
             })
             
-            # Use AI agent to analyze and decide what to do
             response = self.agent_reasoning(message_text, sender)
             
             return {
                 "success": True,
                 "action_taken": response.get("action", "processed"),
+                "tabs_updated": response.get("tabs_updated", []),
                 "confirmation_sent": response.get("confirmation_sent", False),
                 "timestamp": datetime.now().isoformat()
             }
             
         except Exception as e:
             print(f"❌ Error processing message: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
     
     def extract_message_text(self, data: Dict) -> str:
-        """Extract message text — handles both Meta Cloud API and Twilio formats"""
+        """Extract message text from webhook data"""
         try:
-            # Meta Cloud API format (JSON with nested entry/changes)
             if 'entry' in data:
                 return data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
-            # Twilio format (flat form data with Body key)
             elif 'Body' in data:
                 return data['Body']
             else:
-                print(f"⚠️ Unrecognised webhook format: {json.dumps(data)[:200]}")
                 return str(data)
         except (KeyError, IndexError) as e:
-            print(f"⚠️ Extraction error ({e}): {json.dumps(data)[:200]}")
             return str(data)
     
     def extract_sender(self, data: Dict) -> str:
-        """Extract sender — handles both Meta Cloud API and Twilio formats"""
+        """Extract sender from webhook data"""
         try:
-            # Meta Cloud API
             if 'entry' in data:
                 return data['entry'][0]['changes'][0]['value']['messages'][0]['from']
-            # Twilio
             elif 'From' in data:
                 return data['From']
             else:
@@ -185,10 +166,7 @@ class SuperPlusAgent:
             return "Unknown"
     
     def agent_reasoning(self, message_text: str, sender: str) -> Dict:
-        """
-        AI agent analyzes message and decides what to do
-        Returns dict with action taken and confirmation details
-        """
+        """AI agent analyzes message and routes to appropriate tabs"""
         
         system_prompt = """You are the AI Business Manager for SuperPlus (GasMart) in Jamaica.
 
@@ -203,147 +181,19 @@ Your job: Extract business data from WhatsApp messages.
 CRITICAL DISTINCTIONS:
 
 **Opening Dips vs Closing Dips vs Litres Sold:**
-- "Opening dips" or "morning dips" = starting inventory at open → opening_* fields
-- "Closing dips" or "end of day dips" or "EOD dips" = inventory at close → closing_* fields
-- "Litres sold" or just "litres" with sales context = actual fuel sold → gas_* fields
+- "Opening dips" or "morning dips" = starting inventory at open
+- "Closing dips" or "end of day dips" = inventory at close
+- "Litres sold" or just "litres" with sales context = actual fuel sold
 - These are THREE DIFFERENT things. Do NOT mix them up.
 
 **Fuel Deliveries WITH COST:**
 - "Delivery" or "tanker" or "load" = fuel received from supplier
 - Extract fuel type, litres delivered, AND cost per litre if provided
-- Example: "Delivery 87 - 15,000L @ $158/L" → delivery_87: 15000, delivery_87_cost: 158
-- Example: "tanker arrived, 90: 10000 litres, cost 168 per litre" → delivery_90: 10000, delivery_90_cost: 168
-- If no cost mentioned, leave cost as null (we'll use default)
+- Example: "Delivery 87 - 15,000L @ $158/L"
 
 **Competitor Prices:**
 - Extract competitor names and their prices
 - Common competitors: Jamgas, Total, Greenvale, Yaadman, Spur Tree, Rubis
-- Format as array of objects with competitor name and prices
-
-WHAT TO EXTRACT:
-
-1. **Date** - Look for dates, if none use "TODAY"
-2. **Store Sales** - "Sales $XXX" - ONLY the community store
-3. **Phone Cards** - Western Union revenue
-4. **Deli Sales** - Restaurant revenue
-5. **Gas Litres SOLD** (NOT dips):
-   - 87 (Regular)
-   - 90 (Premium)
-   - ADO (Diesel)
-   - ULSD (Ultra low sulfur diesel)
-6. **Opening Dips** (Morning inventory):
-   - opening_87, opening_90, opening_ado, opening_ulsd
-7. **Closing Dips** (End of day inventory):
-   - closing_87, closing_90, closing_ado, closing_ulsd
-8. **Fuel Deliveries** (Tanker arrivals):
-   - delivery_87, delivery_90, delivery_ado, delivery_ulsd (litres received)
-   - delivery_87_cost, delivery_90_cost, delivery_ado_cost, delivery_ulsd_cost ($/L)
-9. **Prices** - GasMart selling prices
-10. **Competitor Prices** - Extract and format as array
-
-EXAMPLES:
-
-Input: "Thursday 28/01/26\nStore: $702,327\nPhone: $63,427\nDeli: $186,059\nLitres: 87-2316, 90-6151, ADO-931, ULSD-4357"
-Output: {
-  "date": "2026-01-28",
-  "store_sales": 702327,
-  "phone_cards": 63427,
-  "deli_sales": 186059,
-  "gas_87": 2316,
-  "gas_90": 6151,
-  "gas_ado": 931,
-  "gas_ulsd": 4357,
-  "opening_87": null,
-  "opening_90": null,
-  "opening_ado": null,
-  "opening_ulsd": null,
-  "closing_87": null,
-  "closing_90": null,
-  "closing_ado": null,
-  "closing_ulsd": null,
-  "delivery_87": null,
-  "delivery_90": null,
-  "delivery_ado": null,
-  "delivery_ulsd": null,
-  "delivery_87_cost": null,
-  "delivery_90_cost": null,
-  "delivery_ado_cost": null,
-  "delivery_ulsd_cost": null,
-  "gasmart_87_price": null,
-  "gasmart_90_price": null,
-  "gasmart_ado_price": null,
-  "gasmart_ulsd_price": null,
-  "competitor_prices": [],
-  "notes": ""
-}
-
-Input: "Tanker just arrived. 87 - 15000L @ $158/L, ADO - 20000L @ $172/L"
-Output: {
-  "date": "TODAY",
-  "store_sales": null,
-  "phone_cards": null,
-  "deli_sales": null,
-  "gas_87": null,
-  "gas_90": null,
-  "gas_ado": null,
-  "gas_ulsd": null,
-  "opening_87": null,
-  "opening_90": null,
-  "opening_ado": null,
-  "opening_ulsd": null,
-  "closing_87": null,
-  "closing_90": null,
-  "closing_ado": null,
-  "closing_ulsd": null,
-  "delivery_87": 15000,
-  "delivery_90": null,
-  "delivery_ado": 20000,
-  "delivery_ulsd": null,
-  "delivery_87_cost": 158,
-  "delivery_90_cost": null,
-  "delivery_ado_cost": 172,
-  "delivery_ulsd_cost": null,
-  "gasmart_87_price": null,
-  "gasmart_90_price": null,
-  "gasmart_ado_price": null,
-  "gasmart_ulsd_price": null,
-  "competitor_prices": [],
-  "notes": "Fuel delivery received with costs"
-}
-
-Input: "Closing dips: 87-7200, 90-4100, ADO-9500, ULSD-3800"
-Output: {
-  "date": "TODAY",
-  "store_sales": null,
-  "phone_cards": null,
-  "deli_sales": null,
-  "gas_87": null,
-  "gas_90": null,
-  "gas_ado": null,
-  "gas_ulsd": null,
-  "opening_87": null,
-  "opening_90": null,
-  "opening_ado": null,
-  "opening_ulsd": null,
-  "closing_87": 7200,
-  "closing_90": 4100,
-  "closing_ado": 9500,
-  "closing_ulsd": 3800,
-  "delivery_87": null,
-  "delivery_90": null,
-  "delivery_ado": null,
-  "delivery_ulsd": null,
-  "delivery_87_cost": null,
-  "delivery_90_cost": null,
-  "delivery_ado_cost": null,
-  "delivery_ulsd_cost": null,
-  "gasmart_87_price": null,
-  "gasmart_90_price": null,
-  "gasmart_ado_price": null,
-  "gasmart_ulsd_price": null,
-  "competitor_prices": [],
-  "notes": "End of day closing dips"
-}
 
 Return as JSON:
 {
@@ -351,26 +201,26 @@ Return as JSON:
   "store_sales": number or null,
   "phone_cards": number or null,
   "deli_sales": number or null,
-  "gas_87": number or null (LITRES SOLD, not dips),
-  "gas_90": number or null (LITRES SOLD, not dips),
-  "gas_ado": number or null (LITRES SOLD, not dips),
-  "gas_ulsd": number or null (LITRES SOLD, not dips),
+  "gas_87": number or null (LITRES SOLD),
+  "gas_90": number or null (LITRES SOLD),
+  "gas_ado": number or null (LITRES SOLD),
+  "gas_ulsd": number or null (LITRES SOLD),
   "opening_87": number or null (MORNING DIPS),
-  "opening_90": number or null (MORNING DIPS),
-  "opening_ado": number or null (MORNING DIPS),
-  "opening_ulsd": number or null (MORNING DIPS),
+  "opening_90": number or null,
+  "opening_ado": number or null,
+  "opening_ulsd": number or null,
   "closing_87": number or null (END OF DAY DIPS),
-  "closing_90": number or null (END OF DAY DIPS),
-  "closing_ado": number or null (END OF DAY DIPS),
-  "closing_ulsd": number or null (END OF DAY DIPS),
-  "delivery_87": number or null (LITRES DELIVERED by tanker),
-  "delivery_90": number or null (LITRES DELIVERED by tanker),
-  "delivery_ado": number or null (LITRES DELIVERED by tanker),
-  "delivery_ulsd": number or null (LITRES DELIVERED by tanker),
-  "delivery_87_cost": number or null (COST PER LITRE on delivery),
-  "delivery_90_cost": number or null (COST PER LITRE on delivery),
-  "delivery_ado_cost": number or null (COST PER LITRE on delivery),
-  "delivery_ulsd_cost": number or null (COST PER LITRE on delivery),
+  "closing_90": number or null,
+  "closing_ado": number or null,
+  "closing_ulsd": number or null,
+  "delivery_87": number or null (LITRES DELIVERED),
+  "delivery_90": number or null,
+  "delivery_ado": number or null,
+  "delivery_ulsd": number or null,
+  "delivery_87_cost": number or null (COST PER LITRE),
+  "delivery_90_cost": number or null,
+  "delivery_ado_cost": number or null,
+  "delivery_ulsd_cost": number or null,
   "gasmart_87_price": number or null,
   "gasmart_90_price": number or null,
   "gasmart_ado_price": number or null,
@@ -393,10 +243,9 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 }]
             )
             
-            # Extract JSON from response
             result_text = response.content[0].text
             
-            # Parse JSON (Claude sometimes wraps in markdown)
+            # Parse JSON
             if "```json" in result_text:
                 result_text = result_text.split("```json")[1].split("```")[0].strip()
             elif "```" in result_text:
@@ -407,17 +256,19 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             # Handle "TODAY" date
             if data.get("date") == "TODAY":
                 data["date"] = datetime.now().strftime("%Y-%m-%d")
-                print(f"📅 No date in message, using today: {data['date']}")
             
             print(f"✅ Extracted data: {json.dumps(data, indent=2)}")
             
-            # Update Google Sheet
+            # Route to appropriate tabs via sheet_manager
+            tabs_updated = []
             confirmation_sent = False
-            if self.sheet and data.get("date"):
-                self.update_google_sheet(data)
+            
+            if self.sheet_manager and data.get("date"):
+                route_result = self.sheet_manager.route_data(data)
+                tabs_updated = route_result.get('updates', [])
                 
                 # Send confirmation reply to staff
-                confirmation_msg = self.generate_confirmation_message(data)
+                confirmation_msg = self.generate_confirmation_message(data, tabs_updated)
                 if confirmation_msg:
                     self.send_staff_confirmation(sender, confirmation_msg)
                     confirmation_sent = True
@@ -426,24 +277,20 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 print("⚠️ No date found, skipping sheet update")
             
             return {
-                "action": f"Data extracted and stored: {data.get('date')}",
+                "action": f"Data extracted and routed for {data.get('date')}",
                 "data": data,
+                "tabs_updated": tabs_updated,
                 "confirmation_sent": confirmation_sent
             }
             
         except Exception as e:
             print(f"❌ Error in agent reasoning: {e}")
-            return {
-                "action": f"Error: {str(e)}",
-                "data": None,
-                "confirmation_sent": False
-            }
+            import traceback
+            traceback.print_exc()
+            return {"action": f"Error: {str(e)}", "data": None, "tabs_updated": [], "confirmation_sent": False}
     
-    def generate_confirmation_message(self, data: Dict) -> str:
-        """
-        Generate a confirmation message for staff showing what was extracted.
-        Returns None if nothing meaningful was extracted.
-        """
+    def generate_confirmation_message(self, data: Dict, tabs_updated: List[str]) -> str:
+        """Generate confirmation message showing what was extracted"""
         parts = []
         date_str = data.get("date", "today")
         
@@ -457,42 +304,27 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
         
         # Litres sold
         sold_parts = []
-        if data.get("gas_87"):
-            sold_parts.append(f"87: {data['gas_87']:,}L")
-        if data.get("gas_90"):
-            sold_parts.append(f"90: {data['gas_90']:,}L")
-        if data.get("gas_ado"):
-            sold_parts.append(f"ADO: {data['gas_ado']:,}L")
-        if data.get("gas_ulsd"):
-            sold_parts.append(f"ULSD: {data['gas_ulsd']:,}L")
+        for fuel in ['87', '90', 'ado', 'ulsd']:
+            if data.get(f'gas_{fuel}'):
+                sold_parts.append(f"{fuel.upper()}: {data[f'gas_{fuel}']:,}L")
         if sold_parts:
             parts.append(f"Sold: {', '.join(sold_parts)}")
         
         # Opening dips
         open_parts = []
-        if data.get("opening_87"):
-            open_parts.append(f"87: {data['opening_87']:,}L")
-        if data.get("opening_90"):
-            open_parts.append(f"90: {data['opening_90']:,}L")
-        if data.get("opening_ado"):
-            open_parts.append(f"ADO: {data['opening_ado']:,}L")
-        if data.get("opening_ulsd"):
-            open_parts.append(f"ULSD: {data['opening_ulsd']:,}L")
+        for fuel in ['87', '90', 'ado', 'ulsd']:
+            if data.get(f'opening_{fuel}'):
+                open_parts.append(f"{fuel.upper()}: {data[f'opening_{fuel}']:,}L")
         if open_parts:
-            parts.append(f"Opening dips: {', '.join(open_parts)}")
+            parts.append(f"Opening: {', '.join(open_parts)}")
         
         # Closing dips
         close_parts = []
-        if data.get("closing_87"):
-            close_parts.append(f"87: {data['closing_87']:,}L")
-        if data.get("closing_90"):
-            close_parts.append(f"90: {data['closing_90']:,}L")
-        if data.get("closing_ado"):
-            close_parts.append(f"ADO: {data['closing_ado']:,}L")
-        if data.get("closing_ulsd"):
-            close_parts.append(f"ULSD: {data['closing_ulsd']:,}L")
+        for fuel in ['87', '90', 'ado', 'ulsd']:
+            if data.get(f'closing_{fuel}'):
+                close_parts.append(f"{fuel.upper()}: {data[f'closing_{fuel}']:,}L")
         if close_parts:
-            parts.append(f"Closing dips: {', '.join(close_parts)}")
+            parts.append(f"Closing: {', '.join(close_parts)}")
         
         # Deliveries with costs
         delivery_parts = []
@@ -509,21 +341,15 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
         
         # Prices
         price_parts = []
-        if data.get("gasmart_87_price"):
-            price_parts.append(f"87: ${data['gasmart_87_price']}")
-        if data.get("gasmart_90_price"):
-            price_parts.append(f"90: ${data['gasmart_90_price']}")
-        if data.get("gasmart_ado_price"):
-            price_parts.append(f"ADO: ${data['gasmart_ado_price']}")
-        if data.get("gasmart_ulsd_price"):
-            price_parts.append(f"ULSD: ${data['gasmart_ulsd_price']}")
+        for fuel in ['87', '90', 'ado', 'ulsd']:
+            if data.get(f'gasmart_{fuel}_price'):
+                price_parts.append(f"{fuel.upper()}: ${data[f'gasmart_{fuel}_price']}")
         if price_parts:
             parts.append(f"Prices: {', '.join(price_parts)}")
         
         # Competitor prices
         if data.get("competitor_prices"):
-            comp_count = len(data['competitor_prices'])
-            parts.append(f"Competitor prices: {comp_count} recorded")
+            parts.append(f"Competitors: {len(data['competitor_prices'])} recorded")
         
         if not parts:
             return None
@@ -531,17 +357,18 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
         # Build message
         msg = f"✅ Got it for {date_str}:\n"
         msg += "\n".join(f"• {p}" for p in parts)
+        
+        if tabs_updated:
+            msg += f"\n\n📊 Updated: {', '.join(tabs_updated)}"
+        
         msg += "\n\nWrong? Reply with correction."
         
         return msg
     
     def send_staff_confirmation(self, sender: str, message: str):
-        """
-        Send confirmation message back to staff via WhatsApp.
-        Uses Meta Cloud API if configured, falls back to Twilio.
-        """
+        """Send confirmation message back to staff"""
         try:
-            # Try Meta Cloud API first (for group messages)
+            # Try Meta Cloud API first
             if self.whatsapp_phone_id and self.whatsapp_token:
                 import requests
                 
@@ -551,7 +378,6 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     "Content-Type": "application/json"
                 }
                 
-                # Clean sender number (remove 'whatsapp:' prefix if present)
                 to_number = sender.replace('whatsapp:', '')
                 
                 payload = {
@@ -566,15 +392,12 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 if response.status_code == 200:
                     print(f"✅ Confirmation sent via Meta API to {sender}")
                     return True
-                else:
-                    print(f"⚠️ Meta API send failed: {response.status_code} - {response.text}")
             
             # Fallback to Twilio
             if self.twilio_sid and self.twilio_token:
                 from twilio.rest import Client
                 client = Client(self.twilio_sid, self.twilio_token)
                 
-                # Ensure sender has whatsapp: prefix for Twilio
                 to_number = sender if sender.startswith('whatsapp:') else f'whatsapp:{sender}'
                 
                 client.messages.create(
@@ -586,497 +409,53 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 print(f"✅ Confirmation sent via Twilio to {sender}")
                 return True
             
-            print("⚠️ No WhatsApp API configured for sending confirmations")
             return False
             
         except Exception as e:
             print(f"⚠️ Could not send confirmation: {e}")
             return False
     
-    def update_google_sheet(self, data: Dict):
-        """Update Google Sheet with extracted data - including delivery costs"""
-        try:
-            # Get or create "Daily_Report" worksheet
-            try:
-                worksheet = self.sheet.worksheet("Daily_Report")
-                
-                # Sync headers — includes new delivery cost columns
-                current_headers = worksheet.row_values(1)
-                expected_headers = [
-                    "Date", "Day", "Store_Sales", "Phone_Cards", "Deli_Sales",
-                    "Gas_Revenue_Est", "Total_Revenue",
-                    "Gas_87_Litres", "Gas_90_Litres", "Gas_ADO_Litres", "Gas_ULSD_Litres", "Total_Litres",
-                    "Opening_87_Litres", "Opening_90_Litres", "Opening_ADO_Litres", "Opening_ULSD_Litres",
-                    "Closing_87_Litres", "Closing_90_Litres", "Closing_ADO_Litres", "Closing_ULSD_Litres",
-                    "Delivery_87_Litres", "Delivery_90_Litres", "Delivery_ADO_Litres", "Delivery_ULSD_Litres",
-                    "Delivery_87_Cost", "Delivery_90_Cost", "Delivery_ADO_Cost", "Delivery_ULSD_Cost",
-                    "GasMart_87_Price", "GasMart_90_Price", "GasMart_ADO_Price", "GasMart_ULSD_Price",
-                    "Competitor_Prices",
-                    "Weather_Condition", "Weather_Temp_Max_C", "Weather_Rain_MM",
-                    "Notes"
-                ]
-                if current_headers != expected_headers:
-                    worksheet.update('A1:AK1', [expected_headers])
-                    print("📝 Sheet headers synced to v2 layout (37 columns with delivery costs)")
-            except:
-                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=40)
-                # Headers for v2 with delivery costs
-                headers = [
-                    "Date", "Day", "Store_Sales", "Phone_Cards", "Deli_Sales",
-                    "Gas_Revenue_Est", "Total_Revenue",
-                    "Gas_87_Litres", "Gas_90_Litres", "Gas_ADO_Litres", "Gas_ULSD_Litres", "Total_Litres",
-                    "Opening_87_Litres", "Opening_90_Litres", "Opening_ADO_Litres", "Opening_ULSD_Litres",
-                    "Closing_87_Litres", "Closing_90_Litres", "Closing_ADO_Litres", "Closing_ULSD_Litres",
-                    "Delivery_87_Litres", "Delivery_90_Litres", "Delivery_ADO_Litres", "Delivery_ULSD_Litres",
-                    "Delivery_87_Cost", "Delivery_90_Cost", "Delivery_ADO_Cost", "Delivery_ULSD_Cost",
-                    "GasMart_87_Price", "GasMart_90_Price", "GasMart_ADO_Price", "GasMart_ULSD_Price",
-                    "Competitor_Prices",
-                    "Weather_Condition", "Weather_Temp_Max_C", "Weather_Rain_MM",
-                    "Notes"
-                ]
-                worksheet.append_row(headers)
-                
-                # Format header row
-                worksheet.format('A1:AK1', {
-                    "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.86},
-                    "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
-                    "horizontalAlignment": "CENTER"
-                })
-            
-            # Parse date and get day of week
-            date_str = data.get("date")
-            
-            # Special handling for price updates without dates
-            if not date_str and any([data.get("gasmart_87_price"), data.get("gasmart_90_price")]):
-                existing_dates = worksheet.col_values(1)[1:]
-                if existing_dates:
-                    date_str = existing_dates[-1]
-                    print(f"💲 Price update - using most recent date: {date_str}")
-                else:
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    print(f"💲 Price update - using today's date: {date_str}")
-            
-            if not date_str:
-                print("⚠️ No date found and no price data, skipping...")
-                return
-                
-            try:
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-                day_of_week = date_obj.strftime("%A")
-            except:
-                day_of_week = ""
-            
-            # Get business unit data
-            store_sales = data.get("store_sales") or ""
-            phone_cards = data.get("phone_cards") or ""
-            deli_sales = data.get("deli_sales") or ""
-            
-            # Gas data
-            gas_87 = data.get("gas_87") or 0
-            gas_90 = data.get("gas_90") or 0
-            gas_ado = data.get("gas_ado") or 0
-            gas_ulsd = data.get("gas_ulsd") or 0
-            total_litres = gas_87 + gas_90 + gas_ado + gas_ulsd if any([gas_87, gas_90, gas_ado, gas_ulsd]) else ""
-            
-            # Pricing data
-            price_87 = data.get("gasmart_87_price") or ""
-            price_90 = data.get("gasmart_90_price") or ""
-            price_ado = data.get("gasmart_ado_price") or ""
-            price_ulsd = data.get("gasmart_ulsd_price") or ""
-            
-            # Morning dips
-            opening_87 = data.get("opening_87") or ""
-            opening_90 = data.get("opening_90") or ""
-            opening_ado = data.get("opening_ado") or ""
-            opening_ulsd = data.get("opening_ulsd") or ""
-            
-            # Closing dips
-            closing_87 = data.get("closing_87") or ""
-            closing_90 = data.get("closing_90") or ""
-            closing_ado = data.get("closing_ado") or ""
-            closing_ulsd = data.get("closing_ulsd") or ""
-            
-            # Delivery data (litres and cost)
-            delivery_87 = data.get("delivery_87") or ""
-            delivery_90 = data.get("delivery_90") or ""
-            delivery_ado = data.get("delivery_ado") or ""
-            delivery_ulsd = data.get("delivery_ulsd") or ""
-            delivery_87_cost = data.get("delivery_87_cost") or ""
-            delivery_90_cost = data.get("delivery_90_cost") or ""
-            delivery_ado_cost = data.get("delivery_ado_cost") or ""
-            delivery_ulsd_cost = data.get("delivery_ulsd_cost") or ""
-            
-            # Competitor prices
-            competitor_prices = data.get("competitor_prices", [])
-            competitor_str = json.dumps(competitor_prices) if competitor_prices else ""
-            
-            # Weather
-            weather_condition = ""
-            weather_temp = ""
-            weather_rain = ""
-            try:
-                from weather_service import get_weather_for_date
-                weather = get_weather_for_date(date_str)
-                if weather:
-                    weather_condition = weather.get("condition", "")
-                    weather_temp = weather.get("temp_max_c", "")
-                    weather_rain = weather.get("rain_mm", "")
-            except Exception as e:
-                print(f"⚠️ Weather pull skipped: {e}")
-            
-            # Check if we already have data for this date
-            existing_dates = worksheet.col_values(1)[1:]
-            if date_str in existing_dates:
-                # Update existing row
-                row_index = existing_dates.index(date_str) + 2
-                print(f"📝 Updating existing row for {date_str}")
-                
-                existing_row = worksheet.row_values(row_index)
-                
-                # Helper to get existing value
-                def get_existing(col_idx, default=""):
-                    return existing_row[col_idx] if len(existing_row) > col_idx and existing_row[col_idx] else default
-                
-                def safe_float_existing(col_idx):
-                    val = get_existing(col_idx, "0")
-                    try:
-                        return float(str(val).replace('$','').replace(',','').strip())
-                    except:
-                        return 0
-                
-                # Merge new data with existing (new data takes precedence if not empty)
-                def merge(new_val, col_idx):
-                    return new_val if new_val != "" else get_existing(col_idx)
-                
-                # Calculate gas revenue with updated/existing data
-                current_gas_87 = gas_87 if gas_87 else safe_float_existing(7)
-                current_gas_90 = gas_90 if gas_90 else safe_float_existing(8)
-                current_gas_ado = gas_ado if gas_ado else safe_float_existing(9)
-                current_gas_ulsd = gas_ulsd if gas_ulsd else safe_float_existing(10)
-                
-                current_price_87 = price_87 if price_87 != "" else safe_float_existing(28)
-                current_price_90 = price_90 if price_90 != "" else safe_float_existing(29)
-                current_price_ado = price_ado if price_ado != "" else safe_float_existing(30)
-                current_price_ulsd = price_ulsd if price_ulsd != "" else safe_float_existing(31)
-                
-                # Calculate gas revenue
-                gas_revenue = ""
-                if all([current_gas_87, current_gas_90, current_price_87, current_price_90]):
-                    gas_revenue = (current_gas_87 * current_price_87) + (current_gas_90 * current_price_90)
-                    if current_gas_ado and current_price_ado:
-                        gas_revenue += current_gas_ado * current_price_ado
-                    if current_gas_ulsd and current_price_ulsd:
-                        gas_revenue += current_gas_ulsd * current_price_ulsd
-                
-                # Get store/phone/deli
-                current_store = store_sales if store_sales != "" else safe_float_existing(2)
-                current_phone = phone_cards if phone_cards != "" else safe_float_existing(3)
-                current_deli = deli_sales if deli_sales != "" else safe_float_existing(4)
-                
-                # Calculate total revenue
-                total_revenue = ""
-                if any([current_store, current_phone, current_deli, gas_revenue]):
-                    total_revenue = sum([x for x in [current_store, current_phone, current_deli, gas_revenue] if x])
-                
-                # Build merged row
-                row = [
-                    date_str,                                        # A - Date
-                    day_of_week,                                     # B - Day
-                    merge(store_sales, 2),                           # C - Store_Sales
-                    merge(phone_cards, 3),                           # D - Phone_Cards
-                    merge(deli_sales, 4),                            # E - Deli_Sales
-                    gas_revenue if gas_revenue != "" else get_existing(5),  # F - Gas_Revenue_Est
-                    total_revenue if total_revenue != "" else get_existing(6),  # G - Total_Revenue
-                    current_gas_87 if current_gas_87 else "",        # H - Gas_87_Litres
-                    current_gas_90 if current_gas_90 else "",        # I - Gas_90_Litres
-                    current_gas_ado if current_gas_ado else "",      # J - Gas_ADO_Litres
-                    current_gas_ulsd if current_gas_ulsd else "",    # K - Gas_ULSD_Litres
-                    merge(total_litres, 11),                         # L - Total_Litres
-                    merge(opening_87, 12),                           # M - Opening_87
-                    merge(opening_90, 13),                           # N - Opening_90
-                    merge(opening_ado, 14),                          # O - Opening_ADO
-                    merge(opening_ulsd, 15),                         # P - Opening_ULSD
-                    merge(closing_87, 16),                           # Q - Closing_87
-                    merge(closing_90, 17),                           # R - Closing_90
-                    merge(closing_ado, 18),                          # S - Closing_ADO
-                    merge(closing_ulsd, 19),                         # T - Closing_ULSD
-                    merge(delivery_87, 20),                          # U - Delivery_87_Litres
-                    merge(delivery_90, 21),                          # V - Delivery_90_Litres
-                    merge(delivery_ado, 22),                         # W - Delivery_ADO_Litres
-                    merge(delivery_ulsd, 23),                        # X - Delivery_ULSD_Litres
-                    merge(delivery_87_cost, 24),                     # Y - Delivery_87_Cost
-                    merge(delivery_90_cost, 25),                     # Z - Delivery_90_Cost
-                    merge(delivery_ado_cost, 26),                    # AA - Delivery_ADO_Cost
-                    merge(delivery_ulsd_cost, 27),                   # AB - Delivery_ULSD_Cost
-                    merge(price_87, 28),                             # AC - GasMart_87_Price
-                    merge(price_90, 29),                             # AD - GasMart_90_Price
-                    merge(price_ado, 30),                            # AE - GasMart_ADO_Price
-                    merge(price_ulsd, 31),                           # AF - GasMart_ULSD_Price
-                    merge(competitor_str, 32),                       # AG - Competitor_Prices
-                    merge(weather_condition, 33),                    # AH - Weather_Condition
-                    merge(weather_temp, 34),                         # AI - Weather_Temp
-                    merge(weather_rain, 35),                         # AJ - Weather_Rain
-                    data.get("notes") or get_existing(36)            # AK - Notes
-                ]
-                
-                worksheet.update(f'A{row_index}:AK{row_index}', [row])
-                last_row = row_index
-                
-            else:
-                # Append new row
-                gas_revenue = ""
-                if all([gas_87, gas_90, price_87, price_90]):
-                    gas_revenue = (gas_87 * price_87) + (gas_90 * price_90)
-                    if gas_ado and price_ado:
-                        gas_revenue += gas_ado * price_ado
-                    if gas_ulsd and price_ulsd:
-                        gas_revenue += gas_ulsd * price_ulsd
-                
-                total_revenue = ""
-                revenue_parts = [store_sales, phone_cards, deli_sales, gas_revenue]
-                if any([isinstance(x, (int, float)) and x != "" for x in revenue_parts]):
-                    total_revenue = sum([x for x in revenue_parts if isinstance(x, (int, float)) and x != ""])
-                
-                row = [
-                    date_str, day_of_week, store_sales, phone_cards, deli_sales,
-                    gas_revenue, total_revenue,
-                    gas_87 if gas_87 else "", gas_90 if gas_90 else "", gas_ado if gas_ado else "", gas_ulsd if gas_ulsd else "", total_litres,
-                    opening_87, opening_90, opening_ado, opening_ulsd,
-                    closing_87, closing_90, closing_ado, closing_ulsd,
-                    delivery_87, delivery_90, delivery_ado, delivery_ulsd,
-                    delivery_87_cost, delivery_90_cost, delivery_ado_cost, delivery_ulsd_cost,
-                    price_87, price_90, price_ado, price_ulsd,
-                    competitor_str,
-                    weather_condition, weather_temp, weather_rain,
-                    data.get("notes", "")
-                ]
-                
-                worksheet.append_row(row)
-                last_row = len(worksheet.get_all_values())
-            
-            print(f"✅ Updated Google Sheet with data for {date_str} ({day_of_week})")
-            
-        except Exception as e:
-            print(f"❌ Error updating Google Sheet: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    def run_weekly_analysis(self):
-        """Run comprehensive weekly analysis with autonomous insights"""
-        print("\n" + "="*60)
-        print("📊 RUNNING WEEKLY AUTONOMOUS ANALYSIS")
-        print("="*60)
-        
-        try:
-            # Get data from Google Sheet
-            worksheet = self.sheet.worksheet("Daily_Report")
-            all_data = worksheet.get_all_records()
-            
-            if len(all_data) < 7:
-                print(f"⚠️ Only {len(all_data)} days of data available")
-            
-            # Get last 7 days AND previous 7 days for comparison
-            this_week = all_data[-7:] if len(all_data) >= 7 else all_data
-            last_week = all_data[-14:-7] if len(all_data) >= 14 else []
-            
-            # Calculate key metrics
-            metrics = self.calculate_weekly_metrics(this_week, last_week)
-            
-            print(f"📈 Analyzing {len(this_week)} days of data")
-            print(f"📊 Week-over-week comparison: {len(last_week)} days vs {len(this_week)} days")
-            
-            # Enhanced analysis prompt with business context
-            analysis_prompt = f"""You are the AI Business Advisor for SuperPlus (GasMart) in rural Jamaica.
-
-BUSINESS CONTEXT:
-- 4 separate revenue streams: Gas Station, Community Store, Phone Cards (Western Union), Deli
-- Only business within 5-mile radius (competitive moat)
-- Serves rural community: farmers, government workers, local residents
-- Open 6am-9pm daily
-- Payday cycles: Government workers (monthly), local businesses (bi-weekly)
-- Weather impacts: Rain reduces foot traffic, hurricane season July-November
-
-THIS WEEK'S DATA:
-{json.dumps(this_week, indent=2)}
-
-LAST WEEK'S DATA (for comparison):
-{json.dumps(last_week, indent=2) if last_week else "No previous week data available"}
-
-CALCULATED METRICS:
-{json.dumps(metrics, indent=2)}
-
-YOUR TASK - Provide a comprehensive autonomous business analysis:
-
-## 📈 EXECUTIVE SUMMARY
-- 2-3 sentences: Overall performance, key trends, business health
-
-## 🎯 KEY INSIGHTS (Top 5)
-Identify the most important findings:
-1. Revenue trends across all 4 businesses
-2. Gas volume/margin patterns
-3. Customer behavior patterns (day-of-week, time trends)
-4. Operational issues or wins
-5. Market opportunities
-
-## ⚠️ CONCERNS & RISKS (Top 3)
-What needs immediate attention? Be specific with impact:
-- Revenue decline in specific area?
-- Inventory issues?
-- Margin compression?
-- Competitive threats?
-
-## 💡 AUTONOMOUS RECOMMENDATIONS
-Provide SPECIFIC, ACTIONABLE recommendations with expected ROI:
-
-**IMMEDIATE (This Week):**
-- What to do Monday morning
-- Quick wins (low effort, high impact)
-- Problems to fix now
-
-**SHORT-TERM (2-4 Weeks):**
-- Process improvements
-- Inventory optimizations
-- Staffing adjustments
-- Pricing strategies
-
-**STRATEGIC (1-3 Months):**
-- Revenue diversification
-- Market expansion
-- Operational efficiency
-- Customer retention
-
-## 📊 NEXT WEEK PROJECTIONS
-Based on patterns, predict next week's performance:
-- **Best Case:** If positive trends continue + favorable conditions
-- **Base Case:** Most likely scenario
-- **Cautious Case:** If risks materialize
-
-Provide specific numbers for:
-- Total Revenue projection
-- Each business unit
-- Key metrics to watch
-
-## 🔍 PATTERNS DETECTED
-What patterns has the agent learned?
-- Day-of-week trends
-- Payday effects
-- Weather correlations
-- Pricing sweet spots
-- Customer behavior
-
-## 📋 METRICS TO MONITOR
-What should I (the agent) watch closely this week?
-- Leading indicators
-- Early warning signs
-- Opportunity signals
-
-## 🤖 AGENT LEARNING
-What has the agent learned that improves future analysis?
-- New patterns discovered
-- Refined understanding
-- Hypothesis to test
-
-FORMAT:
-- Be conversational but professional
-- Use specific numbers and percentages
-- Focus on ACTIONABLE insights (not just reporting)
-- Think like a business advisor, not a data analyst
-- Highlight Jamaica-specific factors (payday cycles, weather, community dynamics)
-- Make bold recommendations with confidence when data supports it
-
-CRITICAL: Be an ADVISOR, not just a reporter. The owner should finish reading and know EXACTLY what to do."""
-
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4000,
-                temperature=0.3,
-                messages=[{
-                    "role": "user",
-                    "content": analysis_prompt
-                }]
-            )
-            
-            analysis = response.content[0].text
-            
-            # Log the analysis
-            print("\n" + "="*60)
-            print("WEEKLY ANALYSIS REPORT")
-            print("="*60)
-            print(analysis)
-            print("="*60 + "\n")
-            
-            # Send to owner via WhatsApp
-            self.send_weekly_report(analysis, metrics)
-            
-            # Update agent memory with new patterns
-            self.update_agent_memory(analysis, metrics)
-            
-            return analysis
-            
-        except Exception as e:
-            print(f"❌ Error running analysis: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
-    
     def calculate_weekly_metrics(self, this_week: List[Dict], last_week: List[Dict]) -> Dict:
-        """Calculate key metrics for analysis"""
+        """Calculate key metrics for analysis using sheet_manager data"""
         def safe_float(value):
-            """Safely convert any value to float, handling currency formatting"""
             if value is None or value == '':
                 return 0
             if isinstance(value, (int, float)):
                 return float(value)
-            cleaned = str(value).replace('$', '').replace(',', '').replace(' ', '').strip()
             try:
-                return float(cleaned) if cleaned else 0
-            except (ValueError, AttributeError):
+                return float(str(value).replace('$', '').replace(',', '').strip())
+            except:
                 return 0
         
         def safe_sum(data, field):
             return sum([safe_float(row.get(field, 0)) for row in data])
         
-        def safe_avg(data, field):
-            values = [safe_float(row.get(field, 0)) for row in data if row.get(field)]
-            return sum(values) / len(values) if values else 0
-        
         # This week metrics
-        tw_store = safe_sum(this_week, 'Store_Sales')
-        tw_phone = safe_sum(this_week, 'Phone_Cards')
-        tw_deli = safe_sum(this_week, 'Deli_Sales')
-        tw_gas_rev = safe_sum(this_week, 'Gas_Revenue_Est')
         tw_total = safe_sum(this_week, 'Total_Revenue')
-        
+        tw_gas = safe_sum(this_week, 'Gas_Revenue')
+        tw_store = safe_sum(this_week, 'Store_Sales')
+        tw_deli = safe_sum(this_week, 'Deli_Sales')
+        tw_phone = safe_sum(this_week, 'Phone_Cards')
         tw_litres = safe_sum(this_week, 'Total_Litres')
-        tw_87 = safe_sum(this_week, 'Gas_87_Litres')
-        tw_90 = safe_sum(this_week, 'Gas_90_Litres')
         
-        tw_avg_price_87 = safe_avg(this_week, 'GasMart_87_Price')
-        tw_avg_price_90 = safe_avg(this_week, 'GasMart_90_Price')
-        
-        # Last week metrics (for comparison)
+        # Last week
         lw_total = safe_sum(last_week, 'Total_Revenue') if last_week else 0
         lw_litres = safe_sum(last_week, 'Total_Litres') if last_week else 0
         
-        # Calculate week-over-week changes
+        # Week-over-week
         wow_revenue = ((tw_total - lw_total) / lw_total * 100) if lw_total > 0 else 0
         wow_litres = ((tw_litres - lw_litres) / lw_litres * 100) if lw_litres > 0 else 0
         
-        # Business unit percentages
         total_rev = tw_total if tw_total > 0 else 1
         
         return {
             "this_week": {
                 "total_revenue": tw_total,
+                "gas_revenue": tw_gas,
                 "store_sales": tw_store,
-                "phone_cards": tw_phone,
                 "deli_sales": tw_deli,
-                "gas_revenue": tw_gas_rev,
+                "phone_cards": tw_phone,
                 "total_litres": tw_litres,
-                "litres_87": tw_87,
-                "litres_90": tw_90,
-                "avg_price_87": tw_avg_price_87,
-                "avg_price_90": tw_avg_price_90,
                 "daily_avg_revenue": tw_total / len(this_week) if this_week else 0
             },
             "last_week": {
@@ -1088,293 +467,319 @@ CRITICAL: Be an ADVISOR, not just a reporter. The owner should finish reading an
                 "litres_change_pct": wow_litres
             },
             "business_mix": {
-                "gas_pct": (tw_gas_rev / total_rev * 100) if tw_gas_rev else 0,
+                "gas_pct": (tw_gas / total_rev * 100) if tw_gas else 0,
                 "store_pct": (tw_store / total_rev * 100) if tw_store else 0,
-                "phone_pct": (tw_phone / total_rev * 100) if tw_phone else 0,
-                "deli_pct": (tw_deli / total_rev * 100) if tw_deli else 0
-            },
-            "fuel_mix": {
-                "regular_87_pct": (tw_87 / tw_litres * 100) if tw_litres > 0 else 0,
-                "premium_90_pct": (tw_90 / tw_litres * 100) if tw_litres > 0 else 0
+                "deli_pct": (tw_deli / total_rev * 100) if tw_deli else 0,
+                "phone_pct": (tw_phone / total_rev * 100) if tw_phone else 0
             }
         }
     
-    def send_weekly_report(self, analysis: str, metrics: Dict):
-        """Send weekly report to owner via WhatsApp and Email"""
+    def run_weekly_analysis(self) -> str:
+        """Run comprehensive weekly analysis"""
+        print("\n" + "="*60)
+        print("📊 RUNNING WEEKLY AUTONOMOUS ANALYSIS")
+        print("="*60)
+        
         try:
-            # Send WhatsApp summary
-            summary = f"""📊 **SUPERPLUS WEEKLY REPORT**
-Week ending {datetime.now().strftime('%B %d, %Y')}
-
-💰 **REVENUE:** JMD ${metrics['this_week']['total_revenue']:,.0f}
-📈 **vs Last Week:** {metrics['week_over_week']['revenue_change_pct']:+.1f}%
-
-⛽ **GAS:** {metrics['this_week']['total_litres']:,.0f} litres ({metrics['week_over_week']['litres_change_pct']:+.1f}%)
-🏪 **STORE:** JMD ${metrics['this_week']['store_sales']:,.0f}
-🍽️ **DELI:** JMD ${metrics['this_week']['deli_sales']:,.0f}
-💳 **PHONE CARDS:** JMD ${metrics['this_week']['phone_cards']:,.0f}
-
-Check your email for the full detailed analysis with recommendations.
-
-- Your AI Business Agent"""
+            # Get data via sheet_manager
+            this_week = self.sheet_manager.get_daily_summaries(days=7)
+            last_week_data = self.sheet_manager.get_daily_summaries(days=14)
+            last_week = last_week_data[:-7] if len(last_week_data) > 7 else []
             
-            # Send via Twilio WhatsApp (outbound)
-            if self.twilio_sid and self.twilio_token:
-                from twilio.rest import Client
-                client = Client(self.twilio_sid, self.twilio_token)
-                
-                client.messages.create(
-                    from_=f'whatsapp:{self.twilio_number}',
-                    body=summary,
-                    to=f'whatsapp:{self.owner_phone}'
-                )
-                
-                print(f"✅ Weekly summary sent via WhatsApp to {self.owner_phone}")
+            if not this_week:
+                print("⚠️ No data available")
+                return "No data available for analysis"
             
-            # Send via Email (if configured)
-            sendgrid_key = os.getenv('SENDGRID_API_KEY')
-            html_content = None
+            metrics = self.calculate_weekly_metrics(this_week, last_week)
             
-            if sendgrid_key:
-                try:
-                    from email_reporter import EmailReporter
-                    email_reporter = EmailReporter()
-                    html_content = email_reporter.generate_weekly_html(analysis, metrics)
-                    email_reporter.send_weekly_report(analysis, metrics)
-                    print(f"✅ Weekly report sent via Email")
-                except Exception as e:
-                    print(f"⚠️ Could not send email: {e}")
-            else:
-                print(f"⚠️ SendGrid not configured - skipping email")
+            # Get fuel sales for detailed analysis
+            fuel_sales = self.sheet_manager.get_fuel_sales_range(days=7)
             
-            # Archive to Google Drive (if configured)
-            if self.sheet:
-                try:
-                    from drive_archiver import DriveArchiver
-                    drive = DriveArchiver()
-                    
-                    if html_content:
-                        drive_url = drive.upload_weekly_report(html_content, metrics)
-                        if drive_url:
-                            print(f"✅ Report archived to Google Drive")
-                    
-                    worksheet = self.sheet.worksheet("Daily_Report")
-                    all_data = worksheet.get_all_records()
-                    drive.upload_data_backup(all_data)
-                    
-                except Exception as e:
-                    print(f"⚠️ Could not archive to Drive: {e}")
+            # Get deliveries for cost analysis
+            deliveries = self.sheet_manager.get_deliveries_range(days=7)
+            
+            analysis_prompt = f"""You are the AI Business Advisor for SuperPlus (GasMart) in rural Jamaica.
+
+THIS WEEK'S DAILY SUMMARIES:
+{json.dumps(this_week, indent=2)}
+
+FUEL SALES DETAIL:
+{json.dumps(fuel_sales, indent=2)}
+
+FUEL DELIVERIES (with costs):
+{json.dumps(deliveries, indent=2)}
+
+CALCULATED METRICS:
+{json.dumps(metrics, indent=2)}
+
+Provide a comprehensive business analysis with:
+1. Executive Summary (2-3 sentences)
+2. Key Insights (top 5 findings)
+3. Concerns & Risks (top 3)
+4. Recommendations (immediate, short-term, strategic)
+5. Next week projections
+
+Be specific with numbers. Be an ADVISOR, not just a reporter."""
+
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                system="You are an expert business analyst for a Jamaican gas station and convenience store. Provide actionable insights.",
+                messages=[{"role": "user", "content": analysis_prompt}]
+            )
+            
+            analysis = response.content[0].text
+            
+            print("\n" + analysis)
+            
+            # Send to owner via Telegram
+            self.send_telegram_message(analysis)
+            
+            return analysis
             
         except Exception as e:
-            print(f"⚠️ Could not send report: {e}")
+            print(f"❌ Error in weekly analysis: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Error: {str(e)}"
     
-    def update_agent_memory(self, analysis: str, metrics: Dict):
-        """Update agent's long-term memory with new patterns"""
+    def send_telegram_message(self, message: str):
+        """Send message via Telegram"""
         try:
-            self.memory["patterns"]["last_analysis_date"] = datetime.now().isoformat()
-            self.memory["patterns"]["recent_metrics"] = metrics
-            print("✅ Agent memory updated with new patterns")
+            import requests
+            
+            token = os.getenv('TELEGRAM_BOT_TOKEN')
+            chat_id = os.getenv('TELEGRAM_CHAT_ID')
+            
+            if not token or not chat_id:
+                print("⚠️ Telegram not configured")
+                return
+            
+            # Split long messages
+            max_len = 4000
+            messages = [message[i:i+max_len] for i in range(0, len(message), max_len)]
+            
+            for msg in messages:
+                url = f"https://api.telegram.org/bot{token}/sendMessage"
+                payload = {
+                    "chat_id": chat_id,
+                    "text": msg,
+                    "parse_mode": "Markdown"
+                }
+                requests.post(url, json=payload)
+            
+            print("✅ Sent to Telegram")
+            
         except Exception as e:
-            print(f"⚠️ Could not update memory: {e}")
+            print(f"⚠️ Telegram error: {e}")
 
 
 # ============================================
-# FLASK WEB SERVER (for WhatsApp webhooks)
+# FLASK ROUTES
 # ============================================
 
-@app.route('/')
-def home():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "running",
-        "service": "SuperPlus AI Agent",
-        "version": "2.0",
-        "features": ["staff_confirmations", "delivery_cost_tracking"],
-        "timestamp": datetime.now().isoformat()
-    })
-
-@app.route('/webhook', methods=['GET', 'POST'])
-def webhook():
-    """WhatsApp webhook endpoint"""
+@app.route('/webhook/whatsapp', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    """Handle WhatsApp webhooks (Meta Cloud API)"""
+    global agent
     
     if request.method == 'GET':
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
-        
-        verify_token = os.getenv('WEBHOOK_VERIFY_TOKEN', 'superplus_verify_token')
-        
-        if mode == 'subscribe' and token == verify_token:
-            print("✅ Webhook verified")
-            return challenge, 200
-        else:
-            return 'Forbidden', 403
+        # Verification challenge
+        verify_token = os.getenv('WEBHOOK_VERIFY_TOKEN', 'superplus_verify')
+        if request.args.get('hub.verify_token') == verify_token:
+            return request.args.get('hub.challenge', '')
+        return 'Invalid verification token', 403
     
-    elif request.method == 'POST':
-        data = request.get_json(silent=True) or request.form.to_dict()
+    try:
+        data = request.get_json()
         
-        if not data:
-            return jsonify({"error": "No data received"}), 400
-        
-        print(f"\n📨 Webhook received: {json.dumps(data, indent=2)[:500]}...")
+        # Check if it's a status update (ignore)
+        if 'entry' in data:
+            changes = data['entry'][0].get('changes', [{}])[0]
+            if 'statuses' in changes.get('value', {}):
+                return jsonify({"status": "ignored", "reason": "status update"})
+            
+            # Check if there's an actual message
+            messages = changes.get('value', {}).get('messages', [])
+            if not messages:
+                return jsonify({"status": "ignored", "reason": "no messages"})
         
         if agent:
             result = agent.process_whatsapp_message(data)
-            return jsonify(result), 200
+            return jsonify(result)
         else:
             return jsonify({"error": "Agent not initialized"}), 500
-
-@app.route('/dashboard')
-def dashboard():
-    """Simple dashboard showing agent status"""
-    if agent:
-        status = {
-            "status": "running",
-            "version": "2.0",
-            "features": {
-                "staff_confirmations": True,
-                "delivery_cost_tracking": True
-            },
-            "messages_processed": len(agent.memory.get("messages", [])),
-            "last_processed": agent.memory.get("last_processed"),
-            "patterns_learned": len(agent.memory.get("patterns", {})),
-            "sheet_connected": agent.sheet is not None,
-            "whatsapp_configured": agent.whatsapp_phone_id is not None or agent.twilio_sid is not None,
-            "telegram_configured": os.getenv('TELEGRAM_BOT_TOKEN') is not None,
-            "email_configured": os.getenv('SENDGRID_API_KEY') is not None
-        }
-    else:
-        status = {"status": "not initialized"}
-    
-    return jsonify(status), 200
-
-@app.route('/test-email')
-def test_email():
-    """Test endpoint to send email report immediately"""
-    try:
-        if not agent:
-            return jsonify({"error": "Agent not initialized"}), 500
-        
-        print("📧 Testing email report...")
-        
-        worksheet = agent.sheet.worksheet("Daily_Report")
-        all_data = worksheet.get_all_records()
-        
-        this_week = all_data[-7:] if len(all_data) >= 7 else all_data
-        last_week = all_data[-14:-7] if len(all_data) >= 14 else []
-        
-        if not this_week:
-            return jsonify({"error": "No data available"}), 400
-        
-        metrics = agent.calculate_weekly_metrics(this_week, last_week)
-        analysis = "This is a test email report generated manually."
-        
-        sendgrid_key = os.getenv('SENDGRID_API_KEY')
-        if not sendgrid_key:
-            return jsonify({"error": "SendGrid not configured"}), 400
-        
-        from email_reporter import EmailReporter
-        email_reporter = EmailReporter()
-        success = email_reporter.send_weekly_report(analysis, metrics)
-        
-        if success:
-            return jsonify({
-                "status": "success",
-                "message": "Test email sent!",
-                "recipient": os.getenv('OWNER_EMAIL')
-            })
-        else:
-            return jsonify({"error": "Failed to send email"}), 500
             
     except Exception as e:
-        print(f"❌ Test email error: {e}")
+        print(f"❌ Webhook error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/webhook/twilio', methods=['POST'])
+def twilio_webhook():
+    """Handle Twilio WhatsApp webhooks"""
+    global agent
+    
+    try:
+        data = request.form.to_dict()
+        
+        if agent:
+            result = agent.process_whatsapp_message(data)
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Agent not initialized"}), 500
+            
+    except Exception as e:
+        print(f"❌ Twilio webhook error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "healthy",
+        "version": "3.0-multitab",
+        "timestamp": datetime.now().isoformat(),
+        "agent_initialized": agent is not None,
+        "sheet_manager": agent.sheet_manager is not None if agent else False
+    })
+
+
+@app.route('/status', methods=['GET'])
+def get_status():
+    """Get current status and metrics"""
+    global agent
+    
+    if not agent or not agent.sheet_manager:
+        return jsonify({"error": "Agent not initialized"}), 500
+    
+    try:
+        weekly = agent.sheet_manager.get_weekly_summary()
+        inventory = agent.sheet_manager.get_latest_inventory()
+        
+        return jsonify({
+            "weekly_summary": weekly,
+            "current_inventory": inventory,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/analysis', methods=['GET'])
+def run_analysis():
+    """Trigger weekly analysis"""
+    global agent
+    
+    if agent:
+        result = agent.run_weekly_analysis()
+        return jsonify({"analysis": result})
+    return jsonify({"error": "Agent not initialized"}), 500
+
+
+@app.route('/forecast', methods=['GET'])
+def get_forecast():
+    """Get demand forecast"""
+    global agent
+    
+    if not agent or not agent.sheet_manager:
+        return jsonify({"error": "Agent not initialized"}), 500
+    
+    try:
+        from demand_forecast import DemandForecaster
+        
+        forecaster = DemandForecaster()
+        
+        # Get fuel sales data for forecasting
+        fuel_sales = agent.sheet_manager.get_fuel_sales_range(days=28)
+        
+        # Convert to format forecaster expects
+        all_data = []
+        for sale in fuel_sales:
+            all_data.append({
+                'Date': sale.get('Date'),
+                'Gas_87_Litres': sale.get('Gas_87_Litres', 0),
+                'Gas_90_Litres': sale.get('Gas_90_Litres', 0),
+                'Gas_ADO_Litres': sale.get('Gas_ADO_Litres', 0),
+                'Gas_ULSD_Litres': sale.get('Gas_ULSD_Litres', 0),
+                'Opening_87_Litres': 0,  # Would need inventory data
+            })
+        
+        # Get inventory for projections
+        inventory = agent.sheet_manager.get_latest_inventory()
+        if inventory:
+            if all_data:
+                all_data[-1]['Opening_87_Litres'] = inventory.get('87', 0)
+                all_data[-1]['Opening_90_Litres'] = inventory.get('90', 0)
+                all_data[-1]['Opening_ADO_Litres'] = inventory.get('ado', 0)
+                all_data[-1]['Opening_ULSD_Litres'] = inventory.get('ulsd', 0)
+        
+        report = forecaster.generate_full_forecast_report(all_data)
+        text_report = forecaster.generate_forecast_text(all_data)
+        
+        return jsonify({
+            "report": report,
+            "text": text_report
+        })
+        
+    except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/run-analysis', methods=['POST'])
-def run_analysis_endpoint():
-    """Manual trigger for weekly analysis"""
-    if agent:
-        analysis = agent.run_weekly_analysis()
-        return jsonify({
-            "success": True,
-            "analysis": analysis
-        }), 200
-    else:
-        return jsonify({"error": "Agent not initialized"}), 500
-
 
 # ============================================
-# SCHEDULER (runs in background)
+# SCHEDULED TASKS
 # ============================================
 
 def run_scheduler():
-    """Background thread for scheduled tasks"""
+    """Run scheduled tasks in background"""
     while True:
         schedule.run_pending()
         time.sleep(60)
 
-def schedule_tasks():
-    """Set up scheduled tasks"""
-    try:
-        from alert_scheduler import AlertScheduler
-        alert_system = AlertScheduler(agent)
-        
-        schedule.every().day.at("08:00").do(lambda: alert_system.send_morning_briefing())
-        schedule.every().day.at("22:00").do(lambda: alert_system.send_evening_summary())
-        schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
-        
-        print("📅 Scheduled tasks configured:")
-        print("   - Morning briefing: Daily 8:00 AM")
-        print("   - Evening summary: Daily 10:00 PM")
-        print("   - Weekly analysis: Sunday 8:00 PM")
-        
-    except Exception as e:
-        print(f"⚠️ Could not initialize alert scheduler: {e}")
-        schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
-        print("📅 Scheduled: Weekly analysis Sunday 8:00 PM")
+
+def setup_schedules():
+    """Setup scheduled tasks"""
+    global agent
+    
+    # Weekly analysis every Sunday at 8 PM
+    schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
+    
+    # Morning forecast check at 6 AM
+    def morning_forecast():
+        if agent and agent.sheet_manager:
+            try:
+                from demand_forecast import check_and_send_order_alerts
+                check_and_send_order_alerts(agent)
+            except Exception as e:
+                print(f"❌ Morning forecast error: {e}")
+    
+    schedule.every().day.at("06:00").do(morning_forecast)
+    
+    print("📅 Scheduled tasks configured")
 
 
 # ============================================
 # MAIN
 # ============================================
 
-def main():
-    """Initialize and run the agent"""
+def create_app():
+    """Create and configure the Flask app"""
     global agent
     
-    print("\n" + "="*60)
-    print("🤖 SUPERPLUS AI AGENT STARTING (v2)")
-    print("="*60 + "\n")
-    
     agent = SuperPlusAgent()
+    setup_schedules()
     
-    telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    if telegram_bot_token:
-        try:
-            from telegram_bot import initialize_telegram_bot
-            telegram_bot = initialize_telegram_bot(agent)
-            print("✅ Telegram bot initialized")
-        except Exception as e:
-            print(f"⚠️ Telegram bot not available: {e}")
-    else:
-        print("⚠️ Telegram bot disabled (no token)")
-    
-    schedule_tasks()
-    
+    # Start scheduler in background
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
     
-    print("\n✅ Agent ready! (v2 with confirmations + delivery costs)")
-    print("="*60)
-    print(f"📡 Webhook URL: https://YOUR-RAILWAY-URL/webhook")
-    print(f"📊 Dashboard: https://YOUR-RAILWAY-URL/dashboard")
-    print("="*60 + "\n")
-    
-    port = int(os.getenv('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    return app
 
 
 if __name__ == "__main__":
-    main()
+    app = create_app()
+    port = int(os.getenv('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)

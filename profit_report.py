@@ -1,574 +1,304 @@
 """
-SuperPlus AI Agent - Profit Report
-Real profit margins using actual delivery costs
-Weekly profit report broken down by business unit
+SuperPlus AI Agent - Profit Report (v3 Multi-tab)
+Calculates actual profit using delivery costs from Fuel_Deliveries tab
 """
 
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List
-import json
+from typing import Dict, List, Optional
 
 
-class ProfitReport:
+class ProfitCalculator:
     """
-    Calculate and report actual profit margins using delivery cost data.
-    This replaces estimated margins with real margins.
+    Calculate profit using actual delivery costs from multi-tab structure.
     """
     
-    def __init__(self, agent):
-        self.agent = agent
+    def __init__(self, sheet_manager):
+        """
+        Initialize with sheet_manager instance.
         
-        # Default costs (fallback when no delivery cost recorded)
+        Args:
+            sheet_manager: SheetManager instance for data access
+        """
+        self.sm = sheet_manager
+        
+        # Default costs (fallback if no delivery data)
         self.default_costs = {
-            '87': float(os.getenv('COST_87', '158.00')),
-            '90': float(os.getenv('COST_90', '168.00')),
-            'ado': float(os.getenv('COST_ADO', '172.00')),
-            'ulsd': float(os.getenv('COST_ULSD', '178.00'))
+            '87': float(os.getenv('COST_87', '158')),
+            '90': float(os.getenv('COST_90', '168')),
+            'ADO': float(os.getenv('COST_ADO', '172')),
+            'ULSD': float(os.getenv('COST_ULSD', '178'))
         }
         
-        # Estimated margins for non-gas businesses (% of revenue)
-        # These are rough estimates - can be refined with actual data
-        self.estimated_margins = {
-            'store': float(os.getenv('STORE_MARGIN_PCT', '25')),   # Convenience store typical
-            'deli': float(os.getenv('DELI_MARGIN_PCT', '35')),     # Food service higher
-            'phone': float(os.getenv('PHONE_MARGIN_PCT', '8'))     # Low margin, high volume
-        }
-    
-    def get_fuel_cost_for_date(self, all_data: List[Dict], target_date: str, fuel_type: str) -> float:
-        """
-        Get the most recent delivery cost for a fuel type as of a given date.
-        Uses FIFO-like logic: cost from most recent delivery before/on that date.
-        Falls back to default if no delivery cost found.
-        """
-        cost_key = f"Delivery_{fuel_type.upper()}_Cost"
-        
-        # Sort by date and find most recent delivery cost
-        for row in reversed(all_data):
-            row_date = row.get('Date', '')
-            if row_date <= target_date:
-                cost = self._safe_float(row.get(cost_key))
-                if cost > 0:
-                    return cost
-        
-        # Fallback to default
-        return self.default_costs.get(fuel_type.lower(), 0)
+        # Margin estimates for non-gas units
+        self.store_margin = float(os.getenv('STORE_MARGIN_PCT', '25')) / 100
+        self.deli_margin = float(os.getenv('DELI_MARGIN_PCT', '35')) / 100
+        self.phone_margin = float(os.getenv('PHONE_MARGIN_PCT', '8')) / 100
     
     def _safe_float(self, val) -> float:
         """Safely convert to float"""
-        if not val or val == '':
+        if val is None or val == '':
             return 0
+        if isinstance(val, (int, float)):
+            return float(val)
         try:
             return float(str(val).replace(',', '').replace('$', '').strip())
         except:
             return 0
     
-    def calculate_daily_gas_profit(self, row: Dict, all_data: List[Dict]) -> Dict:
+    def get_fuel_cost_for_date(self, fuel_type: str, target_date: str) -> float:
         """
-        Calculate actual gas profit for a single day using real costs.
-        Returns breakdown by fuel type.
+        Get the fuel cost for a specific date.
+        Uses most recent delivery cost on or before target date.
+        Falls back to default if no delivery found.
         """
-        date = row.get('Date', '')
+        fuel_type = fuel_type.upper()
+        deliveries = self.sm.get_deliveries_range(days=90)
         
-        result = {
-            'date': date,
-            'fuels': {},
-            'total_revenue': 0,
-            'total_cost': 0,
-            'total_profit': 0
-        }
+        # Find most recent delivery on or before target date
+        for delivery in reversed(deliveries):
+            if delivery.get('Fuel_Type', '').upper() == fuel_type:
+                delivery_date = delivery.get('Date', '')
+                if delivery_date <= target_date:
+                    cost = self._safe_float(delivery.get('Cost_Per_Litre', 0))
+                    if cost > 0:
+                        return cost
         
-        for fuel in ['87', '90', 'ado', 'ulsd']:
-            litres = self._safe_float(row.get(f'Gas_{fuel.upper()}_Litres', 0))
-            price = self._safe_float(row.get(f'GasMart_{fuel.upper()}_Price', 0))
+        # Fallback to default
+        return self.default_costs.get(fuel_type, 160)
+    
+    def calculate_daily_gas_profit(self, date_str: str) -> Dict:
+        """
+        Calculate gas profit for a specific date using actual costs.
+        """
+        fuel_sales = self.sm.get_fuel_sales(date_str)
+        
+        if not fuel_sales:
+            return {'date': date_str, 'profit': 0, 'details': {}}
+        
+        details = {}
+        total_profit = 0
+        total_revenue = 0
+        total_cost = 0
+        
+        for fuel in ['87', '90', 'ADO', 'ULSD']:
+            litres = self._safe_float(fuel_sales.get(f'Gas_{fuel}_Litres', 0))
+            price = self._safe_float(fuel_sales.get(f'Price_{fuel}', 0))
             
-            if litres > 0 and price > 0:
-                # Get actual cost from delivery data
-                cost_per_litre = self.get_fuel_cost_for_date(all_data, date, fuel)
+            if litres and price:
+                cost_per_litre = self.get_fuel_cost_for_date(fuel, date_str)
                 
                 revenue = litres * price
                 cost = litres * cost_per_litre
                 profit = revenue - cost
                 margin_pct = (profit / revenue * 100) if revenue > 0 else 0
                 
-                result['fuels'][fuel] = {
+                details[fuel] = {
                     'litres': litres,
                     'sell_price': price,
-                    'cost_per_litre': cost_per_litre,
+                    'cost_price': cost_per_litre,
                     'revenue': revenue,
                     'cost': cost,
                     'profit': profit,
                     'margin_pct': margin_pct,
-                    'using_default_cost': cost_per_litre == self.default_costs.get(fuel.lower())
+                    'profit_per_litre': profit / litres if litres > 0 else 0
                 }
                 
-                result['total_revenue'] += revenue
-                result['total_cost'] += cost
-                result['total_profit'] += profit
+                total_profit += profit
+                total_revenue += revenue
+                total_cost += cost
         
-        return result
-    
-    def calculate_weekly_profit(self, all_data: List[Dict]) -> Dict:
-        """
-        Calculate comprehensive weekly profit report.
-        Breaks down by business unit with real margins.
-        """
-        # Get last 7 days
-        this_week = all_data[-7:] if len(all_data) >= 7 else all_data
-        last_week = all_data[-14:-7] if len(all_data) >= 14 else []
-        
-        report = {
-            'period': {
-                'start': this_week[0].get('Date') if this_week else '',
-                'end': this_week[-1].get('Date') if this_week else '',
-                'days': len(this_week)
-            },
-            'gas_station': self._calc_gas_profit(this_week, all_data),
-            'store': self._calc_store_profit(this_week),
-            'deli': self._calc_deli_profit(this_week),
-            'phone_cards': self._calc_phone_profit(this_week),
-            'total': {},
-            'comparison': {}
-        }
-        
-        # Calculate totals
-        total_revenue = (
-            report['gas_station']['revenue'] +
-            report['store']['revenue'] +
-            report['deli']['revenue'] +
-            report['phone_cards']['revenue']
-        )
-        
-        total_profit = (
-            report['gas_station']['profit'] +
-            report['store']['profit'] +
-            report['deli']['profit'] +
-            report['phone_cards']['profit']
-        )
-        
-        report['total'] = {
-            'revenue': total_revenue,
+        return {
+            'date': date_str,
             'profit': total_profit,
+            'revenue': total_revenue,
+            'cost': total_cost,
             'margin_pct': (total_profit / total_revenue * 100) if total_revenue > 0 else 0,
-            'daily_avg_profit': total_profit / len(this_week) if this_week else 0
+            'details': details
         }
-        
-        # Calculate comparison to last week
-        if last_week:
-            lw_report = {
-                'gas_station': self._calc_gas_profit(last_week, all_data),
-                'store': self._calc_store_profit(last_week),
-                'deli': self._calc_deli_profit(last_week),
-                'phone_cards': self._calc_phone_profit(last_week)
-            }
-            
-            lw_total_profit = sum([lw_report[k]['profit'] for k in lw_report])
-            
-            report['comparison'] = {
-                'last_week_profit': lw_total_profit,
-                'profit_change': total_profit - lw_total_profit,
-                'profit_change_pct': ((total_profit - lw_total_profit) / lw_total_profit * 100) if lw_total_profit > 0 else 0
-            }
-        
-        return report
     
-    def _calc_gas_profit(self, rows: List[Dict], all_data: List[Dict]) -> Dict:
-        """Calculate gas station profit with real costs"""
-        total_revenue = 0
-        total_cost = 0
-        total_litres = 0
-        fuel_breakdown = {}
+    def calculate_weekly_profit(self, weeks_back: int = 0) -> Dict:
+        """
+        Calculate comprehensive weekly profit breakdown.
+        """
+        # Get date range
+        today = datetime.now()
+        week_start = today - timedelta(days=today.weekday() + (weeks_back * 7))
+        week_end = week_start + timedelta(days=6)
         
-        for row in rows:
-            daily = self.calculate_daily_gas_profit(row, all_data)
-            total_revenue += daily['total_revenue']
-            total_cost += daily['total_cost']
+        # Get daily summaries for non-gas revenue
+        daily_summaries = self.sm.get_daily_summaries(days=14)
+        week_summaries = [
+            s for s in daily_summaries
+            if week_start.strftime('%Y-%m-%d') <= s.get('Date', '') <= week_end.strftime('%Y-%m-%d')
+        ]
+        
+        # Get fuel sales for gas calculations
+        fuel_sales = self.sm.get_fuel_sales_range(days=14)
+        week_fuel = [
+            f for f in fuel_sales
+            if week_start.strftime('%Y-%m-%d') <= f.get('Date', '') <= week_end.strftime('%Y-%m-%d')
+        ]
+        
+        # Calculate gas profit day by day
+        gas_profit_total = 0
+        gas_revenue_total = 0
+        gas_cost_total = 0
+        fuel_breakdown = {'87': {'litres': 0, 'revenue': 0, 'cost': 0, 'profit': 0},
+                         '90': {'litres': 0, 'revenue': 0, 'cost': 0, 'profit': 0},
+                         'ADO': {'litres': 0, 'revenue': 0, 'cost': 0, 'profit': 0},
+                         'ULSD': {'litres': 0, 'revenue': 0, 'cost': 0, 'profit': 0}}
+        
+        for sale in week_fuel:
+            date_str = sale.get('Date', '')
+            daily = self.calculate_daily_gas_profit(date_str)
             
-            # Aggregate fuel breakdown
-            for fuel, data in daily['fuels'].items():
-                if fuel not in fuel_breakdown:
-                    fuel_breakdown[fuel] = {
-                        'litres': 0, 'revenue': 0, 'cost': 0, 'profit': 0
-                    }
+            gas_profit_total += daily['profit']
+            gas_revenue_total += daily['revenue']
+            gas_cost_total += daily['cost']
+            
+            for fuel, data in daily['details'].items():
                 fuel_breakdown[fuel]['litres'] += data['litres']
                 fuel_breakdown[fuel]['revenue'] += data['revenue']
                 fuel_breakdown[fuel]['cost'] += data['cost']
                 fuel_breakdown[fuel]['profit'] += data['profit']
-                total_litres += data['litres']
         
-        profit = total_revenue - total_cost
+        # Calculate margin % for each fuel
+        for fuel in fuel_breakdown:
+            fb = fuel_breakdown[fuel]
+            fb['margin_pct'] = (fb['profit'] / fb['revenue'] * 100) if fb['revenue'] > 0 else 0
         
-        return {
-            'revenue': total_revenue,
-            'cost': total_cost,
-            'profit': profit,
-            'margin_pct': (profit / total_revenue * 100) if total_revenue > 0 else 0,
-            'litres': total_litres,
-            'profit_per_litre': profit / total_litres if total_litres > 0 else 0,
-            'fuel_breakdown': fuel_breakdown
-        }
-    
-    def _calc_store_profit(self, rows: List[Dict]) -> Dict:
-        """Calculate store profit using estimated margin"""
-        revenue = sum([self._safe_float(row.get('Store_Sales', 0)) for row in rows])
-        margin_pct = self.estimated_margins['store']
-        profit = revenue * (margin_pct / 100)
+        # Non-gas profit (estimated margins)
+        store_revenue = sum([self._safe_float(s.get('Store_Sales', 0)) for s in week_summaries])
+        deli_revenue = sum([self._safe_float(s.get('Deli_Sales', 0)) for s in week_summaries])
+        phone_revenue = sum([self._safe_float(s.get('Phone_Cards', 0)) for s in week_summaries])
+        
+        store_profit = store_revenue * self.store_margin
+        deli_profit = deli_revenue * self.deli_margin
+        phone_profit = phone_revenue * self.phone_margin
+        
+        total_revenue = gas_revenue_total + store_revenue + deli_revenue + phone_revenue
+        total_profit = gas_profit_total + store_profit + deli_profit + phone_profit
         
         return {
-            'revenue': revenue,
-            'profit': profit,
-            'margin_pct': margin_pct,
-            'margin_type': 'estimated'
+            'week_start': week_start.strftime('%Y-%m-%d'),
+            'week_end': week_end.strftime('%Y-%m-%d'),
+            'days': len(week_summaries),
+            
+            'total_revenue': total_revenue,
+            'total_profit': total_profit,
+            'total_margin_pct': (total_profit / total_revenue * 100) if total_revenue > 0 else 0,
+            
+            'gas': {
+                'revenue': gas_revenue_total,
+                'cost': gas_cost_total,
+                'profit': gas_profit_total,
+                'margin_pct': (gas_profit_total / gas_revenue_total * 100) if gas_revenue_total > 0 else 0,
+                'by_fuel': fuel_breakdown
+            },
+            
+            'store': {
+                'revenue': store_revenue,
+                'profit': store_profit,
+                'margin_pct': self.store_margin * 100
+            },
+            
+            'deli': {
+                'revenue': deli_revenue,
+                'profit': deli_profit,
+                'margin_pct': self.deli_margin * 100
+            },
+            
+            'phone': {
+                'revenue': phone_revenue,
+                'profit': phone_profit,
+                'margin_pct': self.phone_margin * 100
+            },
+            
+            'daily_avg_profit': total_profit / len(week_summaries) if week_summaries else 0
         }
     
-    def _calc_deli_profit(self, rows: List[Dict]) -> Dict:
-        """Calculate deli profit using estimated margin"""
-        revenue = sum([self._safe_float(row.get('Deli_Sales', 0)) for row in rows])
-        margin_pct = self.estimated_margins['deli']
-        profit = revenue * (margin_pct / 100)
+    def generate_weekly_profit_report(self, weeks_back: int = 0) -> Dict:
+        """
+        Generate formatted profit report with text and data.
+        """
+        data = self.calculate_weekly_profit(weeks_back)
+        
+        # Generate text report
+        text = f"💰 **PROFIT REPORT**\n"
+        text += f"_{data['week_start']} to {data['week_end']}_\n"
+        text += f"({data['days']} days)\n\n"
+        
+        text += f"**TOTAL PROFIT:** ${data['total_profit']:,.0f}\n"
+        text += f"**Margin:** {data['total_margin_pct']:.1f}%\n"
+        text += f"**Daily Avg:** ${data['daily_avg_profit']:,.0f}\n\n"
+        
+        # Gas breakdown
+        text += "⛽ **GAS STATION**\n"
+        text += f"Revenue: ${data['gas']['revenue']:,.0f}\n"
+        text += f"Cost: ${data['gas']['cost']:,.0f}\n"
+        text += f"Profit: ${data['gas']['profit']:,.0f} ({data['gas']['margin_pct']:.1f}%)\n\n"
+        
+        # By fuel type
+        text += "By Fuel:\n"
+        for fuel in ['87', '90', 'ADO', 'ULSD']:
+            fb = data['gas']['by_fuel'][fuel]
+            if fb['litres'] > 0:
+                text += f"  {fuel}: ${fb['profit']:,.0f} ({fb['margin_pct']:.1f}%)\n"
+        
+        text += "\n"
+        
+        # Other units
+        text += f"🏪 **STORE:** ${data['store']['profit']:,.0f}\n"
+        text += f"   ({data['store']['margin_pct']:.0f}% est. margin)\n"
+        
+        text += f"🍔 **DELI:** ${data['deli']['profit']:,.0f}\n"
+        text += f"   ({data['deli']['margin_pct']:.0f}% est. margin)\n"
+        
+        text += f"📱 **PHONE:** ${data['phone']['profit']:,.0f}\n"
+        text += f"   ({data['phone']['margin_pct']:.0f}% est. margin)\n"
+        
+        # Compare to last week
+        last_week = self.calculate_weekly_profit(weeks_back + 1)
+        if last_week['total_profit'] > 0:
+            change = data['total_profit'] - last_week['total_profit']
+            change_pct = (change / last_week['total_profit'] * 100)
+            
+            arrow = "📈" if change > 0 else "📉"
+            text += f"\n{arrow} vs Last Week: {change_pct:+.1f}%"
         
         return {
-            'revenue': revenue,
-            'profit': profit,
-            'margin_pct': margin_pct,
-            'margin_type': 'estimated'
+            'text': text,
+            'data': data
         }
     
-    def _calc_phone_profit(self, rows: List[Dict]) -> Dict:
-        """Calculate phone cards profit using estimated margin"""
-        revenue = sum([self._safe_float(row.get('Phone_Cards', 0)) for row in rows])
-        margin_pct = self.estimated_margins['phone']
-        profit = revenue * (margin_pct / 100)
+    def generate_margin_analysis(self) -> str:
+        """Generate detailed margin analysis text"""
+        data = self.calculate_weekly_profit()
         
-        return {
-            'revenue': revenue,
-            'profit': profit,
-            'margin_pct': margin_pct,
-            'margin_type': 'estimated'
-        }
-    
-    def generate_profit_report_text(self, all_data: List[Dict]) -> str:
-        """Generate formatted text profit report for WhatsApp/Telegram"""
-        report = self.calculate_weekly_profit(all_data)
+        text = "📊 **MARGIN ANALYSIS**\n\n"
         
-        text = f"""💰 **WEEKLY PROFIT REPORT**
-{report['period']['start']} to {report['period']['end']}
-
-**SUMMARY:**
-Total Revenue: JMD ${report['total']['revenue']:,.0f}
-**Total Profit: JMD ${report['total']['profit']:,.0f}**
-Overall Margin: {report['total']['margin_pct']:.1f}%
-Daily Avg Profit: JMD ${report['total']['daily_avg_profit']:,.0f}
-
-**BY BUSINESS UNIT:**
-
-⛽ **Gas Station** (actual costs)
-Revenue: ${report['gas_station']['revenue']:,.0f}
-Profit: ${report['gas_station']['profit']:,.0f}
-Margin: {report['gas_station']['margin_pct']:.1f}%
-Profit/Litre: ${report['gas_station']['profit_per_litre']:.2f}
-"""
+        text += "⛽ **Fuel Margins:**\n"
+        for fuel in ['87', '90', 'ADO', 'ULSD']:
+            fb = data['gas']['by_fuel'][fuel]
+            if fb['litres'] > 0:
+                profit_per_litre = fb['profit'] / fb['litres']
+                text += f"**{fuel}:**\n"
+                text += f"  Litres: {fb['litres']:,.0f}L\n"
+                text += f"  Revenue: ${fb['revenue']:,.0f}\n"
+                text += f"  Profit: ${fb['profit']:,.0f}\n"
+                text += f"  Margin: {fb['margin_pct']:.1f}%\n"
+                text += f"  $/Litre: ${profit_per_litre:.2f}\n\n"
         
-        # Fuel breakdown
-        for fuel, data in report['gas_station'].get('fuel_breakdown', {}).items():
-            if data['litres'] > 0:
-                fuel_margin = (data['profit'] / data['revenue'] * 100) if data['revenue'] > 0 else 0
-                text += f"  • {fuel.upper()}: {data['litres']:,.0f}L → ${data['profit']:,.0f} ({fuel_margin:.1f}%)\n"
+        # Best/worst performer
+        performers = [(f, data['gas']['by_fuel'][f]) for f in ['87', '90', 'ADO', 'ULSD'] 
+                     if data['gas']['by_fuel'][f]['litres'] > 0]
         
-        text += f"""
-🏪 **Community Store** (est. {report['store']['margin_pct']:.0f}% margin)
-Revenue: ${report['store']['revenue']:,.0f}
-Profit: ${report['store']['profit']:,.0f}
-
-🍽️ **Deli** (est. {report['deli']['margin_pct']:.0f}% margin)
-Revenue: ${report['deli']['revenue']:,.0f}
-Profit: ${report['deli']['profit']:,.0f}
-
-💳 **Phone Cards** (est. {report['phone_cards']['margin_pct']:.0f}% margin)
-Revenue: ${report['phone_cards']['revenue']:,.0f}
-Profit: ${report['phone_cards']['profit']:,.0f}
-"""
-        
-        # Comparison
-        if report['comparison']:
-            change = report['comparison']['profit_change']
-            change_pct = report['comparison']['profit_change_pct']
-            emoji = "📈" if change > 0 else "📉"
-            text += f"""
-**vs LAST WEEK:**
-{emoji} Profit change: ${change:+,.0f} ({change_pct:+.1f}%)
-"""
-        
-        # Insights
-        text += "\n**💡 INSIGHTS:**\n"
-        
-        # Check gas margins
-        gas_margin = report['gas_station']['margin_pct']
-        if gas_margin < 5:
-            text += "⚠️ Gas margins below 5% - review pricing or costs\n"
-        elif gas_margin > 10:
-            text += "✅ Gas margins healthy at >10%\n"
-        
-        # Best performing unit
-        units = [
-            ('Gas', report['gas_station']['profit']),
-            ('Store', report['store']['profit']),
-            ('Deli', report['deli']['profit']),
-            ('Phone', report['phone_cards']['profit'])
-        ]
-        best = max(units, key=lambda x: x[1])
-        text += f"🏆 Top profit: {best[0]} (${best[1]:,.0f})\n"
+        if performers:
+            best = max(performers, key=lambda x: x[1]['margin_pct'])
+            worst = min(performers, key=lambda x: x[1]['margin_pct'])
+            
+            text += f"🏆 Best Margin: {best[0]} ({best[1]['margin_pct']:.1f}%)\n"
+            text += f"⚠️ Lowest Margin: {worst[0]} ({worst[1]['margin_pct']:.1f}%)\n"
         
         return text
-    
-    def generate_profit_report_html(self, all_data: List[Dict]) -> str:
-        """Generate HTML profit report for email"""
-        report = self.calculate_weekly_profit(all_data)
-        
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>SuperPlus Weekly Profit Report</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }}
-        .container {{
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }}
-        .header {{
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 40px 30px;
-            text-align: center;
-        }}
-        .header h1 {{
-            margin: 0;
-            font-size: 32px;
-            font-weight: 700;
-        }}
-        .content {{
-            padding: 40px 30px;
-        }}
-        .profit-highlight {{
-            background: #ecfdf5;
-            border: 2px solid #10b981;
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            margin: 20px 0;
-        }}
-        .profit-highlight h2 {{
-            margin: 0;
-            font-size: 48px;
-            color: #059669;
-        }}
-        .profit-highlight p {{
-            margin: 10px 0 0;
-            color: #064e3b;
-            font-size: 18px;
-        }}
-        .unit-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 30px 0;
-        }}
-        .unit-card {{
-            background: #f8fafc;
-            border-radius: 8px;
-            padding: 20px;
-            border-left: 4px solid #10b981;
-        }}
-        .unit-card h3 {{
-            margin: 0 0 15px;
-            color: #1e293b;
-            font-size: 16px;
-        }}
-        .unit-revenue {{
-            font-size: 14px;
-            color: #64748b;
-        }}
-        .unit-profit {{
-            font-size: 24px;
-            font-weight: 700;
-            color: #059669;
-            margin: 5px 0;
-        }}
-        .unit-margin {{
-            font-size: 14px;
-            color: #64748b;
-        }}
-        .fuel-table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }}
-        .fuel-table th, .fuel-table td {{
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }}
-        .fuel-table th {{
-            background: #f8fafc;
-            font-weight: 600;
-            color: #64748b;
-            font-size: 12px;
-            text-transform: uppercase;
-        }}
-        .fuel-table td {{
-            font-size: 14px;
-        }}
-        .positive {{ color: #10b981; }}
-        .negative {{ color: #ef4444; }}
-        .footer {{
-            background: #f8fafc;
-            padding: 30px;
-            text-align: center;
-            color: #64748b;
-            font-size: 14px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>💰 Weekly Profit Report</h1>
-            <p>{report['period']['start']} to {report['period']['end']}</p>
-        </div>
-        
-        <div class="content">
-            <div class="profit-highlight">
-                <h2>JMD ${report['total']['profit']:,.0f}</h2>
-                <p>Total Profit This Week • {report['total']['margin_pct']:.1f}% Margin</p>
-            </div>
-            
-            <div class="unit-grid">
-                <div class="unit-card">
-                    <h3>⛽ Gas Station</h3>
-                    <div class="unit-revenue">Revenue: ${report['gas_station']['revenue']:,.0f}</div>
-                    <div class="unit-profit">${report['gas_station']['profit']:,.0f}</div>
-                    <div class="unit-margin">{report['gas_station']['margin_pct']:.1f}% margin (actual)</div>
-                </div>
-                
-                <div class="unit-card">
-                    <h3>🏪 Community Store</h3>
-                    <div class="unit-revenue">Revenue: ${report['store']['revenue']:,.0f}</div>
-                    <div class="unit-profit">${report['store']['profit']:,.0f}</div>
-                    <div class="unit-margin">{report['store']['margin_pct']:.0f}% margin (est.)</div>
-                </div>
-                
-                <div class="unit-card">
-                    <h3>🍽️ Deli</h3>
-                    <div class="unit-revenue">Revenue: ${report['deli']['revenue']:,.0f}</div>
-                    <div class="unit-profit">${report['deli']['profit']:,.0f}</div>
-                    <div class="unit-margin">{report['deli']['margin_pct']:.0f}% margin (est.)</div>
-                </div>
-                
-                <div class="unit-card">
-                    <h3>💳 Phone Cards</h3>
-                    <div class="unit-revenue">Revenue: ${report['phone_cards']['revenue']:,.0f}</div>
-                    <div class="unit-profit">${report['phone_cards']['profit']:,.0f}</div>
-                    <div class="unit-margin">{report['phone_cards']['margin_pct']:.0f}% margin (est.)</div>
-                </div>
-            </div>
-            
-            <h3>⛽ Gas Profit by Fuel Type (Actual Costs)</h3>
-            <table class="fuel-table">
-                <tr>
-                    <th>Fuel</th>
-                    <th>Litres</th>
-                    <th>Revenue</th>
-                    <th>Cost</th>
-                    <th>Profit</th>
-                    <th>Margin</th>
-                </tr>
-"""
-        
-        for fuel, data in report['gas_station'].get('fuel_breakdown', {}).items():
-            if data['litres'] > 0:
-                fuel_margin = (data['profit'] / data['revenue'] * 100) if data['revenue'] > 0 else 0
-                html += f"""
-                <tr>
-                    <td><strong>{fuel.upper()}</strong></td>
-                    <td>{data['litres']:,.0f}L</td>
-                    <td>${data['revenue']:,.0f}</td>
-                    <td>${data['cost']:,.0f}</td>
-                    <td class="positive">${data['profit']:,.0f}</td>
-                    <td>{fuel_margin:.1f}%</td>
-                </tr>
-"""
-        
-        html += """
-            </table>
-"""
-        
-        if report['comparison']:
-            change = report['comparison']['profit_change']
-            change_pct = report['comparison']['profit_change_pct']
-            change_class = "positive" if change > 0 else "negative"
-            html += f"""
-            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 30px;">
-                <h3>📊 vs Last Week</h3>
-                <p>Profit change: <span class="{change_class}">${change:+,.0f} ({change_pct:+.1f}%)</span></p>
-            </div>
-"""
-        
-        html += """
-        </div>
-        
-        <div class="footer">
-            <p><strong>SuperPlus AI Business Agent</strong></p>
-            <p>Profit report generated with actual delivery costs where available.</p>
-            <p style="font-size: 12px; margin-top: 15px;">
-                Gas margins use actual delivery costs. Store/Deli/Phone use estimated margins.
-            </p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        
-        return html
-
-
-def generate_weekly_profit_report(agent) -> Dict:
-    """
-    Convenience function to generate profit report.
-    Call from main agent or scheduled tasks.
-    """
-    try:
-        profit_reporter = ProfitReport(agent)
-        
-        worksheet = agent.sheet.worksheet("Daily_Report")
-        all_data = worksheet.get_all_records()
-        
-        if not all_data:
-            return {"error": "No data available"}
-        
-        report_data = profit_reporter.calculate_weekly_profit(all_data)
-        report_text = profit_reporter.generate_profit_report_text(all_data)
-        report_html = profit_reporter.generate_profit_report_html(all_data)
-        
-        return {
-            "data": report_data,
-            "text": report_text,
-            "html": report_html
-        }
-        
-    except Exception as e:
-        print(f"❌ Error generating profit report: {e}")
-        import traceback
-        traceback.print_exc()
-        return {"error": str(e)}
