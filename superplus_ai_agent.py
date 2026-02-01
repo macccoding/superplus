@@ -592,7 +592,28 @@ def whatsapp_webhook():
         return 'Invalid verification token', 403
     
     try:
-        data = request.get_json()
+        # Handle different content types
+        data = None
+        content_type = request.content_type or ''
+        
+        if 'application/json' in content_type:
+            data = request.get_json()
+        elif 'application/x-www-form-urlencoded' in content_type:
+            # Twilio-style form data
+            data = request.form.to_dict()
+        else:
+            # Try to parse as JSON anyway (force=True skips content-type check)
+            try:
+                data = request.get_json(force=True)
+            except:
+                # Last resort: try form data
+                data = request.form.to_dict() if request.form else {}
+        
+        print(f"📥 Webhook received - Content-Type: {content_type}")
+        print(f"📥 Data: {json.dumps(data, indent=2) if data else 'None'}")
+        
+        if not data:
+            return jsonify({"status": "ignored", "reason": "no data"})
         
         # Check if it's a status update (ignore)
         if 'entry' in data:
@@ -613,6 +634,8 @@ def whatsapp_webhook():
             
     except Exception as e:
         print(f"❌ Webhook error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
