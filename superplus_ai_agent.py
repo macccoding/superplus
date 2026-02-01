@@ -33,9 +33,11 @@ class SuperPlusAgent:
         self.client = anthropic.Anthropic(api_key=self.anthropic_api_key)
         self.model = "claude-sonnet-4-20250514"
         
-        # WhatsApp configuration (supports both Cloud API and Twilio)
+        # WhatsApp Cloud API (Meta) — inbound from staff group
         self.whatsapp_phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
         self.whatsapp_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
+        
+        # Twilio — outbound weekly summary to owner
         self.twilio_sid = os.getenv('TWILIO_ACCOUNT_SID')
         self.twilio_token = os.getenv('TWILIO_AUTH_TOKEN')
         self.twilio_number = os.getenv('TWILIO_WHATSAPP_NUMBER')
@@ -58,7 +60,8 @@ class SuperPlusAgent:
         
         print("✅ SuperPlus AI Agent initialized")
         print(f"📊 Connected to Google Sheet: {self.sheet_id}")
-        print(f"📱 WhatsApp mode: {'Cloud API' if self.whatsapp_phone_id else 'Twilio'}")
+        print(f"📱 WhatsApp inbound:  {'Meta Cloud API ✅' if self.whatsapp_phone_id else 'NOT CONFIGURED ⚠️'}")
+        print(f"📱 WhatsApp outbound: {'Twilio ✅' if self.twilio_sid else 'NOT CONFIGURED ⚠️'}")
     
     def setup_google_sheets(self):
         """Initialize Google Sheets connection"""
@@ -149,23 +152,25 @@ class SuperPlusAgent:
             }
     
     def extract_message_text(self, data: Dict) -> str:
-        """Extract message text from WhatsApp webhook payload"""
+        """Extract message text — handles both Meta Cloud API and Twilio formats"""
         try:
-            # WhatsApp Cloud API format
+            # Meta Cloud API format (JSON with nested entry/changes)
             if 'entry' in data:
                 return data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
-            # Twilio format
+            # Twilio format (flat form data with Body key)
             elif 'Body' in data:
                 return data['Body']
             else:
+                print(f"⚠️ Unrecognised webhook format: {json.dumps(data)[:200]}")
                 return str(data)
-        except:
+        except (KeyError, IndexError) as e:
+            print(f"⚠️ Extraction error ({e}): {json.dumps(data)[:200]}")
             return str(data)
     
     def extract_sender(self, data: Dict) -> str:
-        """Extract sender from WhatsApp webhook payload"""
+        """Extract sender — handles both Meta Cloud API and Twilio formats"""
         try:
-            # WhatsApp Cloud API
+            # Meta Cloud API
             if 'entry' in data:
                 return data['entry'][0]['changes'][0]['value']['messages'][0]['from']
             # Twilio
@@ -173,7 +178,7 @@ class SuperPlusAgent:
                 return data['From']
             else:
                 return "Unknown"
-        except:
+        except (KeyError, IndexError):
             return "Unknown"
     
     def agent_reasoning(self, message_text: str, sender: str) -> str:
@@ -996,12 +1001,12 @@ Check your email for the full detailed analysis with recommendations.
 
 - Your AI Business Agent"""
             
-            # Send via Twilio WhatsApp
+            # Send via Twilio WhatsApp (outbound)
             if self.twilio_sid and self.twilio_token:
                 from twilio.rest import Client
                 client = Client(self.twilio_sid, self.twilio_token)
                 
-                message = client.messages.create(
+                client.messages.create(
                     from_=f'whatsapp:{self.twilio_number}',
                     body=summary,
                     to=f'whatsapp:{self.owner_phone}'
@@ -1100,9 +1105,8 @@ def webhook():
             return 'Forbidden', 403
     
     elif request.method == 'POST':
-        # Process incoming message
-        # Twilio sends form data, not JSON
-        data = request.form.to_dict() if request.form else request.get_json()
+        # Meta sends JSON, Twilio sends form data — handle both
+        data = request.get_json(silent=True) or request.form.to_dict()
         
         if not data:
             return jsonify({"error": "No data received"}), 400
@@ -1125,7 +1129,7 @@ def dashboard():
             "last_processed": agent.memory.get("last_processed"),
             "patterns_learned": len(agent.memory.get("patterns", {})),
             "sheet_connected": agent.sheet is not None,
-            "whatsapp_configured": agent.twilio_sid is not None,
+            "whatsapp_configured": agent.whatsapp_phone_id is not None or agent.twilio_sid is not None,
             "telegram_configured": os.getenv('TELEGRAM_BOT_TOKEN') is not None,
             "email_configured": os.getenv('SENDGRID_API_KEY') is not None
         }

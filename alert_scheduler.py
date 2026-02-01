@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, List
 import json
-from twilio.rest import Client
+
 
 class AlertScheduler:
     """
@@ -17,14 +17,8 @@ class AlertScheduler:
     def __init__(self, agent):
         self.agent = agent
         
-        # Twilio for WhatsApp
-        self.twilio_sid = os.getenv('TWILIO_ACCOUNT_SID')
-        self.twilio_token = os.getenv('TWILIO_AUTH_TOKEN')
-        self.twilio_number = os.getenv('TWILIO_WHATSAPP_NUMBER')
-        self.owner_phone = os.getenv('OWNER_PHONE')
-        
         # Telegram for alerts
-        self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')  # Your personal chat ID
+        self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
         
         # Alert settings
         self.inventory_warning_days = float(os.getenv('INVENTORY_WARNING_DAYS', '2.5'))
@@ -55,12 +49,8 @@ class AlertScheduler:
             # Generate briefing
             briefing = self._generate_morning_briefing(all_data)
             
-            # Send via Telegram (faster, richer formatting)
+            # Send via Telegram
             self._send_telegram_message(briefing)
-            
-            # Also send short version via WhatsApp
-            short_version = self._generate_short_morning_briefing(all_data)
-            self._send_whatsapp_message(short_version)
             
             print("✅ Morning briefing sent")
             
@@ -206,10 +196,6 @@ Week so far: ${week_revenue/1000:.0f}K"""
             
             # Send via Telegram
             self._send_telegram_message(summary)
-            
-            # Short WhatsApp version
-            short_summary = self._generate_short_evening_summary(all_data)
-            self._send_whatsapp_message(short_summary)
             
             print("✅ Evening summary sent")
             
@@ -493,22 +479,3 @@ Good night! 🌟"""
         except Exception as e:
             print(f"❌ Error sending Telegram: {e}")
     
-    def _send_whatsapp_message(self, message: str):
-        """Send message via WhatsApp"""
-        try:
-            if not all([self.twilio_sid, self.twilio_token, self.twilio_number, self.owner_phone]):
-                print("⚠️ WhatsApp credentials incomplete")
-                return
-            
-            client = Client(self.twilio_sid, self.twilio_token)
-            
-            client.messages.create(
-                from_=f'whatsapp:{self.twilio_number}',
-                body=message,
-                to=f'whatsapp:{self.owner_phone}'
-            )
-            
-            print("✅ WhatsApp message sent")
-            
-        except Exception as e:
-            print(f"❌ Error sending WhatsApp: {e}")
