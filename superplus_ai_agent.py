@@ -578,6 +578,7 @@ Be specific with numbers. Be an ADVISOR, not just a reporter."""
 # FLASK ROUTES
 # ============================================
 
+@app.route('/webhook', methods=['GET', 'POST'])
 @app.route('/webhook/whatsapp', methods=['GET', 'POST'])
 def whatsapp_webhook():
     """Handle WhatsApp webhooks (Meta Cloud API)"""
