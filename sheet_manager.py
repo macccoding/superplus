@@ -409,10 +409,10 @@ class SheetManager:
         
         # Get deliveries for shrinkage calc
         deliveries = self.get_deliveries_for_date(date_str)
-        del_87 = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if d.get('Fuel_Type', '').upper() == '87'])
-        del_90 = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if d.get('Fuel_Type', '').upper() == '90'])
-        del_ado = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if d.get('Fuel_Type', '').upper() in ['ADO', 'DIESEL']])
-        del_ulsd = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if d.get('Fuel_Type', '').upper() == 'ULSD'])
+        del_87 = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if str(d.get('Fuel_Type', '')).upper() == '87'])
+        del_90 = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if str(d.get('Fuel_Type', '')).upper() == '90'])
+        del_ado = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if str(d.get('Fuel_Type', '')).upper() in ['ADO', 'DIESEL']])
+        del_ulsd = sum([self._safe_float(d.get('Litres', 0)) for d in deliveries if str(d.get('Fuel_Type', '')).upper() == 'ULSD'])
         
         # Calculate shrinkage: opening + deliveries - sold - closing = shrinkage
         def calc_shrinkage(opening, delivered, sold, closing):
@@ -557,7 +557,7 @@ class SheetManager:
         
         fuel_type = fuel_type.upper()
         for record in reversed(records):
-            if record.get('Fuel_Type', '').upper() == fuel_type:
+            if str(record.get('Fuel_Type', '')).upper() == fuel_type:
                 cost = self._safe_float(record.get('Cost_Per_Litre', 0))
                 if cost > 0:
                     return cost
