@@ -454,6 +454,25 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             # Get or create "Daily_Report" worksheet
             try:
                 worksheet = self.sheet.worksheet("Daily_Report")
+                
+                # Sync headers — fixes existing sheets that were created with old column layout.
+                # Safe: only touches row 1, never overwrites data.
+                current_headers = worksheet.row_values(1)
+                expected_headers = [
+                    "Date", "Day", "Store_Sales", "Phone_Cards", "Deli_Sales",
+                    "Gas_Revenue_Est", "Total_Revenue",
+                    "Gas_87_Litres", "Gas_90_Litres", "Gas_ADO_Litres", "Gas_ULSD_Litres", "Total_Litres",
+                    "Opening_87_Litres", "Opening_90_Litres", "Opening_ADO_Litres", "Opening_ULSD_Litres",
+                    "Closing_87_Litres", "Closing_90_Litres", "Closing_ADO_Litres", "Closing_ULSD_Litres",
+                    "Delivery_87_Litres", "Delivery_90_Litres", "Delivery_ADO_Litres", "Delivery_ULSD_Litres",
+                    "GasMart_87_Price", "GasMart_90_Price", "GasMart_ADO_Price", "GasMart_ULSD_Price",
+                    "Competitor_Prices",
+                    "Weather_Condition", "Weather_Temp_Max_C", "Weather_Rain_MM",
+                    "Notes"
+                ]
+                if current_headers != expected_headers:
+                    worksheet.update('A1:AG1', [expected_headers])
+                    print("📝 Sheet headers synced to current layout (33 columns)")
             except:
                 worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=20)
                 # Headers for 4 separate business units

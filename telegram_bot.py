@@ -590,9 +590,9 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 total_shrinkage_value  += value
                 
                 # Flag colour
-                if avg_shrinkage > 50:
+                if abs(avg_shrinkage) > 50:
                     flag = "🔴"
-                elif avg_shrinkage > 10:
+                elif abs(avg_shrinkage) > 10:
                     flag = "🟡"
                 else:
                     flag = "🟢"
@@ -606,7 +606,7 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             msg += f"📉 *Total shrinkage: {total_shrinkage_litres:+.0f}L*\n"
             msg += f"💰 *Estimated cost: ${total_shrinkage_value:,.0f}*\n"
             
-            if total_shrinkage_litres > 100:
+            if abs(total_shrinkage_litres) > 100:
                 msg += "\n⚠️ Shrinkage is elevated — worth investigating.\n"
             else:
                 msg += "\n✅ Shrinkage looks normal.\n"
