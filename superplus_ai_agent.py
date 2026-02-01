@@ -257,6 +257,19 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             if data.get("date") == "TODAY":
                 data["date"] = datetime.now().strftime("%Y-%m-%d")
             
+            # If no date but we have actual data, default to today
+            if not data.get("date"):
+                has_data = any([
+                    data.get('store_sales'), data.get('deli_sales'), data.get('phone_cards'),
+                    data.get('gas_87'), data.get('gas_90'), data.get('gas_ado'), data.get('gas_ulsd'),
+                    data.get('opening_87'), data.get('opening_90'), data.get('closing_87'), data.get('closing_90'),
+                    data.get('delivery_87'), data.get('delivery_90'), data.get('delivery_ado'), data.get('delivery_ulsd'),
+                    data.get('competitor_prices')
+                ])
+                if has_data:
+                    data["date"] = datetime.now().strftime("%Y-%m-%d")
+                    print(f"📅 No date specified, defaulting to today: {data['date']}")
+            
             print(f"✅ Extracted data: {json.dumps(data, indent=2)}")
             
             # Route to appropriate tabs via sheet_manager
@@ -614,6 +627,14 @@ def whatsapp_webhook():
         
         if not data:
             return jsonify({"status": "ignored", "reason": "no data"})
+        
+        # Filter out Twilio status webhooks (sent/delivered notifications)
+        if data.get('MessageStatus') in ['sent', 'delivered', 'read']:
+            return jsonify({"status": "ignored", "reason": "status update"})
+        
+        # Filter out messages without a Body (Twilio) or messages content (Meta)
+        if 'Body' not in data and 'entry' not in data:
+            return jsonify({"status": "ignored", "reason": "no message content"})
         
         # Check if it's a status update (ignore)
         if 'entry' in data:
