@@ -1,6 +1,6 @@
 """
-SuperPlus AI Agent - Telegram Bot Integration
-Complete with Advanced Features: Inventory, Margins, Competitors, Alerts
+SuperPlus AI Agent - Telegram Bot Integration v2
+Complete with Advanced Features + Profit Reports
 """
 
 import os
@@ -32,9 +32,9 @@ class TelegramBot:
             await update.message.reply_text("⛔ Unauthorized. Contact admin.")
             return
         
-        welcome = """👋 **Welcome to SuperPlus AI Agent**
+        welcome = """👋 **Welcome to SuperPlus AI Agent v2**
 
-I'm your autonomous business advisor with advanced analytics!
+I'm your autonomous business advisor with profit tracking!
 
 **📊 Status & Analysis:**
 /status - Current week summary
@@ -44,7 +44,8 @@ I'm your autonomous business advisor with advanced analytics!
 /morning - Morning briefing
 
 **💰 Profit & Margins:**
-/margins - Profit margin analysis
+/profit - **Weekly profit report (NEW!)**
+/margins - Margin analysis
 /setcost - Update fuel costs
 
 **📦 Inventory:**
@@ -58,11 +59,37 @@ I'm your autonomous business advisor with advanced analytics!
 /help - Full command list
 
 **Natural Language:**
-Just ask! "How are we doing?" or "What's trending?"
+Just ask! "How are we doing?" or "What's our profit?"
 
 Ready to help! 🚀"""
         
         await update.message.reply_text(welcome, parse_mode='Markdown')
+    
+    async def profit_report(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show weekly profit report with real costs"""
+        if not self.is_authorized(update):
+            return
+        
+        await update.message.reply_text("💰 Calculating profit with actual costs...")
+        
+        try:
+            from profit_report import ProfitReport
+            
+            profit_reporter = ProfitReport(self.agent)
+            
+            worksheet = self.agent.sheet.worksheet("Daily_Report")
+            all_data = worksheet.get_all_records()
+            
+            if not all_data:
+                await update.message.reply_text("⚠️ No data available yet.")
+                return
+            
+            report_text = profit_reporter.generate_profit_report_text(all_data)
+            
+            await update.message.reply_text(report_text, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {str(e)}")
     
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Current week status"""
@@ -106,7 +133,9 @@ Total: {metrics['this_week']['total_litres']:,.0f} litres
 
 📈 **TREND:** {"📈 Up" if metrics['week_over_week']['revenue_change_pct'] > 0 else "📉 Down" if metrics['week_over_week']['revenue_change_pct'] < 0 else "→ Flat"}
 
-🎯 **STATUS:** {"Great week!" if metrics['week_over_week']['revenue_change_pct'] > 3 else "On track" if metrics['week_over_week']['revenue_change_pct'] > 0 else "Needs attention"}"""
+🎯 **STATUS:** {"Great week!" if metrics['week_over_week']['revenue_change_pct'] > 3 else "On track" if metrics['week_over_week']['revenue_change_pct'] > 0 else "Needs attention"}
+
+💡 Use /profit for actual profit breakdown"""
             
             await update.message.reply_text(report, parse_mode='Markdown')
             
@@ -218,7 +247,7 @@ Format as brief Telegram message (200 words max)."""
             all_data = worksheet.get_all_records()
             this_week = all_data[-7:] if len(all_data) >= 7 else all_data
             
-            # Calculate gas metrics with safe conversion - INCLUDING ADO AND ULSD
+            # Calculate gas metrics with safe conversion
             total_litres = sum([safe_float(row.get('Total_Litres', 0)) for row in this_week])
             litres_87 = sum([safe_float(row.get('Gas_87_Litres', 0)) for row in this_week])
             litres_90 = sum([safe_float(row.get('Gas_90_Litres', 0)) for row in this_week])
@@ -242,16 +271,16 @@ This Week (Last {len(this_week)} days)
 
 **VOLUME BY FUEL TYPE:**
 Total: {total_litres:,.0f} litres
-• 87 (Regular): {litres_87:,.0f}L ({litres_87/total_litres*100:.0f}%)
-• 90 (Premium): {litres_90:,.0f}L ({litres_90/total_litres*100:.0f}%)
-• ADO (Diesel): {litres_ado:,.0f}L ({litres_ado/total_litres*100:.0f}%)
-• ULSD (Ultra Low Sulfur): {litres_ulsd:,.0f}L ({litres_ulsd/total_litres*100:.0f}%)
+• 87 (Regular): {litres_87:,.0f}L ({litres_87/total_litres*100 if total_litres > 0 else 0:.0f}%)
+• 90 (Premium): {litres_90:,.0f}L ({litres_90/total_litres*100 if total_litres > 0 else 0:.0f}%)
+• ADO (Diesel): {litres_ado:,.0f}L ({litres_ado/total_litres*100 if total_litres > 0 else 0:.0f}%)
+• ULSD: {litres_ulsd:,.0f}L ({litres_ulsd/total_litres*100 if total_litres > 0 else 0:.0f}%)
 
-Daily Avg: {total_litres/len(this_week):,.0f}L
+Daily Avg: {total_litres/len(this_week) if this_week else 0:,.0f}L
 
 **REVENUE:**
 Total: JMD ${gas_revenue:,.0f}
-Daily Avg: JMD ${gas_revenue/len(this_week):,.0f}
+Daily Avg: JMD ${gas_revenue/len(this_week) if this_week else 0:,.0f}
 
 **CURRENT PRICING:**
 87: JMD ${avg_price_87:.2f}/L
@@ -259,19 +288,12 @@ Daily Avg: JMD ${gas_revenue/len(this_week):,.0f}
 ADO: JMD ${avg_price_ado:.2f}/L
 ULSD: JMD ${avg_price_ulsd:.2f}/L
 
-**MARGIN EST:**
-~JMD ${gas_revenue * 0.08:,.0f} (assuming 8% margin)
-
-📈 **INSIGHT:** {"Regular 87 is your volume driver" if litres_87 > litres_90 else "Premium 90 performing strong"}"""
+💡 Use /profit for actual profit with delivery costs"""
             
             await update.message.reply_text(report, parse_mode='Markdown')
             
         except Exception as e:
             await update.message.reply_text(f"❌ Error: {str(e)}")
-    
-    # ============================================
-    # NEW: ADVANCED FEATURES
-    # ============================================
     
     async def inventory_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show inventory levels and days remaining"""
@@ -353,6 +375,8 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             else:
                 report += "✅ Margins healthy"
             
+            report += "\n\n💡 Use /profit for full profit report with actual delivery costs"
+            
             await update.message.reply_text(report, parse_mode='Markdown')
             
         except Exception as e:
@@ -369,16 +393,13 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             worksheet = self.agent.sheet.worksheet("Daily_Report")
             all_data = worksheet.get_all_records()
             
-            # Get most recent competitor data from Competitor_Prices column
             latest = all_data[-1] if all_data else {}
-            
             competitor_data_str = latest.get('Competitor_Prices', '')
             
             if not competitor_data_str:
                 await update.message.reply_text("No competitor prices found in recent data.\n\nMake sure staff includes competitor prices in their daily WhatsApp report.")
                 return
             
-            # Parse JSON competitor data
             try:
                 competitor_data = json.loads(competitor_data_str)
             except:
@@ -389,7 +410,6 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 await update.message.reply_text("No competitor prices available.")
                 return
             
-            # Get our current prices
             def safe_float(val):
                 if not val or val == '':
                     return 0
@@ -407,17 +427,13 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             
             report = "**🏁 COMPETITOR PRICE COMPARISON**\n\n"
             
-            # Process each competitor
             for comp in competitor_data:
                 competitor_name = comp.get('competitor', 'Unknown')
                 report += f"**{competitor_name}:**\n"
                 
-                # Check each fuel type
                 for fuel_key in ['fuel_87', 'fuel_90', 'fuel_ado', 'fuel_ulsd']:
                     if fuel_key in comp:
                         their_price = comp[fuel_key]
-                        
-                        # Map to our price key
                         fuel_type = fuel_key.replace('fuel_', '')
                         our_price = our_prices.get(fuel_type, 0)
                         
@@ -443,7 +459,6 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 
                 report += "\n"
             
-            # Add summary
             report += "💡 **Tip:** Use /gas to see our current volume by fuel type"
             
             await update.message.reply_text(report, parse_mode='Markdown')
@@ -461,7 +476,9 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 await update.message.reply_text(
                     "Usage: /setcost <fuel> <cost>\n"
                     "Example: /setcost 87 160.00\n\n"
-                    "Fuel types: 87, 90, ado, ulsd"
+                    "Fuel types: 87, 90, ado, ulsd\n\n"
+                    "💡 Better: Include cost in delivery report!\n"
+                    "e.g. \"Tanker arrived: 87 - 15000L @ $158/L\""
                 )
                 return
             
@@ -472,8 +489,8 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
             
             if success:
                 await update.message.reply_text(
-                    f"✅ Updated {fuel_type.upper()} cost to ${new_cost:.2f}/L\n\n"
-                    "Use /margins to see updated profit analysis."
+                    f"✅ Updated {fuel_type.upper()} default cost to ${new_cost:.2f}/L\n\n"
+                    "Use /profit to see updated profit analysis."
                 )
             else:
                 await update.message.reply_text(f"❌ Invalid fuel type: {fuel_type}")
@@ -548,7 +565,7 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 )
                 return
             
-            # Calculate shrinkage per fuel across available days
+            # Calculate shrinkage per fuel
             msg = "📊 *Shrinkage Analysis*\n"
             msg += f"_(based on {len(days_with_full)} day(s) with full data)_\n"
             
@@ -572,10 +589,10 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                     delivery  = sf(row.get(d_key)) or 0
                     
                     if opening == 0 and closing == 0:
-                        continue  # skip if this fuel had no data this day
+                        continue
                     
                     expected_closing = opening + delivery - sold
-                    shrinkage        = expected_closing - closing  # positive = lost fuel
+                    shrinkage        = expected_closing - closing
                     fuel_shrinkage  += shrinkage
                     fuel_days       += 1
                 
@@ -589,7 +606,6 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 total_shrinkage_litres += fuel_shrinkage
                 total_shrinkage_value  += value
                 
-                # Flag colour
                 if abs(avg_shrinkage) > 50:
                     flag = "🔴"
                 elif abs(avg_shrinkage) > 10:
@@ -601,7 +617,6 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
                 msg += f"   Total shrinkage: {fuel_shrinkage:+.0f}L over {fuel_days} day(s)\n"
                 msg += f"   Avg/day: {avg_shrinkage:+.1f}L  |  Est. cost: ${value:,.0f}"
             
-            # Summary
             msg += f"\n\n{'─'*30}\n"
             msg += f"📉 *Total shrinkage: {total_shrinkage_litres:+.0f}L*\n"
             msg += f"💰 *Estimated cost: ${total_shrinkage_value:,.0f}*\n"
@@ -620,7 +635,7 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show all available commands"""
-        help_text = """**📱 SUPERPLUS AI AGENT COMMANDS**
+        help_text = """**📱 SUPERPLUS AI AGENT v2 COMMANDS**
 
 **📊 Status & Analysis:**
 /status - Current week summary
@@ -630,8 +645,9 @@ ULSD: JMD ${avg_price_ulsd:.2f}/L
 /morning - Morning briefing
 
 **💰 Profit & Margins:**
-/margins - Profit margin analysis
-/setcost - Update fuel costs
+/profit - **Weekly profit report** ⭐
+/margins - Margin analysis
+/setcost - Update default fuel costs
 Example: /setcost 87 160.00
 
 **📦 Inventory:**
@@ -645,7 +661,12 @@ Example: /setcost 87 160.00
 /help - This message
 
 **Natural Language:**
-Just ask! "How are we doing?" or "What's trending?"
+Just ask! "How are we doing?" or "What's our profit?"
+
+**💡 NEW: Delivery Cost Tracking**
+Staff can now report delivery costs:
+"Tanker arrived: 87 - 15000L @ $158/L"
+This gives you accurate profit margins!
 """
         
         await update.message.reply_text(help_text, parse_mode='Markdown')
@@ -658,7 +679,9 @@ Just ask! "How are we doing?" or "What's trending?"
         message = update.message.text.lower()
         
         # Detect intent
-        if any(word in message for word in ['status', 'how', 'doing', 'update']):
+        if any(word in message for word in ['profit', 'making money', 'earning']):
+            await self.profit_report(update, context)
+        elif any(word in message for word in ['status', 'how', 'doing', 'update']):
             await self.status(update, context)
         elif any(word in message for word in ['compare', 'vs', 'versus', 'last week']):
             await self.compare(update, context)
@@ -670,15 +693,16 @@ Just ask! "How are we doing?" or "What's trending?"
             await self.inventory_status(update, context)
         elif any(word in message for word in ['shrinkage', 'loss', 'shrink', 'losing']):
             await self.shrinkage_analysis(update, context)
-        elif any(word in message for word in ['margin', 'profit']):
+        elif any(word in message for word in ['margin']):
             await self.margin_analysis(update, context)
         elif any(word in message for word in ['competitor', 'competition', 'prices']):
             await self.competitor_prices(update, context)
         else:
             await update.message.reply_text(
                 "I didn't understand that. Try:\n"
+                "• /profit - Weekly profit report ⭐\n"
                 "• /status - Current week\n"
-                "• /margins - Profit analysis\n"
+                "• /margins - Margin analysis\n"
                 "• /dips - Inventory\n"
                 "• /help - All commands"
             )
@@ -695,7 +719,6 @@ Just ask! "How are we doing?" or "What's trending?"
         """Start the Telegram bot with proper async handling"""
         import asyncio
         
-        # Create and set new event loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -709,27 +732,31 @@ Just ask! "How are we doing?" or "What's trending?"
             application.add_handler(CommandHandler("forecast", self.forecast))
             application.add_handler(CommandHandler("gas", self.gas_analysis))
             
-            # NEW: Advanced feature commands
+            # Profit & margins
+            application.add_handler(CommandHandler("profit", self.profit_report))
+            application.add_handler(CommandHandler("margins", self.margin_analysis))
+            application.add_handler(CommandHandler("setcost", self.set_fuel_cost))
+            
+            # Inventory
             application.add_handler(CommandHandler("dips", self.inventory_status))
             application.add_handler(CommandHandler("shrinkage", self.shrinkage_analysis))
-            application.add_handler(CommandHandler("margins", self.margin_analysis))
+            
+            # Competition
             application.add_handler(CommandHandler("competitors", self.competitor_prices))
-            application.add_handler(CommandHandler("setcost", self.set_fuel_cost))
+            
+            # Other
             application.add_handler(CommandHandler("morning", self.morning_alert))
             application.add_handler(CommandHandler("help", self.help_command))
             
-            # Add message handler for natural language
+            # Natural language
             application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
             
-            # Start polling
-            print("🤖 Telegram bot started!")
+            print("🤖 Telegram bot started (v2 with profit reports)!")
             
-            # Run the application with the event loop
             loop.run_until_complete(application.initialize())
             loop.run_until_complete(application.start())
             loop.run_until_complete(application.updater.start_polling())
             
-            # Keep running
             loop.run_forever()
             
         except Exception as e:
@@ -738,12 +765,10 @@ Just ask! "How are we doing?" or "What's trending?"
             loop.close()
 
 
-# Add to main agent initialization
 def initialize_telegram_bot(agent):
     """Initialize Telegram bot with agent reference"""
     bot = TelegramBot(agent)
     
-    # Run in separate thread
     import threading
     bot_thread = threading.Thread(target=bot.run, daemon=True)
     bot_thread.start()

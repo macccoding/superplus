@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-SuperPlus AI Business Agent - Production Version
-Includes Flask web server for WhatsApp webhooks
+SuperPlus AI Business Agent - Production Version v2
+- Staff confirmation replies
+- Fuel delivery cost tracking
+- Profit report foundations
 """
 
 import anthropic
@@ -58,7 +60,7 @@ class SuperPlusAgent:
             "last_processed": None
         }
         
-        print("✅ SuperPlus AI Agent initialized")
+        print("✅ SuperPlus AI Agent initialized (v2)")
         print(f"📊 Connected to Google Sheet: {self.sheet_id}")
         print(f"📱 WhatsApp inbound:  {'Meta Cloud API ✅' if self.whatsapp_phone_id else 'NOT CONFIGURED ⚠️'}")
         print(f"📱 WhatsApp outbound: {'Twilio ✅' if self.twilio_sid else 'NOT CONFIGURED ⚠️'}")
@@ -140,7 +142,8 @@ class SuperPlusAgent:
             
             return {
                 "success": True,
-                "action_taken": response,
+                "action_taken": response.get("action", "processed"),
+                "confirmation_sent": response.get("confirmation_sent", False),
                 "timestamp": datetime.now().isoformat()
             }
             
@@ -181,9 +184,10 @@ class SuperPlusAgent:
         except (KeyError, IndexError):
             return "Unknown"
     
-    def agent_reasoning(self, message_text: str, sender: str) -> str:
+    def agent_reasoning(self, message_text: str, sender: str) -> Dict:
         """
         AI agent analyzes message and decides what to do
+        Returns dict with action taken and confirmation details
         """
         
         system_prompt = """You are the AI Business Manager for SuperPlus (GasMart) in Jamaica.
@@ -204,10 +208,12 @@ CRITICAL DISTINCTIONS:
 - "Litres sold" or just "litres" with sales context = actual fuel sold → gas_* fields
 - These are THREE DIFFERENT things. Do NOT mix them up.
 
-**Fuel Deliveries:**
+**Fuel Deliveries WITH COST:**
 - "Delivery" or "tanker" or "load" = fuel received from supplier
-- Extract fuel type and litres delivered
-- Example: "Delivery 87 - 15,000L" or "tanker arrived, 90: 10000"
+- Extract fuel type, litres delivered, AND cost per litre if provided
+- Example: "Delivery 87 - 15,000L @ $158/L" → delivery_87: 15000, delivery_87_cost: 158
+- Example: "tanker arrived, 90: 10000 litres, cost 168 per litre" → delivery_90: 10000, delivery_90_cost: 168
+- If no cost mentioned, leave cost as null (we'll use default)
 
 **Competitor Prices:**
 - Extract competitor names and their prices
@@ -231,6 +237,7 @@ WHAT TO EXTRACT:
    - closing_87, closing_90, closing_ado, closing_ulsd
 8. **Fuel Deliveries** (Tanker arrivals):
    - delivery_87, delivery_90, delivery_ado, delivery_ulsd (litres received)
+   - delivery_87_cost, delivery_90_cost, delivery_ado_cost, delivery_ulsd_cost ($/L)
 9. **Prices** - GasMart selling prices
 10. **Competitor Prices** - Extract and format as array
 
@@ -250,6 +257,18 @@ Output: {
   "opening_90": null,
   "opening_ado": null,
   "opening_ulsd": null,
+  "closing_87": null,
+  "closing_90": null,
+  "closing_ado": null,
+  "closing_ulsd": null,
+  "delivery_87": null,
+  "delivery_90": null,
+  "delivery_ado": null,
+  "delivery_ulsd": null,
+  "delivery_87_cost": null,
+  "delivery_90_cost": null,
+  "delivery_ado_cost": null,
+  "delivery_ulsd_cost": null,
   "gasmart_87_price": null,
   "gasmart_90_price": null,
   "gasmart_ado_price": null,
@@ -258,9 +277,9 @@ Output: {
   "notes": ""
 }
 
-Input: "Morning dips Jan 30:\n87: 9,231L\n90: 6,756L\nADO: 10,696L\nULSD: 5,229L"
+Input: "Tanker just arrived. 87 - 15000L @ $158/L, ADO - 20000L @ $172/L"
 Output: {
-  "date": "2026-01-30",
+  "date": "TODAY",
   "store_sales": null,
   "phone_cards": null,
   "deli_sales": null,
@@ -268,16 +287,28 @@ Output: {
   "gas_90": null,
   "gas_ado": null,
   "gas_ulsd": null,
-  "opening_87": 9231,
-  "opening_90": 6756,
-  "opening_ado": 10696,
-  "opening_ulsd": 5229,
+  "opening_87": null,
+  "opening_90": null,
+  "opening_ado": null,
+  "opening_ulsd": null,
+  "closing_87": null,
+  "closing_90": null,
+  "closing_ado": null,
+  "closing_ulsd": null,
+  "delivery_87": 15000,
+  "delivery_90": null,
+  "delivery_ado": 20000,
+  "delivery_ulsd": null,
+  "delivery_87_cost": 158,
+  "delivery_90_cost": null,
+  "delivery_ado_cost": 172,
+  "delivery_ulsd_cost": null,
   "gasmart_87_price": null,
   "gasmart_90_price": null,
   "gasmart_ado_price": null,
   "gasmart_ulsd_price": null,
   "competitor_prices": [],
-  "notes": "Morning inventory levels"
+  "notes": "Fuel delivery received with costs"
 }
 
 Input: "Closing dips: 87-7200, 90-4100, ADO-9500, ULSD-3800"
@@ -302,75 +333,16 @@ Output: {
   "delivery_90": null,
   "delivery_ado": null,
   "delivery_ulsd": null,
+  "delivery_87_cost": null,
+  "delivery_90_cost": null,
+  "delivery_ado_cost": null,
+  "delivery_ulsd_cost": null,
   "gasmart_87_price": null,
   "gasmart_90_price": null,
   "gasmart_ado_price": null,
   "gasmart_ulsd_price": null,
   "competitor_prices": [],
   "notes": "End of day closing dips"
-}
-
-Input: "Tanker just arrived. 87 - 15000L, ADO - 20000L"
-Output: {
-  "date": "TODAY",
-  "store_sales": null,
-  "phone_cards": null,
-  "deli_sales": null,
-  "gas_87": null,
-  "gas_90": null,
-  "gas_ado": null,
-  "gas_ulsd": null,
-  "opening_87": null,
-  "opening_90": null,
-  "opening_ado": null,
-  "opening_ulsd": null,
-  "closing_87": null,
-  "closing_90": null,
-  "closing_ado": null,
-  "closing_ulsd": null,
-  "delivery_87": 15000,
-  "delivery_90": null,
-  "delivery_ado": 20000,
-  "delivery_ulsd": null,
-  "gasmart_87_price": null,
-  "gasmart_90_price": null,
-  "gasmart_ado_price": null,
-  "gasmart_ulsd_price": null,
-  "competitor_prices": [],
-  "notes": "Fuel delivery received"
-}
-
-Input: "Competitor prices:\nJamgas: 87-172, 90-182\nTotal Greenvale: 87-173, 90-183"
-Output: {
-  "date": "TODAY",
-  "store_sales": null,
-  "phone_cards": null,
-  "deli_sales": null,
-  "gas_87": null,
-  "gas_90": null,
-  "gas_ado": null,
-  "gas_ulsd": null,
-  "opening_87": null,
-  "opening_90": null,
-  "opening_ado": null,
-  "opening_ulsd": null,
-  "closing_87": null,
-  "closing_90": null,
-  "closing_ado": null,
-  "closing_ulsd": null,
-  "delivery_87": null,
-  "delivery_90": null,
-  "delivery_ado": null,
-  "delivery_ulsd": null,
-  "gasmart_87_price": null,
-  "gasmart_90_price": null,
-  "gasmart_ado_price": null,
-  "gasmart_ulsd_price": null,
-  "competitor_prices": [
-    {"competitor": "Jamgas", "fuel_87": 172, "fuel_90": 182},
-    {"competitor": "Total Greenvale", "fuel_87": 173, "fuel_90": 183}
-  ],
-  "notes": "Competitor price check"
 }
 
 Return as JSON:
@@ -395,6 +367,10 @@ Return as JSON:
   "delivery_90": number or null (LITRES DELIVERED by tanker),
   "delivery_ado": number or null (LITRES DELIVERED by tanker),
   "delivery_ulsd": number or null (LITRES DELIVERED by tanker),
+  "delivery_87_cost": number or null (COST PER LITRE on delivery),
+  "delivery_90_cost": number or null (COST PER LITRE on delivery),
+  "delivery_ado_cost": number or null (COST PER LITRE on delivery),
+  "delivery_ulsd_cost": number or null (COST PER LITRE on delivery),
   "gasmart_87_price": number or null,
   "gasmart_90_price": number or null,
   "gasmart_ado_price": number or null,
@@ -429,7 +405,6 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             data = json.loads(result_text)
             
             # Handle "TODAY" date
-            from datetime import datetime
             if data.get("date") == "TODAY":
                 data["date"] = datetime.now().strftime("%Y-%m-%d")
                 print(f"📅 No date in message, using today: {data['date']}")
@@ -437,26 +412,195 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             print(f"✅ Extracted data: {json.dumps(data, indent=2)}")
             
             # Update Google Sheet
+            confirmation_sent = False
             if self.sheet and data.get("date"):
                 self.update_google_sheet(data)
+                
+                # Send confirmation reply to staff
+                confirmation_msg = self.generate_confirmation_message(data)
+                if confirmation_msg:
+                    self.send_staff_confirmation(sender, confirmation_msg)
+                    confirmation_sent = True
+                    
             elif not data.get("date"):
                 print("⚠️ No date found, skipping sheet update")
             
-            return f"Data extracted and stored: {data.get('date')}"
+            return {
+                "action": f"Data extracted and stored: {data.get('date')}",
+                "data": data,
+                "confirmation_sent": confirmation_sent
+            }
             
         except Exception as e:
             print(f"❌ Error in agent reasoning: {e}")
-            return f"Error: {str(e)}"
+            return {
+                "action": f"Error: {str(e)}",
+                "data": None,
+                "confirmation_sent": False
+            }
+    
+    def generate_confirmation_message(self, data: Dict) -> str:
+        """
+        Generate a confirmation message for staff showing what was extracted.
+        Returns None if nothing meaningful was extracted.
+        """
+        parts = []
+        date_str = data.get("date", "today")
+        
+        # Sales data
+        if data.get("store_sales"):
+            parts.append(f"Store: ${data['store_sales']:,}")
+        if data.get("phone_cards"):
+            parts.append(f"Phone: ${data['phone_cards']:,}")
+        if data.get("deli_sales"):
+            parts.append(f"Deli: ${data['deli_sales']:,}")
+        
+        # Litres sold
+        sold_parts = []
+        if data.get("gas_87"):
+            sold_parts.append(f"87: {data['gas_87']:,}L")
+        if data.get("gas_90"):
+            sold_parts.append(f"90: {data['gas_90']:,}L")
+        if data.get("gas_ado"):
+            sold_parts.append(f"ADO: {data['gas_ado']:,}L")
+        if data.get("gas_ulsd"):
+            sold_parts.append(f"ULSD: {data['gas_ulsd']:,}L")
+        if sold_parts:
+            parts.append(f"Sold: {', '.join(sold_parts)}")
+        
+        # Opening dips
+        open_parts = []
+        if data.get("opening_87"):
+            open_parts.append(f"87: {data['opening_87']:,}L")
+        if data.get("opening_90"):
+            open_parts.append(f"90: {data['opening_90']:,}L")
+        if data.get("opening_ado"):
+            open_parts.append(f"ADO: {data['opening_ado']:,}L")
+        if data.get("opening_ulsd"):
+            open_parts.append(f"ULSD: {data['opening_ulsd']:,}L")
+        if open_parts:
+            parts.append(f"Opening dips: {', '.join(open_parts)}")
+        
+        # Closing dips
+        close_parts = []
+        if data.get("closing_87"):
+            close_parts.append(f"87: {data['closing_87']:,}L")
+        if data.get("closing_90"):
+            close_parts.append(f"90: {data['closing_90']:,}L")
+        if data.get("closing_ado"):
+            close_parts.append(f"ADO: {data['closing_ado']:,}L")
+        if data.get("closing_ulsd"):
+            close_parts.append(f"ULSD: {data['closing_ulsd']:,}L")
+        if close_parts:
+            parts.append(f"Closing dips: {', '.join(close_parts)}")
+        
+        # Deliveries with costs
+        delivery_parts = []
+        for fuel in ['87', '90', 'ado', 'ulsd']:
+            litres = data.get(f"delivery_{fuel}")
+            cost = data.get(f"delivery_{fuel}_cost")
+            if litres:
+                if cost:
+                    delivery_parts.append(f"{fuel.upper()}: {litres:,}L @ ${cost}/L")
+                else:
+                    delivery_parts.append(f"{fuel.upper()}: {litres:,}L")
+        if delivery_parts:
+            parts.append(f"Delivery: {', '.join(delivery_parts)}")
+        
+        # Prices
+        price_parts = []
+        if data.get("gasmart_87_price"):
+            price_parts.append(f"87: ${data['gasmart_87_price']}")
+        if data.get("gasmart_90_price"):
+            price_parts.append(f"90: ${data['gasmart_90_price']}")
+        if data.get("gasmart_ado_price"):
+            price_parts.append(f"ADO: ${data['gasmart_ado_price']}")
+        if data.get("gasmart_ulsd_price"):
+            price_parts.append(f"ULSD: ${data['gasmart_ulsd_price']}")
+        if price_parts:
+            parts.append(f"Prices: {', '.join(price_parts)}")
+        
+        # Competitor prices
+        if data.get("competitor_prices"):
+            comp_count = len(data['competitor_prices'])
+            parts.append(f"Competitor prices: {comp_count} recorded")
+        
+        if not parts:
+            return None
+        
+        # Build message
+        msg = f"✅ Got it for {date_str}:\n"
+        msg += "\n".join(f"• {p}" for p in parts)
+        msg += "\n\nWrong? Reply with correction."
+        
+        return msg
+    
+    def send_staff_confirmation(self, sender: str, message: str):
+        """
+        Send confirmation message back to staff via WhatsApp.
+        Uses Meta Cloud API if configured, falls back to Twilio.
+        """
+        try:
+            # Try Meta Cloud API first (for group messages)
+            if self.whatsapp_phone_id and self.whatsapp_token:
+                import requests
+                
+                url = f"https://graph.facebook.com/v18.0/{self.whatsapp_phone_id}/messages"
+                headers = {
+                    "Authorization": f"Bearer {self.whatsapp_token}",
+                    "Content-Type": "application/json"
+                }
+                
+                # Clean sender number (remove 'whatsapp:' prefix if present)
+                to_number = sender.replace('whatsapp:', '')
+                
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": "text",
+                    "text": {"body": message}
+                }
+                
+                response = requests.post(url, headers=headers, json=payload)
+                
+                if response.status_code == 200:
+                    print(f"✅ Confirmation sent via Meta API to {sender}")
+                    return True
+                else:
+                    print(f"⚠️ Meta API send failed: {response.status_code} - {response.text}")
+            
+            # Fallback to Twilio
+            if self.twilio_sid and self.twilio_token:
+                from twilio.rest import Client
+                client = Client(self.twilio_sid, self.twilio_token)
+                
+                # Ensure sender has whatsapp: prefix for Twilio
+                to_number = sender if sender.startswith('whatsapp:') else f'whatsapp:{sender}'
+                
+                client.messages.create(
+                    from_=f'whatsapp:{self.twilio_number}',
+                    body=message,
+                    to=to_number
+                )
+                
+                print(f"✅ Confirmation sent via Twilio to {sender}")
+                return True
+            
+            print("⚠️ No WhatsApp API configured for sending confirmations")
+            return False
+            
+        except Exception as e:
+            print(f"⚠️ Could not send confirmation: {e}")
+            return False
     
     def update_google_sheet(self, data: Dict):
-        """Update Google Sheet with extracted data"""
+        """Update Google Sheet with extracted data - including delivery costs"""
         try:
             # Get or create "Daily_Report" worksheet
             try:
                 worksheet = self.sheet.worksheet("Daily_Report")
                 
-                # Sync headers — fixes existing sheets that were created with old column layout.
-                # Safe: only touches row 1, never overwrites data.
+                # Sync headers — includes new delivery cost columns
                 current_headers = worksheet.row_values(1)
                 expected_headers = [
                     "Date", "Day", "Store_Sales", "Phone_Cards", "Deli_Sales",
@@ -465,75 +609,50 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     "Opening_87_Litres", "Opening_90_Litres", "Opening_ADO_Litres", "Opening_ULSD_Litres",
                     "Closing_87_Litres", "Closing_90_Litres", "Closing_ADO_Litres", "Closing_ULSD_Litres",
                     "Delivery_87_Litres", "Delivery_90_Litres", "Delivery_ADO_Litres", "Delivery_ULSD_Litres",
+                    "Delivery_87_Cost", "Delivery_90_Cost", "Delivery_ADO_Cost", "Delivery_ULSD_Cost",
                     "GasMart_87_Price", "GasMart_90_Price", "GasMart_ADO_Price", "GasMart_ULSD_Price",
                     "Competitor_Prices",
                     "Weather_Condition", "Weather_Temp_Max_C", "Weather_Rain_MM",
                     "Notes"
                 ]
                 if current_headers != expected_headers:
-                    worksheet.update('A1:AG1', [expected_headers])
-                    print("📝 Sheet headers synced to current layout (33 columns)")
+                    worksheet.update('A1:AK1', [expected_headers])
+                    print("📝 Sheet headers synced to v2 layout (37 columns with delivery costs)")
             except:
-                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=20)
-                # Headers for 4 separate business units
+                worksheet = self.sheet.add_worksheet("Daily_Report", rows=1000, cols=40)
+                # Headers for v2 with delivery costs
                 headers = [
-                    "Date", 
-                    "Day",
-                    "Store_Sales",
-                    "Phone_Cards", 
-                    "Deli_Sales",
-                    "Gas_Revenue_Est",
-                    "Total_Revenue",
-                    "Gas_87_Litres", 
-                    "Gas_90_Litres", 
-                    "Gas_ADO_Litres", 
-                    "Gas_ULSD_Litres",
-                    "Total_Litres",
-                    "Opening_87_Litres",
-                    "Opening_90_Litres",
-                    "Opening_ADO_Litres",
-                    "Opening_ULSD_Litres",
-                    "Closing_87_Litres",
-                    "Closing_90_Litres",
-                    "Closing_ADO_Litres",
-                    "Closing_ULSD_Litres",
-                    "Delivery_87_Litres",
-                    "Delivery_90_Litres",
-                    "Delivery_ADO_Litres",
-                    "Delivery_ULSD_Litres",
-                    "GasMart_87_Price",
-                    "GasMart_90_Price",
-                    "GasMart_ADO_Price",
-                    "GasMart_ULSD_Price",
+                    "Date", "Day", "Store_Sales", "Phone_Cards", "Deli_Sales",
+                    "Gas_Revenue_Est", "Total_Revenue",
+                    "Gas_87_Litres", "Gas_90_Litres", "Gas_ADO_Litres", "Gas_ULSD_Litres", "Total_Litres",
+                    "Opening_87_Litres", "Opening_90_Litres", "Opening_ADO_Litres", "Opening_ULSD_Litres",
+                    "Closing_87_Litres", "Closing_90_Litres", "Closing_ADO_Litres", "Closing_ULSD_Litres",
+                    "Delivery_87_Litres", "Delivery_90_Litres", "Delivery_ADO_Litres", "Delivery_ULSD_Litres",
+                    "Delivery_87_Cost", "Delivery_90_Cost", "Delivery_ADO_Cost", "Delivery_ULSD_Cost",
+                    "GasMart_87_Price", "GasMart_90_Price", "GasMart_ADO_Price", "GasMart_ULSD_Price",
                     "Competitor_Prices",
-                    "Weather_Condition",
-                    "Weather_Temp_Max_C",
-                    "Weather_Rain_MM",
+                    "Weather_Condition", "Weather_Temp_Max_C", "Weather_Rain_MM",
                     "Notes"
                 ]
                 worksheet.append_row(headers)
                 
                 # Format header row
-                worksheet.format('A1:AG1', {
+                worksheet.format('A1:AK1', {
                     "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.86},
                     "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
                     "horizontalAlignment": "CENTER"
                 })
             
             # Parse date and get day of week
-            from datetime import datetime
             date_str = data.get("date")
             
             # Special handling for price updates without dates
             if not date_str and any([data.get("gasmart_87_price"), data.get("gasmart_90_price")]):
-                # Price update - use today's date or most recent row's date
-                existing_dates = worksheet.col_values(1)[1:]  # Skip header
+                existing_dates = worksheet.col_values(1)[1:]
                 if existing_dates:
-                    # Use most recent date in sheet
                     date_str = existing_dates[-1]
                     print(f"💲 Price update - using most recent date: {date_str}")
                 else:
-                    # Use today's date
                     date_str = datetime.now().strftime("%Y-%m-%d")
                     print(f"💲 Price update - using today's date: {date_str}")
             
@@ -565,29 +684,33 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             price_ado = data.get("gasmart_ado_price") or ""
             price_ulsd = data.get("gasmart_ulsd_price") or ""
             
-            # Morning dips data
+            # Morning dips
             opening_87 = data.get("opening_87") or ""
             opening_90 = data.get("opening_90") or ""
             opening_ado = data.get("opening_ado") or ""
             opening_ulsd = data.get("opening_ulsd") or ""
             
-            # Closing dips data
+            # Closing dips
             closing_87 = data.get("closing_87") or ""
             closing_90 = data.get("closing_90") or ""
             closing_ado = data.get("closing_ado") or ""
             closing_ulsd = data.get("closing_ulsd") or ""
             
-            # Delivery data
+            # Delivery data (litres and cost)
             delivery_87 = data.get("delivery_87") or ""
             delivery_90 = data.get("delivery_90") or ""
             delivery_ado = data.get("delivery_ado") or ""
             delivery_ulsd = data.get("delivery_ulsd") or ""
+            delivery_87_cost = data.get("delivery_87_cost") or ""
+            delivery_90_cost = data.get("delivery_90_cost") or ""
+            delivery_ado_cost = data.get("delivery_ado_cost") or ""
+            delivery_ulsd_cost = data.get("delivery_ulsd_cost") or ""
             
-            # Competitor prices (store as JSON string)
+            # Competitor prices
             competitor_prices = data.get("competitor_prices", [])
             competitor_str = json.dumps(competitor_prices) if competitor_prices else ""
             
-            # Weather — auto-pull for this date
+            # Weather
             weather_condition = ""
             weather_temp = ""
             weather_rain = ""
@@ -602,7 +725,7 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 print(f"⚠️ Weather pull skipped: {e}")
             
             # Check if we already have data for this date
-            existing_dates = worksheet.col_values(1)[1:]  # Skip header
+            existing_dates = worksheet.col_values(1)[1:]
             if date_str in existing_dates:
                 # Update existing row
                 row_index = existing_dates.index(date_str) + 2
@@ -610,19 +733,33 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                 
                 existing_row = worksheet.row_values(row_index)
                 
-                # Get current prices from row for gas revenue calculation
-                current_price_87 = price_87 if price_87 != "" else (float(existing_row[24].replace('$','').replace(',','')) if len(existing_row) > 24 and existing_row[24] else 0)
-                current_price_90 = price_90 if price_90 != "" else (float(existing_row[25].replace('$','').replace(',','')) if len(existing_row) > 25 and existing_row[25] else 0)
-                current_price_ado = price_ado if price_ado != "" else (float(existing_row[26].replace('$','').replace(',','')) if len(existing_row) > 26 and existing_row[26] else 0)
-                current_price_ulsd = price_ulsd if price_ulsd != "" else (float(existing_row[27].replace('$','').replace(',','')) if len(existing_row) > 27 and existing_row[27] else 0)
+                # Helper to get existing value
+                def get_existing(col_idx, default=""):
+                    return existing_row[col_idx] if len(existing_row) > col_idx and existing_row[col_idx] else default
                 
-                # Get current litres
-                current_gas_87 = gas_87 if gas_87 else (float(existing_row[7].replace(',','')) if len(existing_row) > 7 and existing_row[7] else 0)
-                current_gas_90 = gas_90 if gas_90 else (float(existing_row[8].replace(',','')) if len(existing_row) > 8 and existing_row[8] else 0)
-                current_gas_ado = gas_ado if gas_ado else (float(existing_row[9].replace(',','')) if len(existing_row) > 9 and existing_row[9] else 0)
-                current_gas_ulsd = gas_ulsd if gas_ulsd else (float(existing_row[10].replace(',','')) if len(existing_row) > 10 and existing_row[10] else 0)
+                def safe_float_existing(col_idx):
+                    val = get_existing(col_idx, "0")
+                    try:
+                        return float(str(val).replace('$','').replace(',','').strip())
+                    except:
+                        return 0
                 
-                # Calculate gas revenue with updated data
+                # Merge new data with existing (new data takes precedence if not empty)
+                def merge(new_val, col_idx):
+                    return new_val if new_val != "" else get_existing(col_idx)
+                
+                # Calculate gas revenue with updated/existing data
+                current_gas_87 = gas_87 if gas_87 else safe_float_existing(7)
+                current_gas_90 = gas_90 if gas_90 else safe_float_existing(8)
+                current_gas_ado = gas_ado if gas_ado else safe_float_existing(9)
+                current_gas_ulsd = gas_ulsd if gas_ulsd else safe_float_existing(10)
+                
+                current_price_87 = price_87 if price_87 != "" else safe_float_existing(28)
+                current_price_90 = price_90 if price_90 != "" else safe_float_existing(29)
+                current_price_ado = price_ado if price_ado != "" else safe_float_existing(30)
+                current_price_ulsd = price_ulsd if price_ulsd != "" else safe_float_existing(31)
+                
+                # Calculate gas revenue
                 gas_revenue = ""
                 if all([current_gas_87, current_gas_90, current_price_87, current_price_90]):
                     gas_revenue = (current_gas_87 * current_price_87) + (current_gas_90 * current_price_90)
@@ -631,59 +768,62 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     if current_gas_ulsd and current_price_ulsd:
                         gas_revenue += current_gas_ulsd * current_price_ulsd
                 
-                # Get current store/phone/deli for total calc
-                current_store = store_sales if store_sales != "" else (float(existing_row[2].replace('$','').replace(',','')) if len(existing_row) > 2 and existing_row[2] else 0)
-                current_phone = phone_cards if phone_cards != "" else (float(existing_row[3].replace('$','').replace(',','')) if len(existing_row) > 3 and existing_row[3] else 0)
-                current_deli = deli_sales if deli_sales != "" else (float(existing_row[4].replace('$','').replace(',','')) if len(existing_row) > 4 and existing_row[4] else 0)
+                # Get store/phone/deli
+                current_store = store_sales if store_sales != "" else safe_float_existing(2)
+                current_phone = phone_cards if phone_cards != "" else safe_float_existing(3)
+                current_deli = deli_sales if deli_sales != "" else safe_float_existing(4)
                 
                 # Calculate total revenue
                 total_revenue = ""
                 if any([current_store, current_phone, current_deli, gas_revenue]):
                     total_revenue = sum([x for x in [current_store, current_phone, current_deli, gas_revenue] if x])
                 
-                # Merge new data with existing
+                # Build merged row
                 row = [
-                    date_str,                                                                          # A  col 0
-                    day_of_week,                                                                       # B  col 1
-                    store_sales if store_sales != "" else (existing_row[2] if len(existing_row) > 2 else ""),       # C  col 2
-                    phone_cards if phone_cards != "" else (existing_row[3] if len(existing_row) > 3 else ""),       # D  col 3
-                    deli_sales if deli_sales != "" else (existing_row[4] if len(existing_row) > 4 else ""),         # E  col 4
-                    gas_revenue if gas_revenue != "" else (existing_row[5] if len(existing_row) > 5 else ""),       # F  col 5
-                    total_revenue if total_revenue != "" else (existing_row[6] if len(existing_row) > 6 else ""),   # G  col 6
-                    current_gas_87 if current_gas_87 else "",                                          # H  col 7
-                    current_gas_90 if current_gas_90 else "",                                          # I  col 8
-                    current_gas_ado if current_gas_ado else "",                                        # J  col 9
-                    current_gas_ulsd if current_gas_ulsd else "",                                      # K  col 10
-                    total_litres if total_litres != "" else (existing_row[11] if len(existing_row) > 11 else ""),   # L  col 11
-                    opening_87 if opening_87 != "" else (existing_row[12] if len(existing_row) > 12 else ""),       # M  col 12
-                    opening_90 if opening_90 != "" else (existing_row[13] if len(existing_row) > 13 else ""),       # N  col 13
-                    opening_ado if opening_ado != "" else (existing_row[14] if len(existing_row) > 14 else ""),     # O  col 14
-                    opening_ulsd if opening_ulsd != "" else (existing_row[15] if len(existing_row) > 15 else ""),   # P  col 15
-                    closing_87 if closing_87 != "" else (existing_row[16] if len(existing_row) > 16 else ""),       # Q  col 16
-                    closing_90 if closing_90 != "" else (existing_row[17] if len(existing_row) > 17 else ""),       # R  col 17
-                    closing_ado if closing_ado != "" else (existing_row[18] if len(existing_row) > 18 else ""),     # S  col 18
-                    closing_ulsd if closing_ulsd != "" else (existing_row[19] if len(existing_row) > 19 else ""),   # T  col 19
-                    delivery_87 if delivery_87 != "" else (existing_row[20] if len(existing_row) > 20 else ""),     # U  col 20
-                    delivery_90 if delivery_90 != "" else (existing_row[21] if len(existing_row) > 21 else ""),     # V  col 21
-                    delivery_ado if delivery_ado != "" else (existing_row[22] if len(existing_row) > 22 else ""),   # W  col 22
-                    delivery_ulsd if delivery_ulsd != "" else (existing_row[23] if len(existing_row) > 23 else ""), # X  col 23
-                    price_87 if price_87 != "" else (existing_row[24] if len(existing_row) > 24 else ""),           # Y  col 24
-                    price_90 if price_90 != "" else (existing_row[25] if len(existing_row) > 25 else ""),           # Z  col 25
-                    price_ado if price_ado != "" else (existing_row[26] if len(existing_row) > 26 else ""),         # AA col 26
-                    price_ulsd if price_ulsd != "" else (existing_row[27] if len(existing_row) > 27 else ""),       # AB col 27
-                    competitor_str if competitor_str != "" else (existing_row[28] if len(existing_row) > 28 else ""),# AC col 28
-                    weather_condition if weather_condition != "" else (existing_row[29] if len(existing_row) > 29 else ""),  # AD col 29
-                    weather_temp if weather_temp != "" else (existing_row[30] if len(existing_row) > 30 else ""),   # AE col 30
-                    weather_rain if weather_rain != "" else (existing_row[31] if len(existing_row) > 31 else ""),   # AF col 31
-                    data.get("notes", existing_row[32] if len(existing_row) > 32 else "")                           # AG col 32
+                    date_str,                                        # A - Date
+                    day_of_week,                                     # B - Day
+                    merge(store_sales, 2),                           # C - Store_Sales
+                    merge(phone_cards, 3),                           # D - Phone_Cards
+                    merge(deli_sales, 4),                            # E - Deli_Sales
+                    gas_revenue if gas_revenue != "" else get_existing(5),  # F - Gas_Revenue_Est
+                    total_revenue if total_revenue != "" else get_existing(6),  # G - Total_Revenue
+                    current_gas_87 if current_gas_87 else "",        # H - Gas_87_Litres
+                    current_gas_90 if current_gas_90 else "",        # I - Gas_90_Litres
+                    current_gas_ado if current_gas_ado else "",      # J - Gas_ADO_Litres
+                    current_gas_ulsd if current_gas_ulsd else "",    # K - Gas_ULSD_Litres
+                    merge(total_litres, 11),                         # L - Total_Litres
+                    merge(opening_87, 12),                           # M - Opening_87
+                    merge(opening_90, 13),                           # N - Opening_90
+                    merge(opening_ado, 14),                          # O - Opening_ADO
+                    merge(opening_ulsd, 15),                         # P - Opening_ULSD
+                    merge(closing_87, 16),                           # Q - Closing_87
+                    merge(closing_90, 17),                           # R - Closing_90
+                    merge(closing_ado, 18),                          # S - Closing_ADO
+                    merge(closing_ulsd, 19),                         # T - Closing_ULSD
+                    merge(delivery_87, 20),                          # U - Delivery_87_Litres
+                    merge(delivery_90, 21),                          # V - Delivery_90_Litres
+                    merge(delivery_ado, 22),                         # W - Delivery_ADO_Litres
+                    merge(delivery_ulsd, 23),                        # X - Delivery_ULSD_Litres
+                    merge(delivery_87_cost, 24),                     # Y - Delivery_87_Cost
+                    merge(delivery_90_cost, 25),                     # Z - Delivery_90_Cost
+                    merge(delivery_ado_cost, 26),                    # AA - Delivery_ADO_Cost
+                    merge(delivery_ulsd_cost, 27),                   # AB - Delivery_ULSD_Cost
+                    merge(price_87, 28),                             # AC - GasMart_87_Price
+                    merge(price_90, 29),                             # AD - GasMart_90_Price
+                    merge(price_ado, 30),                            # AE - GasMart_ADO_Price
+                    merge(price_ulsd, 31),                           # AF - GasMart_ULSD_Price
+                    merge(competitor_str, 32),                       # AG - Competitor_Prices
+                    merge(weather_condition, 33),                    # AH - Weather_Condition
+                    merge(weather_temp, 34),                         # AI - Weather_Temp
+                    merge(weather_rain, 35),                         # AJ - Weather_Rain
+                    data.get("notes") or get_existing(36)            # AK - Notes
                 ]
                 
-                worksheet.update(f'A{row_index}:AG{row_index}', [row])
+                worksheet.update(f'A{row_index}:AK{row_index}', [row])
                 last_row = row_index
                 
             else:
                 # Append new row
-                # Calculate gas revenue for new row
                 gas_revenue = ""
                 if all([gas_87, gas_90, price_87, price_90]):
                     gas_revenue = (gas_87 * price_87) + (gas_90 * price_90)
@@ -692,66 +832,27 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     if gas_ulsd and price_ulsd:
                         gas_revenue += gas_ulsd * price_ulsd
                 
-                # Calculate total revenue
                 total_revenue = ""
                 revenue_parts = [store_sales, phone_cards, deli_sales, gas_revenue]
                 if any([isinstance(x, (int, float)) and x != "" for x in revenue_parts]):
                     total_revenue = sum([x for x in revenue_parts if isinstance(x, (int, float)) and x != ""])
                 
                 row = [
-                    date_str,
-                    day_of_week,
-                    store_sales,
-                    phone_cards,
-                    deli_sales,
-                    gas_revenue,
-                    total_revenue,
-                    gas_87 if gas_87 else "",
-                    gas_90 if gas_90 else "",
-                    gas_ado if gas_ado else "",
-                    gas_ulsd if gas_ulsd else "",
-                    total_litres,
-                    opening_87,
-                    opening_90,
-                    opening_ado,
-                    opening_ulsd,
-                    closing_87,
-                    closing_90,
-                    closing_ado,
-                    closing_ulsd,
-                    delivery_87,
-                    delivery_90,
-                    delivery_ado,
-                    delivery_ulsd,
-                    price_87,
-                    price_90,
-                    price_ado,
-                    price_ulsd,
+                    date_str, day_of_week, store_sales, phone_cards, deli_sales,
+                    gas_revenue, total_revenue,
+                    gas_87 if gas_87 else "", gas_90 if gas_90 else "", gas_ado if gas_ado else "", gas_ulsd if gas_ulsd else "", total_litres,
+                    opening_87, opening_90, opening_ado, opening_ulsd,
+                    closing_87, closing_90, closing_ado, closing_ulsd,
+                    delivery_87, delivery_90, delivery_ado, delivery_ulsd,
+                    delivery_87_cost, delivery_90_cost, delivery_ado_cost, delivery_ulsd_cost,
+                    price_87, price_90, price_ado, price_ulsd,
                     competitor_str,
-                    weather_condition,
-                    weather_temp,
-                    weather_rain,
+                    weather_condition, weather_temp, weather_rain,
                     data.get("notes", "")
                 ]
                 
                 worksheet.append_row(row)
                 last_row = len(worksheet.get_all_values())
-            
-            # Format the row
-            # Currency format for revenue columns (C-G)
-            worksheet.format(f'C{last_row}:G{last_row}', {
-                "numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"}
-            })
-            
-            # Number format for litres (columns H-L)
-            worksheet.format(f'H{last_row}:L{last_row}', {
-                "numberFormat": {"type": "NUMBER", "pattern": "#,##0.00"}
-            })
-            
-            # Currency format for prices (columns M-P)
-            worksheet.format(f'M{last_row}:P{last_row}', {
-                "numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"}
-            })
             
             print(f"✅ Updated Google Sheet with data for {date_str} ({day_of_week})")
             
@@ -767,8 +868,6 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
         print("="*60)
         
         try:
-            from datetime import datetime, timedelta
-            
             # Get data from Google Sheet
             worksheet = self.sheet.worksheet("Daily_Report")
             all_data = worksheet.get_all_records()
@@ -928,7 +1027,6 @@ CRITICAL: Be an ADVISOR, not just a reporter. The owner should finish reading an
                 return 0
             if isinstance(value, (int, float)):
                 return float(value)
-            # Remove currency symbols, commas, spaces
             cleaned = str(value).replace('$', '').replace(',', '').replace(' ', '').strip()
             try:
                 return float(cleaned) if cleaned else 0
@@ -1050,18 +1148,16 @@ Check your email for the full detailed analysis with recommendations.
                 print(f"⚠️ SendGrid not configured - skipping email")
             
             # Archive to Google Drive (if configured)
-            if self.sheet:  # If we have Google credentials, we can use Drive
+            if self.sheet:
                 try:
                     from drive_archiver import DriveArchiver
                     drive = DriveArchiver()
                     
-                    # Upload HTML report
                     if html_content:
                         drive_url = drive.upload_weekly_report(html_content, metrics)
                         if drive_url:
                             print(f"✅ Report archived to Google Drive")
                     
-                    # Backup raw data
                     worksheet = self.sheet.worksheet("Daily_Report")
                     all_data = worksheet.get_all_records()
                     drive.upload_data_backup(all_data)
@@ -1075,18 +1171,9 @@ Check your email for the full detailed analysis with recommendations.
     def update_agent_memory(self, analysis: str, metrics: Dict):
         """Update agent's long-term memory with new patterns"""
         try:
-            # Store key patterns for future reference
             self.memory["patterns"]["last_analysis_date"] = datetime.now().isoformat()
             self.memory["patterns"]["recent_metrics"] = metrics
-            
-            # TODO: Store more sophisticated patterns:
-            # - Day-of-week preferences
-            # - Payday cycle correlations
-            # - Weather impact patterns
-            # - Pricing elasticity
-            
             print("✅ Agent memory updated with new patterns")
-            
         except Exception as e:
             print(f"⚠️ Could not update memory: {e}")
 
@@ -1101,7 +1188,8 @@ def home():
     return jsonify({
         "status": "running",
         "service": "SuperPlus AI Agent",
-        "version": "1.0",
+        "version": "2.0",
+        "features": ["staff_confirmations", "delivery_cost_tracking"],
         "timestamp": datetime.now().isoformat()
     })
 
@@ -1110,7 +1198,6 @@ def webhook():
     """WhatsApp webhook endpoint"""
     
     if request.method == 'GET':
-        # Webhook verification (for WhatsApp Cloud API)
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
@@ -1124,7 +1211,6 @@ def webhook():
             return 'Forbidden', 403
     
     elif request.method == 'POST':
-        # Meta sends JSON, Twilio sends form data — handle both
         data = request.get_json(silent=True) or request.form.to_dict()
         
         if not data:
@@ -1144,6 +1230,11 @@ def dashboard():
     if agent:
         status = {
             "status": "running",
+            "version": "2.0",
+            "features": {
+                "staff_confirmations": True,
+                "delivery_cost_tracking": True
+            },
             "messages_processed": len(agent.memory.get("messages", [])),
             "last_processed": agent.memory.get("last_processed"),
             "patterns_learned": len(agent.memory.get("patterns", {})),
@@ -1166,7 +1257,6 @@ def test_email():
         
         print("📧 Testing email report...")
         
-        # Get recent data
         worksheet = agent.sheet.worksheet("Daily_Report")
         all_data = worksheet.get_all_records()
         
@@ -1176,13 +1266,9 @@ def test_email():
         if not this_week:
             return jsonify({"error": "No data available"}), 400
         
-        # Calculate metrics
         metrics = agent.calculate_weekly_metrics(this_week, last_week)
+        analysis = "This is a test email report generated manually."
         
-        # Generate test analysis
-        analysis = "This is a test email report generated manually. Your weekly automated reports will contain full AI analysis with insights, trends, and recommendations."
-        
-        # Send email
         sendgrid_key = os.getenv('SENDGRID_API_KEY')
         if not sendgrid_key:
             return jsonify({"error": "SendGrid not configured"}), 400
@@ -1194,7 +1280,7 @@ def test_email():
         if success:
             return jsonify({
                 "status": "success",
-                "message": "Test email sent! Check your inbox.",
+                "message": "Test email sent!",
                 "recipient": os.getenv('OWNER_EMAIL')
             })
         else:
@@ -1202,53 +1288,6 @@ def test_email():
             
     except Exception as e:
         print(f"❌ Test email error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/test-drive')
-def test_drive():
-    """Test endpoint to upload report to Google Drive"""
-    try:
-        if not agent:
-            return jsonify({"error": "Agent not initialized"}), 500
-        
-        print("📁 Testing Google Drive upload...")
-        
-        # Get recent data
-        worksheet = agent.sheet.worksheet("Daily_Report")
-        all_data = worksheet.get_all_records()
-        
-        this_week = all_data[-7:] if len(all_data) >= 7 else all_data
-        last_week = all_data[-14:-7] if len(all_data) >= 14 else []
-        
-        if not this_week:
-            return jsonify({"error": "No data available"}), 400
-        
-        # Calculate metrics
-        metrics = agent.calculate_weekly_metrics(this_week, last_week)
-        
-        # Generate test HTML
-        from email_reporter import EmailReporter
-        email_reporter = EmailReporter()
-        html_content = email_reporter.generate_weekly_html("Test report uploaded to Drive", metrics)
-        
-        # Upload to Drive
-        from drive_archiver import DriveArchiver
-        drive = DriveArchiver()
-        drive_url = drive.upload_weekly_report(html_content, metrics)
-        
-        if drive_url:
-            return jsonify({
-                "status": "success",
-                "message": "Report uploaded to Google Drive!",
-                "url": drive_url
-            })
-        else:
-            return jsonify({"error": "Failed to upload to Drive"}), 500
-            
-    except Exception as e:
-        print(f"❌ Test Drive error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -1265,40 +1304,6 @@ def run_analysis_endpoint():
     else:
         return jsonify({"error": "Agent not initialized"}), 500
 
-@app.route('/test-morning-alert')
-def test_morning_alert():
-    """Test morning briefing"""
-    try:
-        from alert_scheduler import AlertScheduler
-        alert_system = AlertScheduler(agent)
-        alert_system.send_morning_briefing()
-        return jsonify({
-            "status": "success",
-            "message": "Morning briefing sent! Check Telegram and WhatsApp."
-        })
-    except Exception as e:
-        print(f"❌ Test morning alert error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/test-evening-alert')
-def test_evening_alert():
-    """Test evening summary"""
-    try:
-        from alert_scheduler import AlertScheduler
-        alert_system = AlertScheduler(agent)
-        alert_system.send_evening_summary()
-        return jsonify({
-            "status": "success",
-            "message": "Evening summary sent! Check Telegram and WhatsApp."
-        })
-    except Exception as e:
-        print(f"❌ Test evening alert error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
 
 # ============================================
 # SCHEDULER (runs in background)
@@ -1312,18 +1317,12 @@ def run_scheduler():
 
 def schedule_tasks():
     """Set up scheduled tasks"""
-    # Import alert scheduler
     try:
         from alert_scheduler import AlertScheduler
         alert_system = AlertScheduler(agent)
         
-        # Daily morning briefing at 8:00 AM
         schedule.every().day.at("08:00").do(lambda: alert_system.send_morning_briefing())
-        
-        # Daily evening summary at 10:00 PM
         schedule.every().day.at("22:00").do(lambda: alert_system.send_evening_summary())
-        
-        # Weekly analysis every Sunday at 8:00 PM
         schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
         
         print("📅 Scheduled tasks configured:")
@@ -1333,10 +1332,8 @@ def schedule_tasks():
         
     except Exception as e:
         print(f"⚠️ Could not initialize alert scheduler: {e}")
-        # Fall back to just weekly analysis
         schedule.every().sunday.at("20:00").do(lambda: agent.run_weekly_analysis() if agent else None)
-        print("📅 Scheduled tasks configured:")
-        print("   - Weekly analysis: Sunday 8:00 PM")
+        print("📅 Scheduled: Weekly analysis Sunday 8:00 PM")
 
 
 # ============================================
@@ -1348,13 +1345,11 @@ def main():
     global agent
     
     print("\n" + "="*60)
-    print("🤖 SUPERPLUS AI AGENT STARTING")
+    print("🤖 SUPERPLUS AI AGENT STARTING (v2)")
     print("="*60 + "\n")
     
-    # Initialize agent
     agent = SuperPlusAgent()
     
-    # Initialize Telegram bot (if configured)
     telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
     if telegram_bot_token:
         try:
@@ -1366,23 +1361,17 @@ def main():
     else:
         print("⚠️ Telegram bot disabled (no token)")
     
-    # Set up scheduled tasks
     schedule_tasks()
     
-    # Start scheduler in background thread
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
     
-    print("\n✅ Agent ready!")
+    print("\n✅ Agent ready! (v2 with confirmations + delivery costs)")
     print("="*60)
     print(f"📡 Webhook URL: https://YOUR-RAILWAY-URL/webhook")
     print(f"📊 Dashboard: https://YOUR-RAILWAY-URL/dashboard")
-    print(f"🏥 Health check: https://YOUR-RAILWAY-URL/")
-    if telegram_bot_token:
-        print(f"📱 Telegram: Send /start to your bot")
     print("="*60 + "\n")
     
-    # Start Flask web server
     port = int(os.getenv('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
 
