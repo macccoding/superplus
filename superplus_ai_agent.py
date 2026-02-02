@@ -821,6 +821,55 @@ def create_app():
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
     
+    # Start Telegram bot in background thread
+    def run_telegram_bot():
+        try:
+            import asyncio
+            from telegram import Update
+            from telegram.ext import Application, CommandHandler, MessageHandler, filters
+            
+            token = os.getenv('TELEGRAM_BOT_TOKEN')
+            if not token:
+                print("⚠️ TELEGRAM_BOT_TOKEN not set - bot disabled")
+                return
+            
+            # Import and run the telegram bot
+            from telegram_bot_v3 import SuperPlusTelegramBot
+            bot = SuperPlusTelegramBot()
+            
+            # Run in new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            app_tg = Application.builder().token(token).build()
+            
+            # Register handlers
+            app_tg.add_handler(CommandHandler("start", bot.cmd_start))
+            app_tg.add_handler(CommandHandler("help", bot.cmd_help))
+            app_tg.add_handler(CommandHandler("status", bot.cmd_status))
+            app_tg.add_handler(CommandHandler("today", bot.cmd_today))
+            app_tg.add_handler(CommandHandler("gas", bot.cmd_gas))
+            app_tg.add_handler(CommandHandler("dips", bot.cmd_dips))
+            app_tg.add_handler(CommandHandler("deliveries", bot.cmd_deliveries))
+            app_tg.add_handler(CommandHandler("shrinkage", bot.cmd_shrinkage))
+            app_tg.add_handler(CommandHandler("profit", bot.cmd_profit))
+            app_tg.add_handler(CommandHandler("forecast", bot.cmd_forecast))
+            app_tg.add_handler(CommandHandler("competitors", bot.cmd_competitors))
+            app_tg.add_handler(CommandHandler("compare", bot.cmd_compare))
+            app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
+            
+            print("🤖 Telegram bot starting...")
+            loop.run_until_complete(app_tg.run_polling(allowed_updates=Update.ALL_TYPES))
+            
+        except Exception as e:
+            print(f"⚠️ Telegram bot error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    telegram_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+    telegram_thread.start()
+    print("🤖 Telegram bot thread started")
+    
     return app
 
 
