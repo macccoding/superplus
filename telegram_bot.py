@@ -620,6 +620,10 @@ class SuperPlusTelegramBot:
             await self.cmd_competitors(update, context)
         elif any(w in text for w in ['compare', 'vs', 'versus', 'last week']):
             await self.cmd_compare(update, context)
+        elif any(w in text for w in ['schedule', 'shift', 'roster', 'working', 'staff']):
+            await self.cmd_schedule(update, context)
+        elif any(w in text for w in ['generate', 'create schedule', 'next week']):
+            await self.cmd_generate_schedule(update, context)
         else:
             await update.message.reply_text(
                 "I didn't understand. Try /help for commands, or ask about:\n"
@@ -627,8 +631,182 @@ class SuperPlusTelegramBot:
                 "• gas/fuel sales\n"
                 "• inventory/dips\n"
                 "• profit/margins\n"
-                "• forecast/orders"
+                "• forecast/orders\n"
+                "• schedule/shifts"
             )
+    
+    # ============================================
+    # SHIFT COMMANDS
+    # ============================================
+    
+    async def cmd_schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show today's or this week's shift schedule"""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("⛔ Not authorized")
+            return
+        
+        if not self.sm:
+            await update.message.reply_text("❌ Sheet not connected")
+            return
+        
+        try:
+            # Get today's shifts
+            today_shifts = self.sm.get_todays_schedule()
+            
+            if not today_shifts:
+                await update.message.reply_text(
+                    "📅 No shifts found for today.\n\n"
+                    "Use /generate_schedule to create next week's roster."
+                )
+                return
+            
+            # Format response
+            today = datetime.now().strftime('%A, %b %d')
+            msg = f"📅 *Schedule for {today}*\n\n"
+            
+            # Group by role
+            supervisors = [s for s in today_shifts if s.get('Role') == 'Supervisor']
+            overnight = [s for s in today_shifts if s.get('Is_Overnight') == 'Yes']
+            regular = [s for s in today_shifts if s.get('Role') not in ['Supervisor', 'Overnight'] and s.get('Is_Overnight') != 'Yes']
+            
+            if supervisors:
+                msg += "👑 *Supervisors:*\n"
+                for s in supervisors:
+                    msg += f"  • {s['Staff_Name']}: {s['Shift_Start']} - {s['Shift_End']}\n"
+            
+            if regular:
+                msg += "\n👷 *Staff:*\n"
+                for s in regular:
+                    msg += f"  • {s['Staff_Name']}: {s['Shift_Start']} - {s['Shift_End']}\n"
+            
+            if overnight:
+                msg += "\n🌙 *Overnight:*\n"
+                for s in overnight:
+                    msg += f"  • {s['Staff_Name']}: {s['Shift_Start']} - {s['Shift_End']}\n"
+            
+            msg += f"\n*Total:* {len(today_shifts)} staff"
+            
+            await update.message.reply_text(msg, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {e}")
+    
+    async def cmd_generate_schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Generate next week's shift schedule"""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("⛔ Not authorized")
+            return
+        
+        if not self.sm:
+            await update.message.reply_text("❌ Sheet not connected")
+            return
+        
+        try:
+            await update.message.reply_text("⏳ Generating next week's schedule...")
+            
+            # Import generator
+            from shift_generator_v2 import ShiftGenerator, STAFF_ROSTER, DAYS
+            from datetime import timedelta
+            
+            # Get previous Sunday workers for rotation
+            prev_sunday = self.sm.get_previous_sunday_workers()
+            
+            # Calculate next week's start (next Sunday)
+            today = datetime.now()
+            days_until_sunday = (6 - today.weekday()) % 7
+            if days_until_sunday == 0:
+                days_until_sunday = 7  # Next Sunday, not today
+            next_sunday = today + timedelta(days=days_until_sunday)
+            week_start = next_sunday.strftime('%Y-%m-%d')
+            
+            # Generate schedule
+            generator = ShiftGenerator(STAFF_ROSTER, previous_sunday_workers=prev_sunday)
+            schedule = generator.generate_schedule()
+            
+            # Prepare data for sheet
+            schedule_rows = []
+            for day_idx, day in enumerate(DAYS):
+                date_str = (next_sunday + timedelta(days=day_idx)).strftime('%Y-%m-%d')
+                
+                for staff_name, shifts in schedule.items():
+                    shift = shifts[day_idx]
+                    if shift != 'OFF':
+                        start, end = shift
+                        hours = generator._calc_hours(start, end)
+                        is_overnight = 'PM' in start and 'AM' in end
+                        
+                        staff = generator.staff[staff_name]
+                        role = 'Supervisor' if staff.is_supervisor else \
+                               'Auxiliary' if staff.is_auxiliary else \
+                               'Overnight' if staff.is_overnight_specialist else 'Regular'
+                        
+                        schedule_rows.append({
+                            'Date': date_str,
+                            'Day': day,
+                            'Staff_Name': staff_name,
+                            'Shift_Start': start,
+                            'Shift_End': end,
+                            'Hours': hours,
+                            'Is_Overnight': 'Yes' if is_overnight else 'No',
+                            'Role': role
+                        })
+            
+            # Save to sheet
+            self.sm.save_shift_schedule(schedule_rows, week_start)
+            
+            # Save Sunday rotation for next week
+            sunday_workers = generator.get_sunday_workers()
+            self.sm.save_sunday_workers(sunday_workers)
+            
+            # Get summary
+            summary = generator.get_summary()
+            
+            msg = f"✅ *Schedule Generated for {week_start}*\n\n"
+            msg += f"📊 *Summary:*\n"
+            msg += f"• Total hours: {summary['total_hours']}\n"
+            msg += f"• Avg per staff: {summary['avg_hours']:.1f}h\n\n"
+            
+            msg += "*Daily Staff Count:*\n"
+            for day, count in summary['daily_counts'].items():
+                msg += f"  {day}: {count}\n"
+            
+            msg += f"\n🔄 *Sunday rotation:* {len(sunday_workers)} staff will be OFF next Sunday"
+            
+            await update.message.reply_text(msg, parse_mode='Markdown')
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            await update.message.reply_text(f"❌ Error generating schedule: {e}")
+    
+    async def cmd_whos_working(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show who's currently working"""
+        if not self.is_authorized(update.effective_user.id):
+            await update.message.reply_text("⛔ Not authorized")
+            return
+        
+        if not self.sm:
+            await update.message.reply_text("❌ Sheet not connected")
+            return
+        
+        try:
+            working = self.sm.get_whos_working_now()
+            
+            if not working:
+                await update.message.reply_text("👤 No one currently on shift (based on schedule)")
+                return
+            
+            now = datetime.now().strftime('%I:%M %p')
+            msg = f"👷 *Currently Working ({now}):*\n\n"
+            
+            for s in working:
+                role = "👑" if s.get('Role') == 'Supervisor' else "🌙" if s.get('Is_Overnight') == 'Yes' else "👤"
+                msg += f"{role} {s['Staff_Name']} ({s['Shift_Start']} - {s['Shift_End']})\n"
+            
+            await update.message.reply_text(msg, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {e}")
     
     def run(self):
         """Start the bot"""
@@ -651,6 +829,9 @@ class SuperPlusTelegramBot:
         app.add_handler(CommandHandler("forecast", self.cmd_forecast))
         app.add_handler(CommandHandler("competitors", self.cmd_competitors))
         app.add_handler(CommandHandler("compare", self.cmd_compare))
+        app.add_handler(CommandHandler("schedule", self.cmd_schedule))
+        app.add_handler(CommandHandler("generate_schedule", self.cmd_generate_schedule))
+        app.add_handler(CommandHandler("working", self.cmd_whos_working))
         
         # Natural language
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))

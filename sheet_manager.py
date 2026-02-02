@@ -52,6 +52,13 @@ class SheetManager:
         ],
         'Competitor_Prices': [
             'Date', 'Competitor', 'Price_87', 'Price_90', 'Price_ADO', 'Price_ULSD', 'Notes'
+        ],
+        'Shifts_Gas': [
+            'Week_Start', 'Date', 'Day', 'Staff_Name', 'Shift_Start', 'Shift_End', 
+            'Hours', 'Is_Overnight', 'Role', 'Notes'
+        ],
+        'Shift_Config': [
+            'Key', 'Value', 'Updated_At'
         ]
     }
     
@@ -648,3 +655,148 @@ class SheetManager:
                 result['days_with_data'] += 1
         
         return result
+    
+    # =========================================================================
+    # SHIFT MANAGEMENT
+    # =========================================================================
+    
+    def save_shift_schedule(self, schedule_data: List[Dict], week_start: str):
+        """
+        Save generated shift schedule to Shifts_Gas tab.
+        
+        Args:
+            schedule_data: List of shift dicts with Date, Staff_Name, Shift_Start, etc.
+            week_start: Week start date (YYYY-MM-DD)
+        """
+        worksheet = self.sheet.worksheet('Shifts_Gas')
+        
+        # Clear previous data for this week (keep headers)
+        records = worksheet.get_all_records()
+        rows_to_clear = [i+2 for i, r in enumerate(records) if r.get('Week_Start') == week_start]
+        
+        # Actually, let's just append for now (simpler)
+        for shift in schedule_data:
+            row = [
+                week_start,
+                shift.get('Date', ''),
+                shift.get('Day', ''),
+                shift.get('Staff_Name', ''),
+                shift.get('Shift_Start', ''),
+                shift.get('Shift_End', ''),
+                shift.get('Hours', ''),
+                shift.get('Is_Overnight', ''),
+                shift.get('Role', ''),
+                shift.get('Notes', '')
+            ]
+            worksheet.append_row(row)
+        
+        print(f"📅 Saved {len(schedule_data)} shifts for week starting {week_start}")
+    
+    def get_shifts_for_date(self, date_str: str) -> List[Dict]:
+        """Get all shifts for a specific date"""
+        worksheet = self.sheet.worksheet('Shifts_Gas')
+        records = worksheet.get_all_records()
+        return [r for r in records if r.get('Date') == date_str]
+    
+    def get_shifts_for_week(self, week_start: str) -> List[Dict]:
+        """Get all shifts for a week"""
+        worksheet = self.sheet.worksheet('Shifts_Gas')
+        records = worksheet.get_all_records()
+        return [r for r in records if r.get('Week_Start') == week_start]
+    
+    def get_staff_schedule(self, staff_name: str, days: int = 7) -> List[Dict]:
+        """Get schedule for a specific staff member"""
+        worksheet = self.sheet.worksheet('Shifts_Gas')
+        records = worksheet.get_all_records()
+        
+        # Filter by staff name and recent dates
+        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        return [r for r in records 
+                if r.get('Staff_Name', '').upper() == staff_name.upper() 
+                and r.get('Date', '') >= cutoff]
+    
+    def get_previous_sunday_workers(self) -> List[str]:
+        """Get list of staff who worked last Sunday (for rotation)"""
+        try:
+            worksheet = self.sheet.worksheet('Shift_Config')
+            records = worksheet.get_all_records()
+            for r in records:
+                if r.get('Key') == 'last_sunday_workers':
+                    import json
+                    return json.loads(r.get('Value', '[]'))
+        except:
+            pass
+        return []
+    
+    def save_sunday_workers(self, workers: List[str]):
+        """Save Sunday workers for next week's rotation"""
+        import json
+        worksheet = self.sheet.worksheet('Shift_Config')
+        records = worksheet.get_all_records()
+        
+        # Find existing row or append
+        found = False
+        for i, r in enumerate(records):
+            if r.get('Key') == 'last_sunday_workers':
+                worksheet.update(f'B{i+2}', json.dumps(workers))
+                worksheet.update(f'C{i+2}', datetime.now().strftime('%Y-%m-%d %H:%M'))
+                found = True
+                break
+        
+        if not found:
+            worksheet.append_row([
+                'last_sunday_workers',
+                json.dumps(workers),
+                datetime.now().strftime('%Y-%m-%d %H:%M')
+            ])
+        
+        print(f"🔄 Saved Sunday rotation: {len(workers)} workers")
+    
+    def get_todays_schedule(self) -> List[Dict]:
+        """Get today's shift schedule"""
+        today = datetime.now().strftime('%Y-%m-%d')
+        return self.get_shifts_for_date(today)
+    
+    def get_whos_working_now(self) -> List[Dict]:
+        """Get staff currently on shift"""
+        now = datetime.now()
+        today = now.strftime('%Y-%m-%d')
+        current_hour = now.hour
+        
+        shifts = self.get_shifts_for_date(today)
+        working = []
+        
+        for shift in shifts:
+            start_str = shift.get('Shift_Start', '')
+            end_str = shift.get('Shift_End', '')
+            
+            # Parse shift times
+            try:
+                start_h = self._parse_hour(start_str)
+                end_h = self._parse_hour(end_str)
+                
+                # Handle overnight
+                if end_h < start_h:
+                    # Overnight shift
+                    if current_hour >= start_h or current_hour < end_h:
+                        working.append(shift)
+                else:
+                    if start_h <= current_hour < end_h:
+                        working.append(shift)
+            except:
+                pass
+        
+        return working
+    
+    def _parse_hour(self, time_str: str) -> int:
+        """Parse hour from time string like '6:00 AM' """
+        time_str = time_str.replace(' ', '')
+        if 'PM' in time_str:
+            h = int(time_str.replace('PM', '').split(':')[0])
+            if h != 12:
+                h += 12
+        else:
+            h = int(time_str.replace('AM', '').split(':')[0])
+            if h == 12:
+                h = 0
+        return h
