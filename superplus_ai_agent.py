@@ -833,14 +833,15 @@ def create_app():
                 print("⚠️ TELEGRAM_BOT_TOKEN not set - bot disabled")
                 return
             
-            # Import and run the telegram bot
+            # Import the telegram bot class
             from telegram_bot_v3 import SuperPlusTelegramBot
             bot = SuperPlusTelegramBot()
             
-            # Run in new event loop for this thread
+            # Create new event loop for this thread
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
+            # Build application
             app_tg = Application.builder().token(token).build()
             
             # Register handlers
@@ -858,8 +859,20 @@ def create_app():
             app_tg.add_handler(CommandHandler("compare", bot.cmd_compare))
             app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
             
-            print("🤖 Telegram bot starting...")
-            loop.run_until_complete(app_tg.run_polling(allowed_updates=Update.ALL_TYPES))
+            print("🤖 Telegram bot starting polling...")
+            
+            # Use start_polling + idle pattern that works in threads
+            async def run_bot():
+                await app_tg.initialize()
+                await app_tg.start()
+                await app_tg.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+                print("✅ Telegram bot polling active")
+                
+                # Keep running until stopped
+                while True:
+                    await asyncio.sleep(1)
+            
+            loop.run_until_complete(run_bot())
             
         except Exception as e:
             print(f"⚠️ Telegram bot error: {e}")
