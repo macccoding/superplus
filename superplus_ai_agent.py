@@ -6,7 +6,18 @@ Multi-tab sheet structure via sheet_manager
 
 import anthropic
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# Jamaica timezone (EST/UTC-5, no DST)
+JAMAICA_TZ = timezone(timedelta(hours=-5))
+
+def jamaica_now():
+    """Get current time in Jamaica"""
+    return datetime.now(JAMAICA_TZ)
+
+def jamaica_today():
+    """Get today's date in Jamaica as string"""
+    return jamaica_now().strftime("%Y-%m-%d")
 import json
 import time
 from typing import Dict, List, Any
@@ -122,7 +133,7 @@ class SuperPlusAgent:
             print(f"Content preview: {message_text[:100]}...")
             
             self.memory["messages"].append({
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": jamaica_now().isoformat(),
                 "sender": sender,
                 "content": message_text
             })
@@ -134,7 +145,7 @@ class SuperPlusAgent:
                 "action_taken": response.get("action", "processed"),
                 "tabs_updated": response.get("tabs_updated", []),
                 "confirmation_sent": response.get("confirmation_sent", False),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": jamaica_now().isoformat()
             }
             
         except Exception as e:
@@ -291,7 +302,7 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
             
             # Handle "TODAY" date
             if data.get("date") == "TODAY":
-                data["date"] = datetime.now().strftime("%Y-%m-%d")
+                data["date"] = jamaica_today()
             
             # If no date but we have actual data, default to today
             if not data.get("date"):
@@ -303,7 +314,7 @@ Be flexible with number formats (commas, periods, spaces, K for thousands)."""
                     data.get('competitor_prices')
                 ])
                 if has_data:
-                    data["date"] = datetime.now().strftime("%Y-%m-%d")
+                    data["date"] = jamaica_today()
                     print(f"📅 No date specified, defaulting to today: {data['date']}")
             
             print(f"✅ Extracted data: {json.dumps(data, indent=2)}")
@@ -721,7 +732,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "version": "3.0-multitab",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": jamaica_now().isoformat(),
         "agent_initialized": agent is not None,
         "sheet_manager": agent.sheet_manager is not None if agent else False
     })
@@ -742,7 +753,7 @@ def get_status():
         return jsonify({
             "weekly_summary": weekly,
             "current_inventory": inventory,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": jamaica_now().isoformat()
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

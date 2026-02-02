@@ -5,7 +5,14 @@ Uses sheet_manager for data access
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# Jamaica timezone (EST/UTC-5, no DST)
+JAMAICA_TZ = timezone(timedelta(hours=-5))
+
+def jamaica_now():
+    """Get current time in Jamaica"""
+    return datetime.now(JAMAICA_TZ)
 from typing import Dict, List, Optional
 import statistics
 
@@ -120,7 +127,7 @@ class DemandForecaster:
             return []
         
         forecasts = []
-        today = datetime.now()
+        today = jamaica_now()
         
         for i in range(1, days_ahead + 1):
             forecast_date = today + timedelta(days=i)
@@ -263,7 +270,7 @@ class DemandForecaster:
         Generate complete forecast for all fuel types.
         """
         report = {
-            'generated_at': datetime.now().isoformat(),
+            'generated_at': jamaica_now().isoformat(),
             'fuels': {},
             'alerts': [],
             'summary': ''
@@ -313,7 +320,7 @@ class DemandForecaster:
         report = self.generate_full_forecast_report()
         
         text = f"📊 **DEMAND FORECAST**\n"
-        text += f"_{datetime.now().strftime('%A, %B %d, %Y')}_\n\n"
+        text += f"_{jamaica_now().strftime('%A, %B %d, %Y')}_\n\n"
         text += f"{report['summary']}\n\n"
         
         if report['alerts']:

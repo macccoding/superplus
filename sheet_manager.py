@@ -14,7 +14,18 @@ Tab Structure:
 
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# Jamaica timezone (EST/UTC-5, no DST)
+JAMAICA_TZ = timezone(timedelta(hours=-5))
+
+def jamaica_now():
+    """Get current time in Jamaica"""
+    return datetime.now(JAMAICA_TZ)
+
+def jamaica_today():
+    """Get today's date in Jamaica as string"""
+    return jamaica_now().strftime("%Y-%m-%d")
 from typing import Dict, List, Optional, Any
 import gspread
 from google.oauth2.service_account import Credentials
@@ -449,7 +460,7 @@ class SheetManager:
         """Add fuel delivery records (append, don't update)"""
         worksheet = self.sheet.worksheet('Fuel_Deliveries')
         date_str = data['date']
-        current_time = datetime.now().strftime('%H:%M')
+        current_time = jamaica_now().strftime('%H:%M')
         supplier = data.get('delivery_supplier', '')
         
         # Each fuel type with delivery gets its own row
@@ -556,7 +567,7 @@ class SheetManager:
         worksheet = self.sheet.worksheet('Fuel_Deliveries')
         records = worksheet.get_all_records()
         
-        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        cutoff = (jamaica_now() - timedelta(days=days)).strftime('%Y-%m-%d')
         return [r for r in records if r.get('Date', '') >= cutoff]
     
     def get_latest_delivery_cost(self, fuel_type: str) -> Optional[float]:
@@ -580,7 +591,7 @@ class SheetManager:
         if date_str:
             return [r for r in records if r.get('Date') == date_str]
         
-        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        cutoff = (jamaica_now() - timedelta(days=days)).strftime('%Y-%m-%d')
         return [r for r in records if r.get('Date', '') >= cutoff]
     
     def get_latest_inventory(self) -> Dict:
@@ -606,7 +617,7 @@ class SheetManager:
     
     def get_weekly_summary(self, weeks_back: int = 0) -> Dict:
         """Get aggregated weekly summary"""
-        today = datetime.now()
+        today = jamaica_now()
         week_start = today - timedelta(days=today.weekday() + (weeks_back * 7))
         week_end = week_start + timedelta(days=6)
         
@@ -712,7 +723,7 @@ class SheetManager:
         records = worksheet.get_all_records()
         
         # Filter by staff name and recent dates
-        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        cutoff = (jamaica_now() - timedelta(days=days)).strftime('%Y-%m-%d')
         return [r for r in records 
                 if r.get('Staff_Name', '').upper() == staff_name.upper() 
                 and r.get('Date', '') >= cutoff]
@@ -741,7 +752,7 @@ class SheetManager:
         for i, r in enumerate(records):
             if r.get('Key') == 'last_sunday_workers':
                 worksheet.update(f'B{i+2}', json.dumps(workers))
-                worksheet.update(f'C{i+2}', datetime.now().strftime('%Y-%m-%d %H:%M'))
+                worksheet.update(f'C{i+2}', jamaica_now().strftime('%Y-%m-%d %H:%M'))
                 found = True
                 break
         
@@ -749,19 +760,19 @@ class SheetManager:
             worksheet.append_row([
                 'last_sunday_workers',
                 json.dumps(workers),
-                datetime.now().strftime('%Y-%m-%d %H:%M')
+                jamaica_now().strftime('%Y-%m-%d %H:%M')
             ])
         
         print(f"🔄 Saved Sunday rotation: {len(workers)} workers")
     
     def get_todays_schedule(self) -> List[Dict]:
         """Get today's shift schedule"""
-        today = datetime.now().strftime('%Y-%m-%d')
+        today = jamaica_today()
         return self.get_shifts_for_date(today)
     
     def get_whos_working_now(self) -> List[Dict]:
         """Get staff currently on shift"""
-        now = datetime.now()
+        now = jamaica_now()
         today = now.strftime('%Y-%m-%d')
         current_hour = now.hour
         

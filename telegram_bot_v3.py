@@ -6,7 +6,18 @@ Commands for querying business data from multi-tab sheet structure
 
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# Jamaica timezone (EST/UTC-5, no DST)
+JAMAICA_TZ = timezone(timedelta(hours=-5))
+
+def jamaica_now():
+    """Get current time in Jamaica"""
+    return datetime.now(JAMAICA_TZ)
+
+def jamaica_today():
+    """Get today's date in Jamaica as string"""
+    return jamaica_now().strftime("%Y-%m-%d")
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import gspread
@@ -164,7 +175,7 @@ class SuperPlusTelegramBot:
             return
         
         try:
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = jamaica_today()
             summary = self.sm.get_daily_summary(today)
             fuel = self.sm.get_fuel_sales(today)
             inventory = self.sm.get_fuel_inventory(today)
@@ -661,7 +672,7 @@ class SuperPlusTelegramBot:
                 return
             
             # Format response
-            today = datetime.now().strftime('%A, %b %d')
+            today = jamaica_now().strftime('%A, %b %d')
             msg = f"📅 *Schedule for {today}*\n\n"
             
             # Group by role
@@ -712,7 +723,7 @@ class SuperPlusTelegramBot:
             prev_sunday = self.sm.get_previous_sunday_workers()
             
             # Calculate next week's start (next Sunday)
-            today = datetime.now()
+            today = jamaica_now()
             days_until_sunday = (6 - today.weekday()) % 7
             if days_until_sunday == 0:
                 days_until_sunday = 7  # Next Sunday, not today
@@ -796,7 +807,7 @@ class SuperPlusTelegramBot:
                 await update.message.reply_text("👤 No one currently on shift (based on schedule)")
                 return
             
-            now = datetime.now().strftime('%I:%M %p')
+            now = jamaica_now().strftime('%I:%M %p')
             msg = f"👷 *Currently Working ({now}):*\n\n"
             
             for s in working:
