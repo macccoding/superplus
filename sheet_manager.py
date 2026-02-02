@@ -450,6 +450,7 @@ class SheetManager:
         worksheet = self.sheet.worksheet('Fuel_Deliveries')
         date_str = data['date']
         current_time = datetime.now().strftime('%H:%M')
+        supplier = data.get('delivery_supplier', '')
         
         # Each fuel type with delivery gets its own row
         for fuel in ['87', '90', 'ado', 'ulsd']:
@@ -465,13 +466,14 @@ class SheetManager:
                     litres,
                     cost,
                     total_cost,
-                    '',  # Supplier
+                    supplier,  # Supplier name (NAJ'S Energy, WIP, etc.)
                     '',  # Invoice number
                     data.get('notes', '')
                 ]
                 
                 worksheet.append_row(row)
-                print(f"📦 Added delivery: {fuel.upper()} {litres}L @ ${cost}/L")
+                supplier_text = f" from {supplier}" if supplier else ""
+                print(f"📦 Added delivery: {fuel.upper()} {litres}L{supplier_text} @ ${cost}/L" if cost else f"📦 Added delivery: {fuel.upper()} {litres}L{supplier_text}")
     
     def _update_competitor_prices(self, data: Dict):
         """Add competitor price records"""

@@ -178,22 +178,57 @@ CRITICAL: SuperPlus has 4 SEPARATE business units:
 
 Your job: Extract business data from WhatsApp messages.
 
-CRITICAL DISTINCTIONS:
+=== CRITICAL MESSAGE TYPES - MUST DISTINGUISH ===
 
-**Opening Dips vs Closing Dips vs Litres Sold:**
-- "Opening dips" or "morning dips" = starting inventory at open
-- "Closing dips" or "end of day dips" = inventory at close
-- "Litres sold" or just "litres" with sales context = actual fuel sold
-- These are THREE DIFFERENT things. Do NOT mix them up.
+**TYPE 1: INVENTORY CHECK / TANK STATUS**
+Phrases: "Products available in tanks", "tank levels", "what's in tanks"
+Example: "Good afternoon. Products available in tanks: 87- 12,657, 90-16,801"
+→ This is a MID-DAY inventory reading, NOT opening or closing dips
+→ Set as: opening_XX if morning (before noon), closing_XX if evening (after 6pm)
+→ If time unclear, store as opening_XX
 
-**Fuel Deliveries WITH COST:**
-- "Delivery" or "tanker" or "load" = fuel received from supplier
-- Extract fuel type, litres delivered, AND cost per litre if provided
-- Example: "Delivery 87 - 15,000L @ $158/L"
+**TYPE 2: FUEL DELIVERY with BEFORE/AFTER readings**
+Phrases: "Product del", "delivery from", "tanker", "load arrived"
+Suppliers: NAJ'S Energy, WIP, Petrojam, etc.
+Example: "Product del from NAJ'S Energy. 90-12,200. Opening 90-14,133. Closing 90-26,585"
+→ "90-12,200" = LITRES DELIVERED (delivery_90)
+→ "Opening 90-14,133" = tank level BEFORE delivery (ignore for daily dips)
+→ "Closing 90-26,585" = tank level AFTER delivery (ignore for daily dips)
+→ These before/after readings are for DELIVERY VERIFICATION only, NOT daily opening/closing dips!
+→ DO NOT set opening_XX or closing_XX from delivery messages!
 
-**Competitor Prices:**
-- Extract competitor names and their prices
-- Common competitors: Jamgas, Total, Greenvale, Yaadman, Spur Tree, Rubis
+**TYPE 3: END OF DAY CLOSING FIGURES**
+Phrases: "closing figures", "Gnight closing", "end of day dips", "EOD"
+Example: "Gnight closing figures: 87-11,937, 90-23,367, Ado-13,342, Ulsd-10,578"
+→ These ARE the official closing_XX values for the day
+
+**TYPE 4: MORNING OPENING DIPS**
+Phrases: "morning dips", "opening dips", "start of day"
+Example: "Morning dips: 87-13,618, 90-21,918"
+→ These ARE the official opening_XX values for the day
+
+**TYPE 5: LITRES SOLD (from daily sales report)**
+Phrases: "litres sold", "sold today", "fuel sales"
+Example: "Litres sold: 87 - 2,316, 90 - 6,151"
+→ This is gas_XX (actual sales)
+
+**TYPE 6: DAILY REPORT (comprehensive)**
+Contains: store sales, phone cards, deli, AND litres sold together
+Example: "Store sales: 702,327. Phone: 63,427. Deli: 186,059. Litres: 87-2316, 90-6151"
+
+=== SUPPLIER NAMES (for deliveries) ===
+- NAJ'S Energy (or NAJ, Naj's)
+- WIP (or wip)
+- Petrojam
+- These indicate a DELIVERY message
+
+=== KEY RULES ===
+1. Delivery messages have "del" or "delivery" - extract delivery_XX ONLY
+2. Delivery before/after dips are NOT daily opening/closing dips
+3. "Products available in tanks" without delivery context = inventory check
+4. "Closing figures" or "Gnight" = official daily closing dips
+5. "Morning dips" or "opening" without delivery = official daily opening dips
+6. If message mentions cm (centimeters) with dips, that's a dipstick reading - extract the LITRES number not the cm
 
 Return as JSON:
 {
@@ -201,15 +236,15 @@ Return as JSON:
   "store_sales": number or null,
   "phone_cards": number or null,
   "deli_sales": number or null,
-  "gas_87": number or null (LITRES SOLD),
+  "gas_87": number or null (LITRES SOLD - only from sales reports),
   "gas_90": number or null (LITRES SOLD),
   "gas_ado": number or null (LITRES SOLD),
   "gas_ulsd": number or null (LITRES SOLD),
-  "opening_87": number or null (MORNING DIPS),
+  "opening_87": number or null (OFFICIAL MORNING DIPS - not delivery readings),
   "opening_90": number or null,
   "opening_ado": number or null,
   "opening_ulsd": number or null,
-  "closing_87": number or null (END OF DAY DIPS),
+  "closing_87": number or null (OFFICIAL END OF DAY DIPS - not delivery readings),
   "closing_90": number or null,
   "closing_ado": number or null,
   "closing_ulsd": number or null,
@@ -221,6 +256,7 @@ Return as JSON:
   "delivery_90_cost": number or null,
   "delivery_ado_cost": number or null,
   "delivery_ulsd_cost": number or null,
+  "delivery_supplier": string or null (NAJ'S Energy, WIP, Petrojam, etc.),
   "gasmart_87_price": number or null,
   "gasmart_90_price": number or null,
   "gasmart_ado_price": number or null,
