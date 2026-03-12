@@ -1,0 +1,143 @@
+name: MOS Triage
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    if: contains(github.event.issue.labels.*.name, 'mos:intake')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Classify Issue
+        id: classify
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Analyze this GitHub issue and classify it. Respond with ONLY a JSON object, no other text:
+            {
+              "classification": "auto-fixable" or "needs-human" or "question" or "duplicate",
+              "confidence": 0-100,
+              "reasoning": "brief explanation",
+              "suggested_fix": "description of fix if auto-fixable, empty string otherwise",
+              "complexity": "trivial" or "simple" or "moderate" or "complex",
+              "duplicate_of": "#number if duplicate, empty string otherwise"
+            }
+
+            Issue title: ${{ github.event.issue.title }}
+            Issue body: ${{ github.event.issue.body }}
+            Issue labels: ${{ join(github.event.issue.labels.*.name, ', ') }}
+
+      - name: Parse Classification
+        id: parse
+        env:
+          CLASSIFY_RESULT: ${{ steps.classify.outputs.result }}
+        run: |
+          JSON=$(python3 -c "
+          import sys, re, json, os
+          text = os.environ.get('CLASSIFY_RESULT', '{}')
+          match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
+          if match:
+              try:
+                  obj = json.loads(match.group())
+                  print(json.dumps(obj))
+              except json.JSONDecodeError:
+                  print('{}')
+          else:
+              print('{}')
+          ")
+          echo "classification=$(echo "$JSON" | jq -r '.classification // "needs-human"')" >> "$GITHUB_OUTPUT"
+          echo "confidence=$(echo "$JSON" | jq -r '.confidence // 0')" >> "$GITHUB_OUTPUT"
+          echo "complexity=$(echo "$JSON" | jq -r '.complexity // "complex"')" >> "$GITHUB_OUTPUT"
+          echo "duplicate_of=$(echo "$JSON" | jq -r '.duplicate_of // ""')" >> "$GITHUB_OUTPUT"
+
+      - name: Route — Auto-fix (trivial/simple)
+        if: |
+          steps.parse.outputs.classification == 'auto-fixable' &&
+          fromJSON(steps.parse.outputs.confidence) >= 50 &&
+          (steps.parse.outputs.complexity == 'trivial' || steps.parse.outputs.complexity == 'simple')
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Fix the issue below. Create a branch named mos/fix-${{ github.event.issue.number }},
+            make the fix, commit with message "fix: ${{ github.event.issue.title }} (MOS #${{ github.event.issue.number }})",
+            and open a draft PR labeled "mos:auto-fix" and "needs-review".
+            Follow all guidelines in CLAUDE.md.
+
+            Project label: ${{ join(github.event.issue.labels.*.name, ', ') }}
+            Issue: ${{ github.event.issue.title }}
+            Details: ${{ github.event.issue.body }}
+
+      - name: Route — Daemon (moderate/complex)
+        if: |
+          steps.parse.outputs.classification == 'auto-fixable' &&
+          fromJSON(steps.parse.outputs.confidence) >= 50 &&
+          (steps.parse.outputs.complexity == 'moderate' || steps.parse.outputs.complexity == 'complex')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['mos:daemon-route']
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🤖 This issue has been classified as auto-fixable but moderate/complex. Routing to the Mac Mini daemon for a deeper fix attempt.'
+            });
+
+      - name: Route — Needs Human
+        if: |
+          steps.parse.outputs.classification == 'needs-human' ||
+          (steps.parse.outputs.classification == 'auto-fixable' && fromJSON(steps.parse.outputs.confidence) < 50)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['mos:needs-human']
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🤖 This issue needs human attention. @macccoding'
+            });
+
+      - name: Route — Question
+        if: steps.parse.outputs.classification == 'question'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            A user has asked a question via a GitHub issue. Answer it helpfully using
+            the project's documentation, CLAUDE.md, and codebase. Post your answer as
+            a comment on the issue.
+
+            Question: ${{ github.event.issue.title }}
+            Details: ${{ github.event.issue.body }}
+
+      - name: Route — Duplicate
+        if: steps.parse.outputs.classification == 'duplicate'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const duplicateOf = '${{ steps.parse.outputs.duplicate_of }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🤖 This issue appears to be a duplicate of ${duplicateOf}. Consider closing this one.`
+            });
