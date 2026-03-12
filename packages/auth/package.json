@@ -1,0 +1,28 @@
+{
+  "name": "@superplus/auth",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./middleware": "./src/middleware.ts",
+    "./provider": "./src/provider.tsx",
+    "./guards": "./src/guards.tsx",
+    "./actions": "./src/actions.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "@supabase/ssr": "^0.5.0",
+    "@superplus/config": "workspace:*",
+    "@superplus/db": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "^15.0.0",
+    "react": "^18 || ^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

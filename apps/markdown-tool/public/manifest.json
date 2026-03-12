@@ -1,0 +1,21 @@
+{
+  "name": "SuperPlus Markdown Tool",
+  "short_name": "Markdown",
+  "description": "Create and manage price markdowns for SuperPlus store products",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F9FA",
+  "theme_color": "#E31837",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

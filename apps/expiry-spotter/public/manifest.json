@@ -1,0 +1,21 @@
+{
+  "name": "Expiry Spotter — SuperPlus",
+  "short_name": "Expiry Spotter",
+  "description": "Flag products approaching or past their expiry dates.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#E31837",
+  "background_color": "#F8F9FA",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
