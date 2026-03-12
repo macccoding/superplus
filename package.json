@@ -6,6 +6,7 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
+    "test": "echo 'No tests configured yet'",
     "clean": "turbo clean",
     "db:generate-types": "supabase gen types typescript --local > packages/db/src/types.ts"
   },
