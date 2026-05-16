@@ -35,18 +35,19 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="bg-white rounded-xl shadow-sm p-8">
+      <div className="bg-surface-container-lowest rounded-xl shadow-lg p-8">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#E31837] rounded-2xl mx-auto mb-4 flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">S+</span>
+          <div className="w-20 h-20 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-md">
+            <span className="text-on-primary text-3xl font-black">S+</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#1A1A2E]">SuperPlus</h1>
-          <p className="text-[#6B7280] mt-1">Staff Hub</p>
+          <h1 className="text-2xl font-black text-on-surface">SuperPlus</h1>
+          <p className="text-on-surface-variant text-sm mt-1">Staff Hub</p>
         </div>
 
         {step === 'phone' ? (
           <div>
-            <label className="block text-sm font-medium text-[#1A1A2E] mb-2">
+            <label className="block text-sm font-medium text-on-surface mb-2">
               Phone Number
             </label>
             <input
@@ -55,47 +56,82 @@ export default function LoginPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+1 876 000 0000"
-              className="w-full h-14 px-4 text-lg border-2 border-gray-200 rounded-lg focus:border-[#E31837] focus:outline-none"
+              className="w-full h-14 px-4 text-lg bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none transition-colors text-on-surface placeholder:text-outline"
               autoFocus
             />
             <button
               onClick={() => phone.length >= 10 && setStep('pin')}
               disabled={phone.length < 10}
-              className="w-full h-14 mt-4 bg-[#E31837] text-white text-lg font-semibold rounded-lg disabled:opacity-40"
+              className="w-full h-14 mt-4 bg-primary text-on-primary text-lg font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all duration-200"
             >
               Next
             </button>
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-[#1A1A2E] mb-2">
+            <label className="block text-sm font-medium text-on-surface mb-2">
               Enter PIN
             </label>
+            <div className="flex justify-center gap-3 mb-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-colors ${
+                    pin.length > i
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-outline-variant bg-surface-container-low'
+                  }`}
+                >
+                  {pin.length > i ? '●' : ''}
+                </div>
+              ))}
+            </div>
             <input
-              type="password"
+              type="text"
               inputMode="numeric"
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-              placeholder="••••"
-              className="w-full h-14 px-4 text-center text-3xl tracking-[0.5em] border-2 border-gray-200 rounded-lg focus:border-[#E31837] focus:outline-none"
+              className="sr-only"
               autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pin.length === 4) handleSubmit();
+              }}
+            />
+            {/* Tap area to focus hidden input */}
+            <div
+              onClick={() => {
+                const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+                input?.focus();
+              }}
+              className="absolute inset-0"
+              style={{ position: 'relative', height: 0 }}
             />
             {error && (
-              <p className="text-[#E74C3C] text-sm mt-2 text-center">{error}</p>
+              <div className="flex items-center justify-center gap-2 text-error text-sm mt-2">
+                <span className="material-symbols-outlined text-[18px]">error</span>
+                {error}
+              </div>
             )}
             <button
               onClick={handleSubmit}
               disabled={pin.length !== 4 || loading}
-              className="w-full h-14 mt-4 bg-[#E31837] text-white text-lg font-semibold rounded-lg disabled:opacity-40"
+              className="w-full h-14 mt-4 bg-primary text-on-primary text-lg font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
             <button
               onClick={() => { setStep('phone'); setPin(''); setError(''); }}
-              className="w-full h-12 mt-2 text-[#6B7280] text-sm"
+              className="w-full h-12 mt-2 text-on-surface-variant text-sm hover:text-on-surface transition-colors"
             >
-              Change number
+              ← Change number
             </button>
           </div>
         )}

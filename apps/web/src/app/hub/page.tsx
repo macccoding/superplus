@@ -1,18 +1,34 @@
 import { IconGrid } from '@superplus/ui';
 
 const hubItems = [
-  { label: 'Tasks', icon: '📋', href: '/hub/tasks', color: '#1B3A5C' },
-  { label: 'Threads', icon: '💬', href: '/hub/threads', color: '#2ECC71' },
-  { label: 'Logbook', icon: '📓', href: '/hub/logbook', color: '#F5A623' },
-  { label: 'Announce', icon: '📢', href: '/hub/announcements', color: '#E31837' },
-  { label: 'Profile', icon: '👤', href: '/hub/profile', color: '#6B7280' },
-  { label: 'Tools', icon: '🔧', href: '/tools', color: '#9B59B6' },
+  { label: 'Tasks', icon: 'assignment', href: '/hub/tasks', color: '#446185' },
+  { label: 'Threads', icon: 'forum', href: '/hub/threads', color: '#2e7d32' },
+  { label: 'Logbook', icon: 'history', href: '/hub/logbook', color: '#845500' },
+  { label: 'Announce', icon: 'campaign', href: '/hub/announcements', color: '#c00029' },
+  { label: 'Profile', icon: 'person', href: '/hub/profile', color: '#767c7e' },
+  { label: 'Tools', icon: 'build', href: '/tools', color: '#673ab7' },
 ];
 
 export default function HubHomePage() {
   return (
-    <div className="pt-2">
+    <div>
+      {/* Welcome section */}
+      <section className="px-[--spacing-container] pt-6 pb-2">
+        <h2 className="text-2xl font-bold text-on-surface">Good Morning</h2>
+        <p className="text-sm text-on-surface-variant mt-1">SuperPlus Mandeville</p>
+      </section>
+
+      {/* Icon grid */}
       <IconGrid items={hubItems} />
+
+      {/* Quick info card */}
+      <div className="mx-[--spacing-container] mt-2 bg-primary-container/10 border border-primary/20 rounded-xl p-4 flex items-start gap-3">
+        <span className="material-symbols-outlined text-primary">info</span>
+        <div>
+          <h3 className="text-sm font-bold text-on-surface">3 tasks need attention</h3>
+          <p className="text-xs text-on-surface-variant mt-0.5">2 unassigned, 1 overdue</p>
+        </div>
+      </div>
     </div>
   );
 }
