@@ -1,0 +1,13 @@
+import 'next-auth';
+
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+      name: string;
+      role: string;
+      storeId: string;
+      storeName: string;
+    };
+  }
+}
