@@ -1,0 +1,176 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  SUPERVISOR
+  STAFF
+}
+
+enum ThreadCategory {
+  GENERAL
+  URGENT
+  MAINTENANCE
+  INVENTORY
+  OTHER
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum LogCategory {
+  GENERAL
+  INCIDENT
+  HANDOVER
+  INVENTORY
+}
+
+enum AnnouncePriority {
+  NORMAL
+  IMPORTANT
+  CRITICAL
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  parish    String
+  address   String
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users         User[]
+  threads       Thread[]
+  tasks         Task[]
+  logEntries    LogEntry[]
+  announcements Announcement[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  storeId   String
+  fullName  String
+  phone     String   @unique
+  pinHash   String
+  role      Role     @default(STAFF)
+  email     String?  @unique
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  store            Store           @relation(fields: [storeId], references: [id])
+  createdThreads   Thread[]        @relation("ThreadAuthor")
+  threadMessages   ThreadMessage[]
+  createdTasks     Task[]          @relation("TaskCreator")
+  assignedTasks    Task[]          @relation("TaskAssignee")
+  logEntries       LogEntry[]
+  announcements    Announcement[]
+
+  @@index([storeId])
+  @@index([phone])
+}
+
+model Thread {
+  id         String         @id @default(cuid())
+  storeId    String
+  authorId   String
+  title      String
+  category   ThreadCategory @default(GENERAL)
+  isPinned   Boolean        @default(false)
+  isResolved Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  store    Store           @relation(fields: [storeId], references: [id])
+  author   User            @relation("ThreadAuthor", fields: [authorId], references: [id])
+  messages ThreadMessage[]
+
+  @@index([storeId, createdAt])
+}
+
+model ThreadMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([threadId, createdAt])
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  storeId      String
+  title        String
+  description  String?
+  category     String?
+  createdById  String
+  assignedToId String?
+  priority     Priority   @default(NORMAL)
+  status       TaskStatus @default(OPEN)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+
+  store      Store @relation(fields: [storeId], references: [id])
+  createdBy  User  @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedTo User? @relation("TaskAssignee", fields: [assignedToId], references: [id])
+
+  @@index([storeId, status])
+  @@index([assignedToId, status])
+}
+
+model LogEntry {
+  id        String      @id @default(cuid())
+  storeId   String
+  authorId  String
+  date      DateTime    @db.Date
+  body      String
+  category  LogCategory @default(GENERAL)
+  isFlagged Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  store  Store @relation(fields: [storeId], references: [id])
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([storeId, date])
+}
+
+model Announcement {
+  id        String           @id @default(cuid())
+  storeId   String?
+  authorId  String
+  title     String
+  body      String
+  priority  AnnouncePriority @default(NORMAL)
+  expiresAt DateTime?
+  createdAt DateTime         @default(now())
+
+  store  Store? @relation(fields: [storeId], references: [id])
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([storeId, createdAt])
+}

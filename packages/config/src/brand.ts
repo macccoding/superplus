@@ -4,7 +4,6 @@ export const brand = {
     secondary: '#1B3A5C',
     accent: '#F5A623',
     success: '#2ECC71',
-    warning: '#F39C12',
     danger: '#E74C3C',
     background: '#F8F9FA',
     surface: '#FFFFFF',
@@ -21,5 +20,3 @@ export const brand = {
     body: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
 } as const;
-
-export type BrandColors = typeof brand.colors;

@@ -1,18 +1,18 @@
-export { createBrowserClient, createServerClient, createServiceClient } from './client';
+export { db } from './client';
 export type {
-  Database,
-  Tables,
-  Profile,
-  Category,
-  Supplier,
-  Product,
-  DailyPrice,
-  StockEvent,
-  Checklist,
-  ChecklistItem,
-  ChecklistTemplate,
-  Markdown,
+  Store,
+  User,
+  Thread,
+  ThreadMessage,
   Task,
-  Issue,
-  Suggestion,
-} from './types';
+  LogEntry,
+  Announcement,
+} from '@prisma/client';
+export {
+  Role,
+  ThreadCategory,
+  Priority,
+  TaskStatus,
+  LogCategory,
+  AnnouncePriority,
+} from '@prisma/client';

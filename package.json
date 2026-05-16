@@ -2,17 +2,18 @@
   "name": "superplus",
   "private": true,
   "scripts": {
-    "build": "turbo build",
     "dev": "turbo dev",
+    "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
-    "test": "echo 'No tests configured yet'",
-    "clean": "turbo clean",
-    "db:generate-types": "supabase gen types typescript --local > packages/db/src/types.ts"
+    "test": "turbo test",
+    "db:generate": "turbo db:generate",
+    "db:push": "turbo db:push",
+    "db:seed": "turbo db:seed"
   },
   "devDependencies": {
-    "turbo": "^2.3.0",
-    "typescript": "^5.7.0"
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

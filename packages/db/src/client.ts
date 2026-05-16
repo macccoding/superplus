@@ -1,40 +1,19 @@
-import { createBrowserClient as createBrowser } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import { PrismaClient } from '@prisma/client';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
 
-export function createBrowserClient() {
-  return createBrowser<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+neonConfig.useSecureWebSocket = true;
+
+function createPrismaClient() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaNeon(pool);
+  return new PrismaClient({ adapter });
 }
 
-export function createServerClient(cookieStore: {
-  getAll: () => { name: string; value: string }[];
-  setAll: (cookies: { name: string; value: string; options?: object }[]) => void;
-}) {
-  // Dynamic import to avoid pulling server-only code into client bundles
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { createServerClient: createServer } = require('@supabase/ssr') as typeof import('@supabase/ssr');
-  return createServer<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
-          cookieStore.setAll(cookiesToSet);
-        },
-      },
-    }
-  );
-}
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
-export function createServiceClient() {
-  return createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+export const db = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = db;
 }
