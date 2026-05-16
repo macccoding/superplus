@@ -1,3 +1,5 @@
+'use client';
+
 interface ThreadCardProps {
   title: string;
   author: string;
@@ -9,40 +11,39 @@ interface ThreadCardProps {
   onClick?: () => void;
 }
 
-const categoryColors: Record<string, string> = {
-  GENERAL: '#6B7280',
-  URGENT: '#E74C3C',
-  MAINTENANCE: '#F5A623',
-  INVENTORY: '#1B3A5C',
-  OTHER: '#9B59B6',
+const categoryConfig: Record<string, { color: string; icon: string }> = {
+  GENERAL: { color: 'bg-outline', icon: 'chat' },
+  URGENT: { color: 'bg-primary', icon: 'priority_high' },
+  MAINTENANCE: { color: 'bg-tertiary-container', icon: 'build' },
+  INVENTORY: { color: 'bg-secondary', icon: 'inventory_2' },
+  OTHER: { color: 'bg-outline-variant', icon: 'more_horiz' },
 };
 
-export function ThreadCard({
-  title, author, category, messageCount, isPinned, isResolved, updatedAt, onClick
-}: ThreadCardProps) {
+export function ThreadCard({ title, author, category, messageCount, isPinned, isResolved, updatedAt, onClick }: ThreadCardProps) {
+  const cat = categoryConfig[category] || categoryConfig.GENERAL;
+
   return (
     <button
       onClick={onClick}
-      className="w-full text-left bg-white rounded-[12px] p-4 shadow-sm active:scale-[0.98] transition-transform"
+      className="w-full text-left bg-surface-container-lowest p-4 rounded-xl shadow-sm active:scale-[0.98] transition-all duration-200"
     >
       <div className="flex items-start gap-3">
-        {isPinned && <span className="text-lg">📌</span>}
+        <div className={`w-10 h-10 rounded-full ${cat.color} text-white flex items-center justify-center shrink-0`}>
+          <span className="material-symbols-outlined text-[20px]">{cat.icon}</span>
+        </div>
         <div className="flex-1 min-w-0">
-          <h3 className={`font-semibold text-base truncate ${isResolved ? 'line-through text-[#6B7280]' : 'text-[#1A1A2E]'}`}>
-            {title}
-          </h3>
-          <div className="flex items-center gap-2 mt-1 text-sm text-[#6B7280]">
-            <span
-              className="px-2 py-0.5 rounded text-xs font-medium text-white"
-              style={{ backgroundColor: categoryColors[category] }}
-            >
-              {category}
-            </span>
-            <span>{author}</span>
-            <span>·</span>
-            <span>{messageCount} replies</span>
+          <div className="flex items-center gap-2">
+            {isPinned && <span className="material-symbols-outlined text-tertiary text-[16px] filled">push_pin</span>}
+            <h3 className={`font-bold text-base truncate ${isResolved ? 'line-through text-outline' : 'text-on-surface'}`}>
+              {title}
+            </h3>
           </div>
-          <p className="text-xs text-[#9CA3AF] mt-1">{updatedAt}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-sm text-on-surface-variant">{author}</span>
+            <span className="text-on-surface-variant">·</span>
+            <span className="text-sm text-on-surface-variant">{messageCount} replies</span>
+          </div>
+          <span className="text-xs text-outline mt-1 block">{updatedAt}</span>
         </div>
       </div>
     </button>
