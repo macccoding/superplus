@@ -1,1 +1,8 @@
-// Components will be added in later tasks
+export { IconGrid, type IconGridItem } from './icon-grid';
+export { BottomNav, type NavItem } from './bottom-nav';
+export { AppShell } from './app-shell';
+export { TaskCard } from './task-card';
+export { ThreadCard } from './thread-card';
+export { LogEntryCard } from './log-entry-card';
+export { AnnouncementBanner } from './announcement-banner';
+export { EmptyState } from './empty-state';
