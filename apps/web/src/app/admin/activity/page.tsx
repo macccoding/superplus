@@ -28,7 +28,7 @@ export default function ActivityPage() {
             <h2 className="font-bold text-on-surface text-lg">Recent Tasks</h2>
           </div>
           <div className="space-y-1">
-            {data.tasks.map((task) => (
+            {data.tasks.map((task: any) => (
               <div key={task.id} className="flex items-center justify-between py-3 border-b border-outline-variant/10 last:border-0">
                 <div>
                   <p className="text-sm font-bold text-on-surface">{task.title}</p>
@@ -58,7 +58,7 @@ export default function ActivityPage() {
             <h2 className="font-bold text-on-surface text-lg">Active Threads</h2>
           </div>
           <div className="space-y-1">
-            {data.threads.map((thread) => (
+            {data.threads.map((thread: any) => (
               <div key={thread.id} className="flex items-center justify-between py-3 border-b border-outline-variant/10 last:border-0">
                 <div>
                   <p className="text-sm font-bold text-on-surface">{thread.title}</p>
@@ -90,7 +90,7 @@ export default function ActivityPage() {
             </div>
           ) : (
             <div className="space-y-1">
-              {data.flaggedLogs.map((log) => (
+              {data.flaggedLogs.map((log: any) => (
                 <div key={log.id} className="border-l-4 border-l-primary pl-4 py-3">
                   <p className="text-sm text-on-surface leading-relaxed">{log.body}</p>
                   <p className="text-xs text-on-surface-variant mt-1">
