@@ -19,12 +19,12 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  if (pathname === '/login') {
+  if (pathname.startsWith('/auth')) {
     return NextResponse.next();
   }
 
   if (!req.auth) {
-    const loginUrl = new URL('/login', req.url);
+    const loginUrl = new URL('/auth/login', req.url);
     return NextResponse.redirect(loginUrl);
   }
 
