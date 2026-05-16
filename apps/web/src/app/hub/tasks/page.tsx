@@ -28,23 +28,32 @@ export default function TasksPage() {
 
   return (
     <div>
-      <div className="flex bg-white border-b border-gray-100 px-4">
-        {(['mine', 'available', 'all'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === t
-                ? 'border-[#E31837] text-[#E31837]'
-                : 'border-transparent text-[#6B7280]'
-            }`}
-          >
-            {t === 'mine' ? 'My Tasks' : t === 'available' ? 'Pick Up' : 'All'}
-          </button>
-        ))}
-      </div>
+      {/* Header + Tabs */}
+      <section className="px-[--spacing-container] pt-6 pb-4">
+        <h2 className="text-2xl font-bold text-on-surface mb-4">Tasks</h2>
+        <div className="flex bg-surface-container-high rounded-xl p-1">
+          {([
+            { key: 'mine', label: 'My Tasks' },
+            { key: 'available', label: 'Pick Up' },
+            { key: 'all', label: 'All' },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
+                tab === key
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
 
-      <div className="p-4 space-y-3">
+      {/* Task list */}
+      <section className="px-[--spacing-container] pb-24 space-y-3">
         {tasks && tasks.length > 0 ? (
           tasks.map((task) => (
             <TaskCard
@@ -60,18 +69,19 @@ export default function TasksPage() {
           ))
         ) : (
           <EmptyState
-            icon="📋"
+            icon={tab === 'available' ? 'volunteer_activism' : 'assignment'}
             title={tab === 'available' ? 'No tasks to pick up' : 'No tasks yet'}
-            description={tab === 'available' ? 'All tasks are assigned' : undefined}
+            description={tab === 'available' ? 'All tasks are assigned' : 'Tasks will appear here when created'}
           />
         )}
-      </div>
+      </section>
 
+      {/* FAB */}
       <button
         onClick={() => router.push('/hub/tasks/create')}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-[#E31837] text-white rounded-full shadow-lg flex items-center justify-center text-2xl active:scale-90 transition-transform z-30"
+        className="fixed right-6 bottom-[80px] w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
       >
-        +
+        <span className="material-symbols-outlined text-[28px]">add</span>
       </button>
     </div>
   );

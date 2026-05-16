@@ -10,7 +10,12 @@ export default function ThreadsPage() {
 
   return (
     <div>
-      <div className="p-4 space-y-3">
+      <section className="px-[--spacing-container] pt-6 pb-4">
+        <h2 className="text-2xl font-bold text-on-surface">Threads</h2>
+        <p className="text-sm text-on-surface-variant mt-1">Store conversations</p>
+      </section>
+
+      <section className="px-[--spacing-container] pb-24 space-y-3">
         {threads && threads.length > 0 ? (
           threads.map((thread) => (
             <ThreadCard
@@ -27,18 +32,18 @@ export default function ThreadsPage() {
           ))
         ) : (
           <EmptyState
-            icon="💬"
+            icon="forum"
             title="No threads yet"
             description="Start a conversation with your team"
           />
         )}
-      </div>
+      </section>
 
       <button
         onClick={() => router.push('/hub/threads/create')}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-[#2ECC71] text-white rounded-full shadow-lg flex items-center justify-center text-2xl active:scale-90 transition-transform z-30"
+        className="fixed right-6 bottom-[80px] w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-success text-white shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
       >
-        +
+        <span className="material-symbols-outlined text-[28px]">add</span>
       </button>
     </div>
   );

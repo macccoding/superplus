@@ -19,47 +19,48 @@ export default function CreateTaskPage() {
   });
 
   return (
-    <div className="p-4">
-      <button onClick={() => router.back()} className="text-sm text-[#6B7280] mb-4">
-        ← Back
+    <div className="px-[--spacing-container] py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+        Back
       </button>
 
-      <div className="bg-white rounded-[12px] p-5 shadow-sm space-y-4">
-        <h2 className="text-lg font-bold text-[#1A1A2E]">New Task</h2>
+      <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-5">
+        <h2 className="text-xl font-bold text-on-surface">New Task</h2>
 
         <div>
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-1">Title</label>
+          <label className="block text-sm font-medium text-on-surface mb-2">Title</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What needs to be done?"
-            className="w-full h-12 px-4 border-2 border-gray-200 rounded-[6px] focus:border-[#E31837] focus:outline-none text-base"
+            className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline transition-colors"
             autoFocus
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-1">Details (optional)</label>
+          <label className="block text-sm font-medium text-on-surface mb-2">Details (optional)</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Any extra info..."
             rows={3}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-[6px] focus:border-[#E31837] focus:outline-none text-base resize-none"
+            className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline resize-none transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-2">Priority</label>
+          <label className="block text-sm font-medium text-on-surface mb-3">Priority</label>
           <div className="grid grid-cols-4 gap-2">
             {(['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setPriority(p)}
-                className={`py-2 rounded-[8px] text-xs font-medium transition-colors ${
+                className={`py-3 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 ${
                   priority === p
-                    ? 'bg-[#E31837] text-white'
-                    : 'bg-gray-100 text-[#6B7280]'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'bg-surface-container-high text-on-surface-variant'
                 }`}
               >
                 {p}
@@ -71,9 +72,19 @@ export default function CreateTaskPage() {
         <button
           onClick={() => create.mutate({ title, description: description || undefined, priority })}
           disabled={!title.trim() || create.isPending}
-          className="w-full h-14 bg-[#E31837] text-white font-semibold rounded-[8px] disabled:opacity-40 active:scale-95 transition-transform"
+          className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
         >
-          {create.isPending ? 'Creating...' : 'Create Task'}
+          {create.isPending ? (
+            <>
+              <span className="material-symbols-outlined animate-spin">progress_activity</span>
+              Creating...
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined">add_task</span>
+              Create Task
+            </>
+          )}
         </button>
       </div>
     </div>

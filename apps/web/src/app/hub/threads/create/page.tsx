@@ -21,34 +21,37 @@ export default function CreateThreadPage() {
   });
 
   return (
-    <div className="p-4">
-      <button onClick={() => router.back()} className="text-sm text-[#6B7280] mb-4">
-        ← Back
+    <div className="px-[--spacing-container] py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+        Back
       </button>
 
-      <div className="bg-white rounded-[12px] p-5 shadow-sm space-y-4">
-        <h2 className="text-lg font-bold text-[#1A1A2E]">New Thread</h2>
+      <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm space-y-5">
+        <h2 className="text-xl font-bold text-on-surface">New Thread</h2>
 
         <div>
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-1">Topic</label>
+          <label className="block text-sm font-medium text-on-surface mb-2">Topic</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What's this about?"
-            className="w-full h-12 px-4 border-2 border-gray-200 rounded-[6px] focus:border-[#E31837] focus:outline-none text-base"
+            className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline transition-colors"
             autoFocus
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-2">Category</label>
+          <label className="block text-sm font-medium text-on-surface mb-3">Category</label>
           <div className="flex flex-wrap gap-2">
             {categories.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`px-3 py-2 rounded-[8px] text-xs font-medium ${
-                  category === c ? 'bg-[#E31837] text-white' : 'bg-gray-100 text-[#6B7280]'
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 ${
+                  category === c
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface-container-high text-on-surface-variant'
                 }`}
               >
                 {c}
@@ -58,22 +61,32 @@ export default function CreateThreadPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-1">Message</label>
+          <label className="block text-sm font-medium text-on-surface mb-2">Message</label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Start the conversation..."
             rows={4}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-[6px] focus:border-[#E31837] focus:outline-none text-base resize-none"
+            className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline resize-none transition-colors"
           />
         </div>
 
         <button
           onClick={() => create.mutate({ title, body, category })}
           disabled={!title.trim() || !body.trim() || create.isPending}
-          className="w-full h-14 bg-[#E31837] text-white font-semibold rounded-[8px] disabled:opacity-40 active:scale-95 transition-transform"
+          className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
         >
-          {create.isPending ? 'Posting...' : 'Start Thread'}
+          {create.isPending ? (
+            <>
+              <span className="material-symbols-outlined animate-spin">progress_activity</span>
+              Posting...
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined">send</span>
+              Start Thread
+            </>
+          )}
         </button>
       </div>
     </div>

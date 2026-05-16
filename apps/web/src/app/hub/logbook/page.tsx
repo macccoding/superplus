@@ -27,11 +27,14 @@ export default function LogbookPage() {
 
   return (
     <div>
-      <div className="p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-[#6B7280] uppercase tracking-wide">
-          Today — {new Date().toLocaleDateString('en-JM', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </h2>
+      <section className="px-[--spacing-container] pt-6 pb-4">
+        <h2 className="text-2xl font-bold text-on-surface">Logbook</h2>
+        <p className="text-sm text-on-surface-variant mt-1">
+          {new Date().toLocaleDateString('en-JM', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+      </section>
 
+      <section className="px-[--spacing-container] pb-24 space-y-3">
         {entries && entries.length > 0 ? (
           entries.map((entry) => (
             <LogEntryCard
@@ -40,29 +43,31 @@ export default function LogbookPage() {
               author={entry.author.fullName}
               category={entry.category}
               isFlagged={entry.isFlagged}
-              createdAt={entry.createdAt.toLocaleTimeString()}
+              createdAt={entry.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             />
           ))
         ) : (
           <EmptyState
-            icon="📓"
+            icon="edit_note"
             title="No entries today"
             description="Add a note for the record"
           />
         )}
-      </div>
+      </section>
 
+      {/* Bottom sheet form */}
       {showForm && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end">
-          <div className="bg-white w-full rounded-t-2xl p-5 space-y-4">
-            <h3 className="text-lg font-bold text-[#1A1A2E]">New Log Entry</h3>
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowForm(false)}>
+          <div className="bg-surface-container-lowest w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
+            <h3 className="text-xl font-bold text-on-surface">New Log Entry</h3>
 
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="What happened?"
               rows={3}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-[6px] focus:border-[#E31837] focus:outline-none text-base resize-none"
+              className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline resize-none transition-colors"
               autoFocus
             />
 
@@ -71,8 +76,10 @@ export default function LogbookPage() {
                 <button
                   key={c}
                   onClick={() => setCategory(c)}
-                  className={`px-3 py-2 rounded-[8px] text-xs font-medium ${
-                    category === c ? 'bg-[#E31837] text-white' : 'bg-gray-100 text-[#6B7280]'
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    category === c
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container-high text-on-surface-variant'
                   }`}
                 >
                   {c}
@@ -80,27 +87,24 @@ export default function LogbookPage() {
               ))}
             </div>
 
-            <label className="flex items-center gap-3 py-2">
-              <input
-                type="checkbox"
-                checked={isFlagged}
-                onChange={(e) => setIsFlagged(e.target.checked)}
-                className="w-5 h-5 rounded accent-[#E74C3C]"
-              />
-              <span className="text-sm font-medium text-[#1A1A2E]">Flag for manager attention</span>
+            <label className="flex items-center gap-3 py-2 cursor-pointer" onClick={() => setIsFlagged(!isFlagged)}>
+              <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${isFlagged ? 'bg-primary border-primary' : 'border-outline-variant'}`}>
+                {isFlagged && <span className="material-symbols-outlined text-on-primary text-[16px]">check</span>}
+              </div>
+              <span className="text-sm font-medium text-on-surface">Flag for manager attention</span>
             </label>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowForm(false)}
-                className="flex-1 h-12 border-2 border-gray-200 rounded-[8px] text-[#6B7280] font-medium"
+                className="flex-1 h-14 border-2 border-outline-variant rounded-xl text-on-surface-variant font-bold active:scale-95 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={() => create.mutate({ body, category, isFlagged })}
                 disabled={!body.trim() || create.isPending}
-                className="flex-1 h-12 bg-[#E31837] text-white font-semibold rounded-[8px] disabled:opacity-40"
+                className="flex-1 h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
               >
                 Save
               </button>
@@ -109,11 +113,12 @@ export default function LogbookPage() {
         </div>
       )}
 
+      {/* FAB */}
       <button
         onClick={() => setShowForm(true)}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-[#F5A623] text-white rounded-full shadow-lg flex items-center justify-center text-2xl active:scale-90 transition-transform z-30"
+        className="fixed right-6 bottom-[80px] w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-tertiary-container text-on-tertiary-container shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
       >
-        +
+        <span className="material-symbols-outlined text-[28px]">add</span>
       </button>
     </div>
   );
