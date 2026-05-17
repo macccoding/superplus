@@ -101,7 +101,28 @@ async function main() {
     },
   });
 
-  console.log('Seed complete: 1 store, 4 users (PIN: 1234), 4 categories, 6 products, 1 checklist template');
+  // Phase 4: Store config
+  await prisma.store.update({
+    where: { id: store.id },
+    data: { openTime: '07:00', closeTime: '21:00', openDays: 'Mon,Tue,Wed,Thu,Fri,Sat' },
+  });
+
+  // Phase 4: Staff availability (sample)
+  const users = await prisma.user.findMany({ where: { storeId: store.id } });
+  for (const u of users) {
+    for (let day = 0; day < 7; day++) {
+      await prisma.staffAvailability.create({
+        data: {
+          userId: u.id,
+          dayOfWeek: day,
+          available: day !== 0, // Everyone unavailable Sunday
+          note: day === 0 ? 'Day off' : null,
+        },
+      });
+    }
+  }
+
+  console.log('Seed complete: 1 store, 4 users (PIN: 1234), 4 categories, 6 products, 1 checklist template, store hours, 28 availability records');
 }
 
 main()

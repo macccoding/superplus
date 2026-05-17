@@ -16,6 +16,9 @@ export type {
   ExpiryAlert,
   StockOutReport,
   Incident,
+  StaffAvailability,
+  ShiftSchedule,
+  ShiftSlot,
 } from '@prisma/client';
 export {
   Role,
@@ -31,4 +34,5 @@ export {
   IncidentCategory,
   IncidentSeverity,
   IncidentStatus,
+  ScheduleStatus,
 } from '@prisma/client';

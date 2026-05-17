@@ -56,6 +56,9 @@ model Store {
   parish    String
   address   String
   phone     String?
+  openTime  String?
+  closeTime String?
+  openDays  String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -71,6 +74,7 @@ model Store {
   expiryAlerts         ExpiryAlert[]
   stockOutReports      StockOutReport[]
   incidents            Incident[]
+  shiftSchedules       ShiftSchedule[]
 }
 
 model User {
@@ -98,6 +102,9 @@ model User {
   stockOutsResolved    StockOutReport[] @relation("StockOutResolver")
   incidentsReported    Incident[]       @relation("IncidentReporter")
   incidentsResolved    Incident[]       @relation("IncidentResolver")
+  staffAvailability    StaffAvailability[]
+  shiftSlots           ShiftSlot[]
+  publishedSchedules   ShiftSchedule[]  @relation("SchedulePublisher")
 
   @@index([storeId])
   @@index([phone])
@@ -403,4 +410,60 @@ model Incident {
 
   @@index([storeId, status])
   @@index([storeId, createdAt])
+}
+
+enum ScheduleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model StaffAvailability {
+  id        String  @id @default(cuid())
+  userId    String
+  dayOfWeek Int
+  available Boolean @default(true)
+  note      String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, dayOfWeek])
+  @@index([userId])
+}
+
+model ShiftSchedule {
+  id            String         @id @default(cuid())
+  storeId       String
+  weekStart     DateTime       @db.Date
+  status        ScheduleStatus @default(DRAFT)
+  generatedBy   String?
+  aiPrompt      String?
+  aiResponse    String?
+  publishedAt   DateTime?
+  publishedById String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  store       Store       @relation(fields: [storeId], references: [id])
+  publishedBy User?       @relation("SchedulePublisher", fields: [publishedById], references: [id])
+  slots       ShiftSlot[]
+
+  @@unique([storeId, weekStart])
+  @@index([storeId, weekStart])
+}
+
+model ShiftSlot {
+  id         String   @id @default(cuid())
+  scheduleId String
+  userId     String
+  date       DateTime @db.Date
+  startTime  String
+  endTime    String
+  role       String
+
+  schedule ShiftSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id])
+
+  @@index([scheduleId, date])
+  @@index([userId, date])
 }
