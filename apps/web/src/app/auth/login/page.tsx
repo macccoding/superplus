@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
+  const pinInputRef = useRef<HTMLInputElement>(null);
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [step, setStep] = useState<'phone' | 'pin'>('phone');
@@ -72,7 +73,10 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-on-surface mb-2">
               Enter PIN
             </label>
-            <div className="flex justify-center gap-3 mb-4">
+            <div
+              className="flex justify-center gap-3 mb-4 cursor-pointer"
+              onClick={() => pinInputRef.current?.focus()}
+            >
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
@@ -87,6 +91,7 @@ export default function LoginPage() {
               ))}
             </div>
             <input
+              ref={pinInputRef}
               type="text"
               inputMode="numeric"
               maxLength={4}
@@ -97,15 +102,6 @@ export default function LoginPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && pin.length === 4) handleSubmit();
               }}
-            />
-            {/* Tap area to focus hidden input */}
-            <div
-              onClick={() => {
-                const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-                input?.focus();
-              }}
-              className="absolute inset-0"
-              style={{ position: 'relative', height: 0 }}
             />
             {error && (
               <div className="flex items-center justify-center gap-2 text-error text-sm mt-2">

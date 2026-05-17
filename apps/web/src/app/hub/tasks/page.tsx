@@ -11,20 +11,21 @@ export default function TasksPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('mine');
 
-  const { data: myTasks } = trpc.tasks.list.useQuery(
+  const { data: myTasks, isLoading: loadingMine } = trpc.tasks.list.useQuery(
     { assignedToMe: true },
     { enabled: tab === 'mine' }
   );
-  const { data: availableTasks } = trpc.tasks.list.useQuery(
+  const { data: availableTasks, isLoading: loadingAvailable } = trpc.tasks.list.useQuery(
     { unassigned: true },
     { enabled: tab === 'available' }
   );
-  const { data: allTasks } = trpc.tasks.list.useQuery(
+  const { data: allTasks, isLoading: loadingAll } = trpc.tasks.list.useQuery(
     undefined,
     { enabled: tab === 'all' }
   );
 
   const tasks = tab === 'mine' ? myTasks : tab === 'available' ? availableTasks : allTasks;
+  const isLoading = tab === 'mine' ? loadingMine : tab === 'available' ? loadingAvailable : loadingAll;
 
   return (
     <div>
@@ -54,7 +55,11 @@ export default function TasksPage() {
 
       {/* Task list */}
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {tasks && tasks.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : tasks && tasks.length > 0 ? (
           tasks.map((task) => (
             <TaskCard
               key={task.id}

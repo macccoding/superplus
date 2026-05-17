@@ -9,7 +9,7 @@ export interface SidebarItem {
   href: string;
 }
 
-export function Sidebar({ items, title }: { items: SidebarItem[]; title: string }) {
+export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; title: string; onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -28,6 +28,7 @@ export function Sidebar({ items, title }: { items: SidebarItem[]; title: string 
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => onNavigate?.()}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 active ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -39,7 +40,7 @@ export function Sidebar({ items, title }: { items: SidebarItem[]; title: string 
         })}
       </nav>
       <div className="p-4 border-t border-white/10">
-        <Link href="/hub" className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
+        <Link href="/hub" onClick={() => onNavigate?.()} className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Back to Hub
         </Link>

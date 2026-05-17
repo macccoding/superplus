@@ -32,9 +32,9 @@ export default function ThreadDetailPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-var(--spacing-nav-height)-var(--spacing-nav-height))]">
+    <div className="flex flex-col h-[calc(100dvh-64px)]">
       {/* Thread header */}
-      <div className="bg-surface-container-lowest px-[--spacing-container] py-3 border-b border-outline-variant/30">
+      <div className="bg-surface-container-lowest px-[--spacing-container] py-3 border-b border-outline-variant/30 shrink-0">
         <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-2">
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Back
@@ -50,7 +50,10 @@ export default function ThreadDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-[--spacing-container] space-y-3">
+      <div
+        className="flex-1 overflow-y-auto p-[--spacing-container] space-y-3"
+        style={{ paddingBottom: thread.isResolved ? '96px' : '140px' }}
+      >
         {thread.messages.map((msg) => (
           <div key={msg.id} className="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
@@ -68,9 +71,12 @@ export default function ThreadDetailPage({ params }: { params: Promise<{ id: str
         <div ref={bottomRef} />
       </div>
 
-      {/* Reply bar */}
+      {/* Reply bar — fixed above bottom nav */}
       {!thread.isResolved && (
-        <div className="bg-surface-container-lowest border-t border-outline-variant/30 p-3 flex gap-2">
+        <div
+          className="fixed bottom-[--spacing-nav-height] left-0 right-0 bg-surface-container-lowest border-t border-outline-variant/30 p-3 flex gap-2 z-40"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <input
             value={reply}
             onChange={(e) => setReply(e.target.value)}

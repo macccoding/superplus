@@ -6,7 +6,7 @@ import { ThreadCard, EmptyState } from '@superplus/ui';
 
 export default function ThreadsPage() {
   const router = useRouter();
-  const { data: threads } = trpc.threads.list.useQuery();
+  const { data: threads, isLoading } = trpc.threads.list.useQuery();
 
   return (
     <div>
@@ -16,7 +16,11 @@ export default function ThreadsPage() {
       </section>
 
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {threads && threads.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : threads && threads.length > 0 ? (
           threads.map((thread) => (
             <ThreadCard
               key={thread.id}

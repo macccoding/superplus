@@ -4,7 +4,7 @@ import { trpc } from '@/lib/trpc-client';
 import { AnnouncementBanner, EmptyState } from '@superplus/ui';
 
 export default function AnnouncementsPage() {
-  const { data: announcements } = trpc.announcements.list.useQuery();
+  const { data: announcements, isLoading } = trpc.announcements.list.useQuery();
 
   return (
     <div>
@@ -14,7 +14,11 @@ export default function AnnouncementsPage() {
       </section>
 
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {announcements && announcements.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : announcements && announcements.length > 0 ? (
           announcements.map((a) => (
             <AnnouncementBanner
               key={a.id}
