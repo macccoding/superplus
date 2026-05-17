@@ -40,8 +40,11 @@ export default function HubHomePage() {
 
       {/* Quick info card — only shown when there are tasks */}
       {totalTasks > 0 && (
-        <div className="mx-[--spacing-container] mt-2 bg-primary-container/10 border border-primary/20 rounded-xl p-4 flex items-start gap-3">
-          <span className="material-symbols-outlined text-primary">info</span>
+        <div className="mx-[--spacing-container] mt-2 bg-primary-fixed/10 border-l-4 border-primary rounded-xl p-4 flex items-start gap-3 shadow-sm">
+          <span
+            className="material-symbols-outlined text-primary"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >info</span>
           <div>
             <h3 className="text-sm font-bold text-on-surface">
               {totalTasks} task{totalTasks !== 1 ? 's' : ''} need attention
