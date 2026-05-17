@@ -61,6 +61,7 @@ export const productsRouter = router({
           costPrice: null,
           markupPercent: null,
           supplier: null,
+          useCustomMarkup: null,
         };
       }
 

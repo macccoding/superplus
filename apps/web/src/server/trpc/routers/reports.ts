@@ -4,7 +4,7 @@ import { TaskStatus, ChecklistItemStatus } from '@superplus/db';
 
 export const reportsRouter = router({
   taskPerformance: managerProcedure
-    .input(z.object({ days: z.number().default(30) }))
+    .input(z.object({ days: z.number().min(1).max(365).default(30) }))
     .query(async ({ ctx, input }) => {
       const since = new Date();
       since.setDate(since.getDate() - input.days);
@@ -26,6 +26,7 @@ export const reportsRouter = router({
     const submissions = await ctx.db.checklistSubmission.findMany({
       where: { storeId: ctx.storeId, date: { gte: thirtyDaysAgo } },
       include: { items: { include: { templateItem: true } } },
+      take: 100,
     });
 
     const submissionRate = Math.round((submissions.length / 30) * 100);

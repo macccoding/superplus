@@ -1,6 +1,16 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../init';
+import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { LogCategory } from '@superplus/db';
+
+function getJamaicaDate(date?: Date): Date {
+  const d = date ?? new Date();
+  const jamaicaOffset = -5 * 60;
+  const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
+  const jamaicaMs = utcMs + jamaicaOffset * 60000;
+  const jamaicaDate = new Date(jamaicaMs);
+  jamaicaDate.setHours(0, 0, 0, 0);
+  return jamaicaDate;
+}
 
 export const logbookRouter = router({
   listByDate: protectedProcedure
@@ -8,10 +18,8 @@ export const logbookRouter = router({
       date: z.date().optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
-      const date = input?.date ?? new Date();
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
+      const startOfDay = getJamaicaDate(input?.date);
+      const endOfDay = new Date(startOfDay);
       endOfDay.setHours(23, 59, 59, 999);
 
       return ctx.db.logEntry.findMany({
@@ -38,7 +46,7 @@ export const logbookRouter = router({
         data: {
           storeId: ctx.storeId,
           authorId: ctx.user.id,
-          date: new Date(),
+          date: getJamaicaDate(),
           body: input.body,
           category: input.category,
           isFlagged: input.isFlagged,
@@ -46,7 +54,7 @@ export const logbookRouter = router({
       });
     }),
 
-  flagged: protectedProcedure
+  flagged: supervisorProcedure
     .query(async ({ ctx }) => {
       return ctx.db.logEntry.findMany({
         where: { storeId: ctx.storeId, isFlagged: true },

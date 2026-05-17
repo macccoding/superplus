@@ -77,17 +77,12 @@ export const checklistsRouter = router({
       });
 
       if (items) {
-        await ctx.db.checklistTemplateItem.deleteMany({
-          where: { templateId: id, template: { storeId: ctx.storeId } },
-        });
-        await ctx.db.checklistTemplateItem.createMany({
-          data: items.map((item, i) => ({
-            templateId: id,
-            label: item.label,
-            sortOrder: i,
-            isRequired: item.isRequired,
-          })),
-        });
+        await ctx.db.$transaction([
+          ctx.db.checklistTemplateItem.deleteMany({ where: { templateId: id, template: { storeId: ctx.storeId } } }),
+          ctx.db.checklistTemplateItem.createMany({
+            data: items.map((item, i) => ({ templateId: id, label: item.label, sortOrder: i, isRequired: item.isRequired })),
+          }),
+        ]);
       }
 
       return ctx.db.checklistTemplate.update({
@@ -147,6 +142,12 @@ export const checklistsRouter = router({
           code: 'BAD_REQUEST',
           message: 'All checklist items must be addressed',
         });
+      }
+
+      const submittedIds = new Set(input.items.map(i => i.templateItemId));
+      const templateIds = new Set(template.items.map(i => i.id));
+      if (submittedIds.size !== templateIds.size || [...submittedIds].some(id => !templateIds.has(id))) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Submitted items do not match template items' });
       }
 
       const today = getJamaicaDate();

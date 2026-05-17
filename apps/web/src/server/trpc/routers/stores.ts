@@ -15,8 +15,9 @@ export const storesRouter = router({
   getById: managerProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      const storeId = ctx.user.role === 'OWNER' ? input.id : ctx.storeId;
       return ctx.db.store.findUniqueOrThrow({
-        where: { id: input.id },
+        where: { id: storeId },
         include: { _count: { select: { users: true, tasks: true } } },
       });
     }),

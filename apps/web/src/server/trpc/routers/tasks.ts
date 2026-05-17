@@ -45,6 +45,11 @@ export const tasksRouter = router({
       dueDate: z.date().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (input.assignedToId) {
+        await ctx.db.user.findFirstOrThrow({
+          where: { id: input.assignedToId, storeId: ctx.storeId },
+        });
+      }
       return ctx.db.task.create({
         data: {
           ...input,

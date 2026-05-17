@@ -24,6 +24,11 @@ export const stockOutsRouter = router({
       location: z.string().max(100).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (input.productId) {
+        await ctx.db.product.findFirstOrThrow({
+          where: { id: input.productId, storeId: ctx.storeId },
+        });
+      }
       return ctx.db.stockOutReport.create({
         data: {
           storeId: ctx.storeId,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, managerProcedure } from '../init';
 
 export const categoriesRouter = router({
@@ -49,14 +50,15 @@ export const categoriesRouter = router({
   delete: managerProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const productCount = await ctx.db.product.count({
-        where: { categoryId: input.id, storeId: ctx.storeId },
-      });
-      if (productCount > 0) {
-        throw new Error(`Cannot delete category with ${productCount} products. Reassign products first.`);
+      try {
+        return await ctx.db.category.delete({
+          where: { id: input.id, storeId: ctx.storeId },
+        });
+      } catch (err: any) {
+        if (err.code === 'P2003') {
+          throw new TRPCError({ code: 'CONFLICT', message: 'Cannot delete category with products. Reassign products first.' });
+        }
+        throw err;
       }
-      return ctx.db.category.delete({
-        where: { id: input.id, storeId: ctx.storeId },
-      });
     }),
 });

@@ -92,7 +92,7 @@ export const usersRouter = router({
       });
       const { compare } = await import('bcryptjs');
       const valid = await compare(input.currentPin, user.pinHash);
-      if (!valid) throw new Error('Current PIN is incorrect');
+      if (!valid) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Current PIN is incorrect' });
 
       const pinHash = await hash(input.newPin, 10);
       return ctx.db.user.update({

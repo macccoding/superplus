@@ -36,22 +36,13 @@ export const protectedProcedure = t.procedure.use(enforceAuth);
 
 export function requireRole(minRole: Role) {
   return t.middleware(({ ctx, next }) => {
-    if (!ctx.session?.user) {
-      throw new TRPCError({ code: 'UNAUTHORIZED' });
-    }
-    if (!hasMinRole(ctx.session.user.role as Role, minRole)) {
+    if (!hasMinRole(ctx.user.role as Role, minRole)) {
       throw new TRPCError({ code: 'FORBIDDEN' });
     }
-    return next({
-      ctx: {
-        session: ctx.session,
-        user: ctx.session.user,
-        storeId: ctx.session.user.storeId,
-      },
-    });
+    return next({ ctx });
   });
 }
 
-export const supervisorProcedure = t.procedure.use(requireRole('SUPERVISOR'));
-export const managerProcedure = t.procedure.use(requireRole('MANAGER'));
-export const ownerProcedure = t.procedure.use(requireRole('OWNER'));
+export const supervisorProcedure = protectedProcedure.use(requireRole('SUPERVISOR'));
+export const managerProcedure = protectedProcedure.use(requireRole('MANAGER'));
+export const ownerProcedure = protectedProcedure.use(requireRole('OWNER'));
