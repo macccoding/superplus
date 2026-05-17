@@ -1,4 +1,7 @@
+'use client';
+
 import { AppShell } from '@superplus/ui';
+import { HubNotifications } from './hub-notifications';
 
 const navItems = [
   { label: 'Home', icon: 'home', href: '/hub' },
@@ -8,5 +11,9 @@ const navItems = [
 ];
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell navItems={navItems}>{children}</AppShell>;
+  return (
+    <AppShell navItems={navItems} notificationSlot={<HubNotifications />}>
+      {children}
+    </AppShell>
+  );
 }
