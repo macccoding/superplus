@@ -19,6 +19,15 @@ export type {
   StaffAvailability,
   ShiftSchedule,
   ShiftSlot,
+  Supplier,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  Promotion,
+  PromotionItem,
+  SOPGuide,
+  SOPStep,
+  Suggestion,
+  Notification,
 } from '@prisma/client';
 export {
   Role,
@@ -35,4 +44,9 @@ export {
   IncidentSeverity,
   IncidentStatus,
   ScheduleStatus,
+  POStatus,
+  PromotionType,
+  SuggestionCategory,
+  SuggestionStatus,
+  NotificationType,
 } from '@prisma/client';

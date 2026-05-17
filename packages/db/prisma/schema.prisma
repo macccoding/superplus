@@ -75,6 +75,11 @@ model Store {
   stockOutReports      StockOutReport[]
   incidents            Incident[]
   shiftSchedules       ShiftSchedule[]
+  suppliers            Supplier[]
+  orders               PurchaseOrder[]
+  promotions           Promotion[]
+  sopGuides            SOPGuide[]
+  suggestions          Suggestion[]
 }
 
 model User {
@@ -105,6 +110,12 @@ model User {
   staffAvailability    StaffAvailability[]
   shiftSlots           ShiftSlot[]
   publishedSchedules   ShiftSchedule[]  @relation("SchedulePublisher")
+  createdOrders        PurchaseOrder[]  @relation("POCreator")
+  createdPromotions    Promotion[]      @relation("PromotionCreator")
+  createdSOPGuides     SOPGuide[]       @relation("SOPCreator")
+  suggestions          Suggestion[]     @relation("SuggestionAuthor")
+  suggestionResponses  Suggestion[]     @relation("SuggestionResponder")
+  notifications        Notification[]
 
   @@index([storeId])
   @@index([phone])
@@ -466,4 +477,202 @@ model ShiftSlot {
 
   @@index([scheduleId, date])
   @@index([userId, date])
+}
+
+enum POStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum PromotionType {
+  WEEKLY_SPECIAL
+  CLEARANCE
+  SEASONAL
+  BUNDLE
+  OTHER
+}
+
+enum SuggestionCategory {
+  GENERAL
+  SAFETY
+  SCHEDULE
+  EQUIPMENT
+  PROCESS
+  OTHER
+}
+
+enum SuggestionStatus {
+  NEW
+  REVIEWED
+  IMPLEMENTED
+  DISMISSED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  ANNOUNCEMENT
+  SCHEDULE_PUBLISHED
+  STOCK_OUT
+  INCIDENT
+  SUGGESTION_RESPONSE
+  GENERAL
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  contact   String?
+  phone     String?
+  email     String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  store  Store           @relation(fields: [storeId], references: [id])
+  orders PurchaseOrder[]
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  storeId      String
+  supplierId   String
+  orderNumber  String
+  status       POStatus @default(DRAFT)
+  totalAmount  Decimal?
+  notes        String?
+  orderedAt    DateTime?
+  expectedAt   DateTime?
+  receivedAt   DateTime?
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  store     Store               @relation(fields: [storeId], references: [id])
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy User                @relation("POCreator", fields: [createdById], references: [id])
+  items     PurchaseOrderItem[]
+
+  @@index([storeId, status])
+  @@index([storeId, createdAt])
+}
+
+model PurchaseOrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productName String
+  quantity    Int
+  unitCost    Decimal
+  receivedQty Int?
+  notes       String?
+
+  order PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Promotion {
+  id          String        @id @default(cuid())
+  storeId     String
+  title       String
+  description String?
+  type        PromotionType
+  startDate   DateTime      @db.Date
+  endDate     DateTime      @db.Date
+  isActive    Boolean       @default(true)
+  createdById String
+  createdAt   DateTime      @default(now())
+
+  store     Store           @relation(fields: [storeId], references: [id])
+  createdBy User            @relation("PromotionCreator", fields: [createdById], references: [id])
+  items     PromotionItem[]
+
+  @@index([storeId, isActive])
+  @@index([storeId, startDate])
+}
+
+model PromotionItem {
+  id            String  @id @default(cuid())
+  promotionId   String
+  productName   String
+  originalPrice Decimal
+  promoPrice    Decimal
+  notes         String?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId])
+}
+
+model SOPGuide {
+  id          String    @id @default(cuid())
+  storeId     String?
+  title       String
+  description String?
+  category    String
+  isPublished Boolean   @default(false)
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  store     Store?    @relation(fields: [storeId], references: [id])
+  createdBy User      @relation("SOPCreator", fields: [createdById], references: [id])
+  steps     SOPStep[]
+
+  @@index([storeId, category])
+}
+
+model SOPStep {
+  id         String @id @default(cuid())
+  guideId    String
+  stepNumber Int
+  title      String
+  content    String
+  imageUrl   String?
+
+  guide SOPGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@index([guideId, stepNumber])
+}
+
+model Suggestion {
+  id            String             @id @default(cuid())
+  storeId       String
+  body          String
+  category      SuggestionCategory @default(GENERAL)
+  isAnonymous   Boolean            @default(true)
+  authorId      String?
+  status        SuggestionStatus   @default(NEW)
+  response      String?
+  respondedById String?
+  respondedAt   DateTime?
+  createdAt     DateTime           @default(now())
+
+  store       Store  @relation(fields: [storeId], references: [id])
+  author      User?  @relation("SuggestionAuthor", fields: [authorId], references: [id])
+  respondedBy User?  @relation("SuggestionResponder", fields: [respondedById], references: [id])
+
+  @@index([storeId, status])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead, createdAt])
 }
