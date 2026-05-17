@@ -119,6 +119,7 @@ export default function PeoplePage() {
               value={newUser.pin}
               onChange={(e) => setNewUser({ ...newUser, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
               placeholder="4-digit PIN"
+              type="password"
               inputMode="numeric"
               maxLength={4}
               className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors"

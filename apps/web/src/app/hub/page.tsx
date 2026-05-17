@@ -1,4 +1,7 @@
+'use client';
+
 import { IconGrid } from '@superplus/ui';
+import { useSession } from 'next-auth/react';
 
 const hubItems = [
   { label: 'Tasks', icon: 'assignment', href: '/hub/tasks', color: '#446185' },
@@ -9,13 +12,22 @@ const hubItems = [
   { label: 'Tools', icon: 'build', href: '/tools', color: '#673ab7' },
 ];
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
 export default function HubHomePage() {
+  const { data: session } = useSession();
+
   return (
     <div>
       {/* Welcome section */}
       <section className="px-[--spacing-container] pt-6 pb-2">
-        <h2 className="text-2xl font-bold text-on-surface">Good Morning</h2>
-        <p className="text-sm text-on-surface-variant mt-1">SuperPlus Mandeville</p>
+        <h2 className="text-2xl font-bold text-on-surface">{getGreeting()}</h2>
+        <p className="text-sm text-on-surface-variant mt-1">{session?.user?.storeName || 'SuperPlus'}</p>
       </section>
 
       {/* Icon grid */}

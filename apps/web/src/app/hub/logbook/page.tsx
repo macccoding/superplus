@@ -116,7 +116,7 @@ export default function LogbookPage() {
       {/* FAB */}
       <button
         onClick={() => setShowForm(true)}
-        className="fixed right-6 bottom-[80px] w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-tertiary-container text-on-tertiary-container shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
+        className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-tertiary-container text-on-tertiary-container shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
       >
         <span className="material-symbols-outlined text-[28px]">add</span>
       </button>

@@ -22,7 +22,7 @@ export default function CreateThreadPage() {
 
   return (
     <div className="px-[--spacing-container] py-6">
-      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+      <button onClick={() => { if (window.history.length > 1) router.back(); else router.push('/hub/threads'); }} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
         <span className="material-symbols-outlined text-[18px]">arrow_back</span>
         Back
       </button>

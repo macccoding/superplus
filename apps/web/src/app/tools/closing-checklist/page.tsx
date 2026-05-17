@@ -24,7 +24,7 @@ export default function ClosingChecklistPage() {
     }
   }, [templates, selectedTemplateId]);
 
-  const { data: template } = trpc.checklists.getTemplate.useQuery(
+  const { data: template, isLoading: templateLoading } = trpc.checklists.getTemplate.useQuery(
     { id: selectedTemplateId! },
     { enabled: !!selectedTemplateId }
   );
@@ -126,6 +126,15 @@ export default function ClosingChecklistPage() {
             {doneCount} of {items.length} items completed. Signed off at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Template loading spinner
+  if (selectedTemplateId && templateLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
       </div>
     );
   }

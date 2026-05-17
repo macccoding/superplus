@@ -142,10 +142,12 @@ export default function ProfilePage() {
                 if (newPin.length !== 4) { setPinError('PIN must be 4 digits'); return; }
                 changePin.mutate({ currentPin, newPin });
               }}
-              disabled={currentPin.length !== 4 || newPin.length !== 4 || confirmPin.length !== 4}
-              className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
+              disabled={currentPin.length !== 4 || newPin.length !== 4 || confirmPin.length !== 4 || changePin.isPending}
+              className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2"
             >
-              Update PIN
+              {changePin.isPending ? (
+                <><span className="material-symbols-outlined animate-spin">progress_activity</span>Updating...</>
+              ) : 'Update PIN'}
             </button>
           </div>
         )}

@@ -3,10 +3,10 @@
 import { trpc } from '@/lib/trpc-client';
 
 export default function ReportsPage() {
-  const { data: tasks } = trpc.reports.taskPerformance.useQuery({ days: 30 });
-  const { data: checklists } = trpc.reports.checklistCompliance.useQuery();
-  const { data: stock } = trpc.reports.stockAndExpiry.useQuery();
-  const { data: incidents } = trpc.reports.incidents.useQuery();
+  const { data: tasks, isError: tasksError } = trpc.reports.taskPerformance.useQuery({ days: 30 });
+  const { data: checklists, isError: checklistsError } = trpc.reports.checklistCompliance.useQuery();
+  const { data: stock, isError: stockError } = trpc.reports.stockAndExpiry.useQuery();
+  const { data: incidents, isError: incidentsError } = trpc.reports.incidents.useQuery();
 
   return (
     <div>
@@ -22,7 +22,9 @@ export default function ReportsPage() {
             <span className="material-symbols-outlined text-secondary">assignment</span>
             <h2 className="font-bold text-on-surface text-lg">Task Performance</h2>
           </div>
-          {tasks ? (
+          {tasksError ? (
+            <ErrorDisplay />
+          ) : tasks ? (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
@@ -51,7 +53,9 @@ export default function ReportsPage() {
             <span className="material-symbols-outlined text-primary">checklist</span>
             <h2 className="font-bold text-on-surface text-lg">Checklist Compliance</h2>
           </div>
-          {checklists ? (
+          {checklistsError ? (
+            <ErrorDisplay />
+          ) : checklists ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center">
@@ -86,7 +90,9 @@ export default function ReportsPage() {
             <span className="material-symbols-outlined text-tertiary">inventory_2</span>
             <h2 className="font-bold text-on-surface text-lg">Stock & Expiry</h2>
           </div>
-          {stock ? (
+          {stockError ? (
+            <ErrorDisplay />
+          ) : stock ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-tertiary-container/10 rounded-xl p-4 text-center">
@@ -121,7 +127,9 @@ export default function ReportsPage() {
             <span className="material-symbols-outlined text-error">report_problem</span>
             <h2 className="font-bold text-on-surface text-lg">Incidents</h2>
           </div>
-          {incidents ? (
+          {incidentsError ? (
+            <ErrorDisplay />
+          ) : incidents ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center">
@@ -166,6 +174,15 @@ function LoadingSkeleton() {
       <div className="h-8 bg-surface-container-high rounded-lg w-1/3" />
       <div className="h-4 bg-surface-container-high rounded w-2/3" />
       <div className="h-4 bg-surface-container-high rounded w-1/2" />
+    </div>
+  );
+}
+
+function ErrorDisplay() {
+  return (
+    <div className="text-sm text-error flex items-center gap-2">
+      <span className="material-symbols-outlined text-[18px]">error</span>
+      Failed to load
     </div>
   );
 }

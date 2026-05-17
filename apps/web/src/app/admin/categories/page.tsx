@@ -9,6 +9,7 @@ export default function CategoriesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newMarkup, setNewMarkup] = useState('30');
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const createCategory = trpc.categories.create.useMutation({
     onSuccess: () => {
@@ -52,12 +53,29 @@ export default function CategoriesPage() {
               </div>
             </div>
             {cat._count.products === 0 && (
-              <button
-                onClick={() => { if (confirm('Delete this category?')) deleteCategory.mutate({ id: cat.id }); }}
-                className="text-error text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-error/5 transition-all"
-              >
-                Delete
-              </button>
+              deleteConfirm === cat.id ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { deleteCategory.mutate({ id: cat.id }); setDeleteConfirm(null); }}
+                    className="text-xs font-bold text-on-error bg-error px-3 py-1.5 rounded-lg"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(null)}
+                    className="text-xs text-on-surface-variant px-3 py-1.5 rounded-lg bg-surface-container-high"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setDeleteConfirm(cat.id)}
+                  className="text-error text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-error/5 transition-all"
+                >
+                  Delete
+                </button>
+              )
             )}
           </div>
         ))}

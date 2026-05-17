@@ -11,7 +11,7 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const { data: session } = useSession();
   const utils = trpc.useUtils();
-  const { data: incident } = trpc.incidents.getById.useQuery({ id });
+  const { data: incident, isLoading, isError } = trpc.incidents.getById.useQuery({ id });
   const [resolution, setResolution] = useState('');
 
   const isManager = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
@@ -19,7 +19,18 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
   const resolve = trpc.incidents.resolve.useMutation({ onSuccess: () => utils.incidents.invalidate() });
   const close = trpc.incidents.close.useMutation({ onSuccess: () => { utils.incidents.invalidate(); router.push('/tools/incidents'); } });
 
-  if (!incident) return <div className="flex items-center justify-center py-20"><span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span></div>;
+  if (isLoading) return <div className="flex items-center justify-center py-20"><span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span></div>;
+  if (isError || !incident) return (
+    <div className="px-[--spacing-container] py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+        <span className="material-symbols-outlined text-[18px]">arrow_back</span>Back
+      </button>
+      <div className="text-center py-12">
+        <span className="material-symbols-outlined text-[48px] text-outline mb-3">error</span>
+        <p className="text-on-surface-variant">Incident not found</p>
+      </div>
+    </div>
+  );
 
   const severityColors: Record<string, string> = { CRITICAL: 'text-error', HIGH: 'text-tertiary', MEDIUM: 'text-on-surface-variant', LOW: 'text-outline' };
 

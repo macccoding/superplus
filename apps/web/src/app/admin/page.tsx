@@ -1,8 +1,11 @@
-import { serverTrpc } from '@/lib/trpc-server';
+'use client';
 
-export default async function AdminDashboardPage() {
-  const trpc = await serverTrpc();
-  const stores = await trpc.stores.list();
+import { trpc } from '@/lib/trpc-client';
+
+export default function AdminDashboardPage() {
+  const { data: stores } = trpc.stores.list.useQuery();
+  const { data: users } = trpc.users.list.useQuery();
+  const { data: taskStats } = trpc.reports.taskPerformance.useQuery({ days: 1 });
 
   return (
     <div>
@@ -19,7 +22,7 @@ export default async function AdminDashboardPage() {
               <span className="material-symbols-outlined text-primary">store</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-on-surface">{stores.length}</p>
+              <p className="text-2xl font-bold text-on-surface">{stores?.length ?? '--'}</p>
               <p className="text-sm text-on-surface-variant">Active Stores</p>
             </div>
           </div>
@@ -30,7 +33,7 @@ export default async function AdminDashboardPage() {
               <span className="material-symbols-outlined text-secondary">group</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-on-surface">--</p>
+              <p className="text-2xl font-bold text-on-surface">{users?.length ?? '--'}</p>
               <p className="text-sm text-on-surface-variant">Staff Members</p>
             </div>
           </div>
@@ -41,7 +44,7 @@ export default async function AdminDashboardPage() {
               <span className="material-symbols-outlined text-success">check_circle</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-on-surface">--</p>
+              <p className="text-2xl font-bold text-on-surface">{taskStats?.completed ?? '--'}</p>
               <p className="text-sm text-on-surface-variant">Tasks Completed Today</p>
             </div>
           </div>
@@ -51,7 +54,7 @@ export default async function AdminDashboardPage() {
       {/* Store cards */}
       <h2 className="text-lg font-bold text-on-surface mb-4">Stores</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {stores.map((store: any) => (
+        {stores?.map((store: any) => (
           <div key={store.id} className="bg-surface-container-lowest rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div>

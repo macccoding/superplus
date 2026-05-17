@@ -105,7 +105,7 @@ export default function ExpiryTrackerPage() {
             </div>
             <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (e.g. Aisle 3)" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" />
             <button
-              onClick={() => create.mutate({ productName, expiryDate: new Date(expiryDate), quantity: parseInt(quantity) || 1, location: location || undefined })}
+              onClick={() => create.mutate({ productName, expiryDate: new Date(expiryDate + 'T00:00:00'), quantity: parseInt(quantity) || 1, location: location || undefined })}
               disabled={!productName.trim() || !expiryDate || create.isPending}
               className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
             >
@@ -115,7 +115,7 @@ export default function ExpiryTrackerPage() {
         </div>
       )}
 
-      <button onClick={() => setShowForm(true)} className="fixed right-6 bottom-[80px] w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-tertiary-container text-on-tertiary-container shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200">
+      <button onClick={() => setShowForm(true)} className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-tertiary-container text-on-tertiary-container shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200">
         <span className="material-symbols-outlined text-[28px]">add</span>
       </button>
     </div>
