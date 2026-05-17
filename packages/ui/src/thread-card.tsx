@@ -29,11 +29,11 @@ export function ThreadCard({ title, author, category, messageCount, isPinned, is
     >
       <div className="flex items-start gap-3">
         <div className={`w-10 h-10 rounded-full ${cat.color} text-white flex items-center justify-center shrink-0`}>
-          <span className="material-symbols-outlined text-[20px]">{cat.icon}</span>
+          <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {isPinned && <span className="material-symbols-outlined text-tertiary text-[16px] filled">push_pin</span>}
+            {isPinned && <span className="material-symbols-outlined text-tertiary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>push_pin</span>}
             <h3 className={`font-bold text-base truncate ${isResolved ? 'line-through text-outline' : 'text-on-surface'}`}>
               {title}
             </h3>

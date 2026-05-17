@@ -74,7 +74,7 @@ export default function ThreadDetailPage({ params }: { params: Promise<{ id: str
       {/* Reply bar — fixed above bottom nav */}
       {!thread.isResolved && (
         <div
-          className="fixed bottom-[--spacing-nav-height] left-0 right-0 bg-surface-container-lowest border-t border-outline-variant/30 p-3 flex gap-2 z-40"
+          className="fixed bottom-[--spacing-nav-height] left-0 right-0 bg-surface-container-lowest border-t-2 border-surface-variant p-3 flex gap-2 z-40"
         >
           <input
             value={reply}

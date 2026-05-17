@@ -43,8 +43,8 @@ export default function TasksPage() {
               onClick={() => setTab(key)}
               className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
                 tab === key
-                  ? 'bg-primary text-on-primary shadow-sm'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest'
+                  ? 'bg-primary text-on-primary shadow-sm rounded-lg'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest rounded-lg'
               }`}
             >
               {label}

@@ -32,7 +32,7 @@ export function TaskCard({ title, priority, status, assignedTo, createdBy, dueDa
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left bg-surface-container-lowest p-4 rounded-xl shadow-sm border-l-4 ${p.border} active:scale-[0.98] transition-all duration-200`}
+      className={`w-full text-left bg-surface-container-lowest p-4 rounded-xl shadow-sm border-l-4 ${p.border} active:scale-95 transition-transform duration-200`}
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">

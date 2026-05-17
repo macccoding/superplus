@@ -62,7 +62,7 @@ export default function LogbookPage() {
       {/* Bottom sheet form */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowForm(false)}>
-          <div className="bg-surface-container-lowest w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-container-lowest w-full rounded-t-2xl border-t-2 border-surface-variant p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
             <h3 className="text-xl font-bold text-on-surface">New Log Entry</h3>
 
