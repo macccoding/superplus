@@ -3,6 +3,9 @@ import { Sidebar } from '@superplus/ui';
 const adminNav = [
   { label: 'Dashboard', icon: 'dashboard', href: '/admin' },
   { label: 'People', icon: 'group', href: '/admin/people' },
+  { label: 'Products', icon: 'inventory_2', href: '/admin/products' },
+  { label: 'Categories', icon: 'category', href: '/admin/categories' },
+  { label: 'Checklists', icon: 'checklist', href: '/admin/checklists' },
   { label: 'Activity', icon: 'timeline', href: '/admin/activity' },
   { label: 'Stores', icon: 'store', href: '/admin/stores' },
 ];
