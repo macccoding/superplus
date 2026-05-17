@@ -15,7 +15,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const router = useRouter();
   const utils = trpc.useUtils();
-  const { data: task, isLoading } = trpc.tasks.getById.useQuery({ id });
+  const { data: task, isLoading, isError } = trpc.tasks.getById.useQuery({ id });
   const pickup = trpc.tasks.pickup.useMutation({ onSuccess: () => utils.tasks.invalidate() });
   const updateStatus = trpc.tasks.updateStatus.useMutation({ onSuccess: () => utils.tasks.invalidate() });
 
@@ -26,7 +26,17 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       </div>
     );
   }
-  if (!task) return null;
+  if (!task || isError) return (
+    <div className="px-[--spacing-container] py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+        <span className="material-symbols-outlined text-[18px]">arrow_back</span>Back
+      </button>
+      <div className="text-center py-12">
+        <span className="material-symbols-outlined text-[48px] text-outline mb-3">search_off</span>
+        <p className="text-on-surface-variant">Task not found</p>
+      </div>
+    </div>
+  );
 
   const p = priorityConfig[task.priority] || priorityConfig.NORMAL;
 

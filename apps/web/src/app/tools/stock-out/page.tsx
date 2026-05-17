@@ -62,9 +62,9 @@ export default function StockOutPage() {
                 {canManage && report.status !== 'RESTOCKED' && (
                   <div className="flex gap-1">
                     {report.status === 'REPORTED' && (
-                      <button onClick={() => updateStatus.mutate({ id: report.id, status: 'ACKNOWLEDGED' })} className="h-9 px-3 bg-surface-container-high rounded-lg text-xs font-medium text-on-surface-variant">Ack</button>
+                      <button onClick={() => updateStatus.mutate({ id: report.id, status: 'ACKNOWLEDGED' })} className="h-12 px-4 bg-surface-container-high rounded-lg text-sm font-medium text-on-surface-variant">Ack</button>
                     )}
-                    <button onClick={() => updateStatus.mutate({ id: report.id, status: 'RESTOCKED' })} className="h-9 px-3 bg-success/10 rounded-lg text-xs font-bold text-success">Restocked</button>
+                    <button onClick={() => updateStatus.mutate({ id: report.id, status: 'RESTOCKED' })} className="h-12 px-4 bg-success/10 rounded-lg text-sm font-bold text-success">Restocked</button>
                   </div>
                 )}
               </div>

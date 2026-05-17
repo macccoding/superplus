@@ -59,7 +59,8 @@ export default function ProductsAdminPage() {
             <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-outline-variant/30">
                 <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-variant">Product</th>
@@ -95,6 +96,7 @@ export default function ProductsAdminPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {!isLoading && data?.items.length === 0 && (
           <div className="py-12 text-center text-on-surface-variant text-sm">No products found</div>

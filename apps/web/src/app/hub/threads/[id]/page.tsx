@@ -75,7 +75,6 @@ export default function ThreadDetailPage({ params }: { params: Promise<{ id: str
       {!thread.isResolved && (
         <div
           className="fixed bottom-[--spacing-nav-height] left-0 right-0 bg-surface-container-lowest border-t border-outline-variant/30 p-3 flex gap-2 z-40"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <input
             value={reply}

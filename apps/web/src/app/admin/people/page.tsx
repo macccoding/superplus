@@ -45,7 +45,8 @@ export default function PeoplePage() {
       </div>
 
       <div className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[600px]">
           <thead>
             <tr className="border-b border-outline-variant/30">
               <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-variant">Name</th>
@@ -94,6 +95,7 @@ export default function PeoplePage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Add staff modal */}

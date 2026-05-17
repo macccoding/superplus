@@ -2,6 +2,7 @@
 
 import { IconGrid } from '@superplus/ui';
 import { useSession } from 'next-auth/react';
+import { trpc } from '@/lib/trpc-client';
 
 const hubItems = [
   { label: 'Tasks', icon: 'assignment', href: '/hub/tasks', color: '#446185' },
@@ -21,6 +22,10 @@ function getGreeting() {
 
 export default function HubHomePage() {
   const { data: session } = useSession();
+  const { data: myTasks } = trpc.tasks.list.useQuery({ assignedToMe: true });
+  const { data: availableTasks } = trpc.tasks.list.useQuery({ unassigned: true });
+
+  const totalTasks = (myTasks?.length || 0) + (availableTasks?.length || 0);
 
   return (
     <div>
@@ -33,14 +38,20 @@ export default function HubHomePage() {
       {/* Icon grid */}
       <IconGrid items={hubItems} />
 
-      {/* Quick info card */}
-      <div className="mx-[--spacing-container] mt-2 bg-primary-container/10 border border-primary/20 rounded-xl p-4 flex items-start gap-3">
-        <span className="material-symbols-outlined text-primary">info</span>
-        <div>
-          <h3 className="text-sm font-bold text-on-surface">3 tasks need attention</h3>
-          <p className="text-xs text-on-surface-variant mt-0.5">2 unassigned, 1 overdue</p>
+      {/* Quick info card — only shown when there are tasks */}
+      {totalTasks > 0 && (
+        <div className="mx-[--spacing-container] mt-2 bg-primary-container/10 border border-primary/20 rounded-xl p-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-primary">info</span>
+          <div>
+            <h3 className="text-sm font-bold text-on-surface">
+              {totalTasks} task{totalTasks !== 1 ? 's' : ''} need attention
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              {availableTasks?.length || 0} unassigned, {myTasks?.length || 0} assigned to you
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

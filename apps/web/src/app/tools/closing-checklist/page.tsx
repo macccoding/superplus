@@ -245,7 +245,7 @@ export default function ClosingChecklistPage() {
 
       {/* Submit button */}
       {allAddressed && (
-        <div className="fixed bottom-[80px] left-0 right-0 px-[--spacing-container] pb-4">
+        <div className="fixed left-0 right-0 px-[--spacing-container] pb-4 z-40" style={{ bottom: 'calc(var(--spacing-nav-height) + env(safe-area-inset-bottom, 0px))' }}>
           <button
             onClick={() => submit.mutate({ templateId: selectedTemplateId!, items: items.map(i => ({ templateItemId: i.templateItemId, status: i.status!, reason: i.reason || undefined })) })}
             disabled={submit.isPending}

@@ -20,10 +20,10 @@ export function BottomNav({ items }: { items: NavItem[] }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all duration-200 active:scale-90 ${
+            className={`flex flex-col items-center justify-center min-w-[60px] py-2 rounded-xl transition-all duration-200 active:scale-90 ${
               active
-                ? 'bg-primary text-on-primary'
-                : 'text-on-surface-variant hover:bg-surface-container-high'
+                ? 'bg-primary text-on-primary px-4'
+                : 'text-on-surface-variant active:bg-surface-container-high px-3'
             }`}
           >
             <span className={`material-symbols-outlined ${active ? 'filled' : ''}`}>{item.icon}</span>

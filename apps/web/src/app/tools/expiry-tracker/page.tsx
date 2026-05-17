@@ -63,17 +63,17 @@ export default function ExpiryTrackerPage() {
                     <div className="flex gap-1">
                       <button
                         onClick={() => updateStatus.mutate({ id: alert.id, status: 'PULLED' })}
-                        className="w-9 h-9 bg-tertiary-container/30 rounded-lg flex items-center justify-center"
+                        className="w-12 h-12 bg-tertiary-container/30 rounded-lg flex items-center justify-center"
                         title="Mark as Pulled"
                       >
-                        <span className="material-symbols-outlined text-[18px] text-on-tertiary-container">remove_shopping_cart</span>
+                        <span className="material-symbols-outlined text-[20px] text-on-tertiary-container">remove_shopping_cart</span>
                       </button>
                       <button
                         onClick={() => updateStatus.mutate({ id: alert.id, status: 'RESOLVED' })}
-                        className="w-9 h-9 bg-success/10 rounded-lg flex items-center justify-center"
+                        className="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center"
                         title="Resolve"
                       >
-                        <span className="material-symbols-outlined text-[18px] text-success">check</span>
+                        <span className="material-symbols-outlined text-[20px] text-success">check</span>
                       </button>
                     </div>
                   )}
