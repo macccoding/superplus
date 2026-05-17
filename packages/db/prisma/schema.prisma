@@ -68,6 +68,9 @@ model Store {
   products             Product[]
   checklistTemplates   ChecklistTemplate[]
   checklistSubmissions ChecklistSubmission[]
+  expiryAlerts         ExpiryAlert[]
+  stockOutReports      StockOutReport[]
+  incidents            Incident[]
 }
 
 model User {
@@ -90,6 +93,11 @@ model User {
   logEntries           LogEntry[]
   announcements        Announcement[]
   checklistSubmissions ChecklistSubmission[]
+  expiryAlerts         ExpiryAlert[]    @relation("ExpiryReporter")
+  stockOutsReported    StockOutReport[] @relation("StockOutReporter")
+  stockOutsResolved    StockOutReport[] @relation("StockOutResolver")
+  incidentsReported    Incident[]       @relation("IncidentReporter")
+  incidentsResolved    Incident[]       @relation("IncidentResolver")
 
   @@index([storeId])
   @@index([phone])
@@ -229,6 +237,9 @@ model Product {
   store    Store     @relation(fields: [storeId], references: [id])
   category Category? @relation(fields: [categoryId], references: [id])
 
+  expiryAlerts    ExpiryAlert[]
+  stockOutReports StockOutReport[]
+
   @@unique([storeId, barcode])
   @@index([storeId, name])
   @@index([storeId, categoryId])
@@ -292,4 +303,104 @@ model ChecklistSubmissionItem {
   templateItem ChecklistTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: SetNull)
 
   @@index([submissionId])
+}
+
+enum ExpiryStatus {
+  ACTIVE
+  PULLED
+  RESOLVED
+}
+
+enum StockOutStatus {
+  REPORTED
+  ACKNOWLEDGED
+  RESTOCKED
+}
+
+enum IncidentCategory {
+  EQUIPMENT
+  SAFETY
+  CUSTOMER
+  THEFT
+  MAINTENANCE
+  OTHER
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model ExpiryAlert {
+  id           String       @id @default(cuid())
+  storeId      String
+  productId    String?
+  productName  String
+  expiryDate   DateTime     @db.Date
+  quantity     Int          @default(1)
+  location     String?
+  reportedById String
+  status       ExpiryStatus @default(ACTIVE)
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  store      Store    @relation(fields: [storeId], references: [id])
+  product    Product? @relation(fields: [productId], references: [id])
+  reportedBy User     @relation("ExpiryReporter", fields: [reportedById], references: [id])
+
+  @@index([storeId, status, expiryDate])
+}
+
+model StockOutReport {
+  id           String         @id @default(cuid())
+  storeId      String
+  productId    String?
+  productName  String
+  location     String?
+  reportedById String
+  status       StockOutStatus @default(REPORTED)
+  resolvedAt   DateTime?
+  resolvedById String?
+  notes        String?
+  createdAt    DateTime       @default(now())
+
+  store      Store    @relation(fields: [storeId], references: [id])
+  product    Product? @relation(fields: [productId], references: [id])
+  reportedBy User     @relation("StockOutReporter", fields: [reportedById], references: [id])
+  resolvedBy User?    @relation("StockOutResolver", fields: [resolvedById], references: [id])
+
+  @@index([storeId, status])
+  @@index([storeId, createdAt])
+}
+
+model Incident {
+  id           String           @id @default(cuid())
+  storeId      String
+  reportedById String
+  category     IncidentCategory
+  title        String
+  description  String
+  severity     IncidentSeverity @default(MEDIUM)
+  photoUrl     String?
+  status       IncidentStatus   @default(OPEN)
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolution   String?
+  createdAt    DateTime         @default(now())
+
+  store      Store @relation(fields: [storeId], references: [id])
+  reportedBy User  @relation("IncidentReporter", fields: [reportedById], references: [id])
+  resolvedBy User? @relation("IncidentResolver", fields: [resolvedById], references: [id])
+
+  @@index([storeId, status])
+  @@index([storeId, createdAt])
 }

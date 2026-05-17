@@ -9,6 +9,10 @@ import { activityRouter } from './routers/activity';
 import { productsRouter } from './routers/products';
 import { categoriesRouter } from './routers/categories';
 import { checklistsRouter } from './routers/checklists';
+import { expiryAlertsRouter } from './routers/expiryAlerts';
+import { stockOutsRouter } from './routers/stockOuts';
+import { incidentsRouter } from './routers/incidents';
+import { reportsRouter } from './routers/reports';
 
 export const appRouter = router({
   tasks: tasksRouter,
@@ -21,6 +25,10 @@ export const appRouter = router({
   products: productsRouter,
   categories: categoriesRouter,
   checklists: checklistsRouter,
+  expiryAlerts: expiryAlertsRouter,
+  stockOuts: stockOutsRouter,
+  incidents: incidentsRouter,
+  reports: reportsRouter,
 });
 
 export type AppRouter = typeof appRouter;

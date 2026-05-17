@@ -13,6 +13,9 @@ export type {
   ChecklistTemplateItem,
   ChecklistSubmission,
   ChecklistSubmissionItem,
+  ExpiryAlert,
+  StockOutReport,
+  Incident,
 } from '@prisma/client';
 export {
   Role,
@@ -23,4 +26,9 @@ export {
   AnnouncePriority,
   StockStatus,
   ChecklistItemStatus,
+  ExpiryStatus,
+  StockOutStatus,
+  IncidentCategory,
+  IncidentSeverity,
+  IncidentStatus,
 } from '@prisma/client';
