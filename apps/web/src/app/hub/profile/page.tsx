@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { data: user } = trpc.users.me.useQuery();
   const [showPinChange, setShowPinChange] = useState(false);
   const [currentPin, setCurrentPin] = useState('');
@@ -81,6 +83,28 @@ export default function ProfilePage() {
 
       {/* Actions */}
       <div className="space-y-3">
+        <button
+          onClick={() => router.push('/hub/schedule')}
+          className="w-full bg-surface-container-lowest rounded-xl p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-secondary">calendar_month</span>
+            <span className="text-sm font-bold text-on-surface">My Schedule</span>
+          </div>
+          <span className="material-symbols-outlined text-outline text-[20px]">chevron_right</span>
+        </button>
+
+        <button
+          onClick={() => router.push('/hub/availability')}
+          className="w-full bg-surface-container-lowest rounded-xl p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-tertiary">event_available</span>
+            <span className="text-sm font-bold text-on-surface">My Availability</span>
+          </div>
+          <span className="material-symbols-outlined text-outline text-[20px]">chevron_right</span>
+        </button>
+
         <button
           onClick={() => setShowPinChange(!showPinChange)}
           className="w-full bg-surface-container-lowest rounded-xl p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all"

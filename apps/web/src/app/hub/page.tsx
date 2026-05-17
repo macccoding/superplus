@@ -9,7 +9,7 @@ const hubItems = [
   { label: 'Threads', icon: 'forum', href: '/hub/threads', color: '#2e7d32' },
   { label: 'Logbook', icon: 'history', href: '/hub/logbook', color: '#845500' },
   { label: 'Announce', icon: 'campaign', href: '/hub/announcements', color: '#c00029' },
-  { label: 'Profile', icon: 'person', href: '/hub/profile', color: '#767c7e' },
+  { label: 'Schedule', icon: 'calendar_month', href: '/hub/schedule', color: '#1565c0' },
   { label: 'Tools', icon: 'build', href: '/tools', color: '#673ab7' },
 ];
 

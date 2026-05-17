@@ -10,6 +10,7 @@ const adminNav = [
   { label: 'Categories', icon: 'category', href: '/admin/categories' },
   { label: 'Checklists', icon: 'checklist', href: '/admin/checklists' },
   { label: 'Reports', icon: 'analytics', href: '/admin/reports' },
+  { label: 'Schedules', icon: 'calendar_month', href: '/admin/schedules' },
   { label: 'Activity', icon: 'timeline', href: '/admin/activity' },
   { label: 'Stores', icon: 'store', href: '/admin/stores' },
 ];
