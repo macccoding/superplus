@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../init';
+import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { ThreadCategory } from '@superplus/db';
 
 export const threadsRouter = router({
@@ -88,7 +88,7 @@ export const threadsRouter = router({
       return message;
     }),
 
-  togglePin: protectedProcedure
+  togglePin: supervisorProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
@@ -100,7 +100,7 @@ export const threadsRouter = router({
       });
     }),
 
-  resolve: protectedProcedure
+  resolve: supervisorProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.thread.update({

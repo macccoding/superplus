@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../init';
 import { AnnouncePriority } from '@superplus/db';
+import { TRPCError } from '@trpc/server';
 
 export const announcementsRouter = router({
   list: protectedProcedure
@@ -37,6 +38,9 @@ export const announcementsRouter = router({
       expiresAt: z.date().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (input.broadcast && ctx.user.role !== 'OWNER') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only owners can broadcast to all stores' });
+      }
       return ctx.db.announcement.create({
         data: {
           storeId: input.broadcast ? null : ctx.storeId,

@@ -37,7 +37,7 @@ export default auth((req) => {
     if (subdomain === 'admin') {
       const role = req.auth.user?.role;
       if (role !== 'OWNER' && role !== 'MANAGER') {
-        return NextResponse.redirect(new URL('/hub', req.url));
+        return new NextResponse('Access denied', { status: 403 });
       }
     }
 

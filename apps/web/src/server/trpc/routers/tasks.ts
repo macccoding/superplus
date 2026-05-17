@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { TaskStatus, Priority } from '@superplus/db';
+import { hasMinRole } from '@superplus/config';
+import type { Role } from '@superplus/config';
+import { TRPCError } from '@trpc/server';
 
 export const tasksRouter = router({
   list: protectedProcedure
@@ -66,6 +69,18 @@ export const tasksRouter = router({
       status: z.nativeEnum(TaskStatus),
     }))
     .mutation(async ({ ctx, input }) => {
+      const task = await ctx.db.task.findFirstOrThrow({
+        where: { id: input.id, storeId: ctx.storeId },
+      });
+
+      if (ctx.user.role === 'STAFF' && task.assignedToId !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only update tasks assigned to you' });
+      }
+
+      if (input.status === 'CANCELLED' && !hasMinRole(ctx.user.role as Role, 'SUPERVISOR')) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only supervisors can cancel tasks' });
+      }
+
       const data: any = { status: input.status };
       if (input.status === TaskStatus.DONE) {
         data.completedAt = new Date();
