@@ -81,7 +81,7 @@ export default function ActivityPage() {
         <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm lg:col-span-2">
           <div className="flex items-center gap-2 mb-5">
             <span className="material-symbols-outlined text-primary">flag</span>
-            <h2 className="font-bold text-primary text-lg">Flagged for Attention</h2>
+            <h2 className="font-bold text-on-surface text-lg">Flagged for Attention</h2>
           </div>
           {data.flaggedLogs.length === 0 ? (
             <div className="flex items-center gap-3 py-4 text-sm text-outline">

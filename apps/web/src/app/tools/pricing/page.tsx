@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc-client';
+import { EmptyState } from '@superplus/ui';
 
 export default function PricingPage() {
   const [cost, setCost] = useState('');
@@ -129,10 +130,7 @@ export default function PricingPage() {
           )}
 
           {costNum <= 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <span className="material-symbols-outlined text-[48px] text-outline mb-3">calculate</span>
-              <p className="text-on-surface-variant">Enter a cost price to see margins</p>
-            </div>
+            <EmptyState icon="calculate" title="Enter a cost price" description="See retail prices at different margins" />
           )}
         </div>
       ) : (

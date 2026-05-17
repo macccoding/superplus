@@ -4,7 +4,7 @@
 
 @theme {
   --color-primary: #c00029;
-  --color-primary-container: #ff3247;
+  --color-primary-container: #ffdad6;
   --color-on-primary: #fff7f6;
   --color-on-primary-container: #000000;
   --color-secondary: #446185;
@@ -29,6 +29,7 @@
   --color-error-container: #fd795a;
   --color-on-error: #fff7f6;
   --color-success: #2e7d32;
+  --color-on-success: #ffffff;
   --color-inverse-surface: #0c0f10;
   --color-inverse-on-surface: #9b9d9e;
   --spacing-base: 8px;

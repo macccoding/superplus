@@ -11,7 +11,7 @@ export function AppShell({ children, navItems, storeName }: AppShellProps) {
     <div className="min-h-dvh bg-surface">
       <header className="sticky top-0 z-40 bg-surface-container-lowest h-[--spacing-nav-height] flex items-center justify-between px-[--spacing-container] shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary">hub</span>
+          <span className="material-symbols-outlined text-primary">storefront</span>
           <h1 className="text-2xl font-black text-primary tracking-tight">SuperPlus</h1>
         </div>
         {storeName && (
