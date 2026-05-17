@@ -13,6 +13,8 @@ import { expiryAlertsRouter } from './routers/expiryAlerts';
 import { stockOutsRouter } from './routers/stockOuts';
 import { incidentsRouter } from './routers/incidents';
 import { reportsRouter } from './routers/reports';
+import { schedulesRouter } from './routers/schedules';
+import { availabilityRouter } from './routers/availability';
 
 export const appRouter = router({
   tasks: tasksRouter,
@@ -29,6 +31,8 @@ export const appRouter = router({
   stockOuts: stockOutsRouter,
   incidents: incidentsRouter,
   reports: reportsRouter,
+  schedules: schedulesRouter,
+  availability: availabilityRouter,
 });
 
 export type AppRouter = typeof appRouter;

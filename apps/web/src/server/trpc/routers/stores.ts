@@ -32,4 +32,17 @@ export const storesRouter = router({
     .mutation(async ({ ctx, input }) => {
       return ctx.db.store.create({ data: input });
     }),
+
+  updateConfig: managerProcedure
+    .input(z.object({
+      openTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+      closeTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+      openDays: z.string().max(100).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.store.update({
+        where: { id: ctx.storeId },
+        data: input,
+      });
+    }),
 });
