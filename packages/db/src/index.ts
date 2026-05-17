@@ -7,6 +7,12 @@ export type {
   Task,
   LogEntry,
   Announcement,
+  Category,
+  Product,
+  ChecklistTemplate,
+  ChecklistTemplateItem,
+  ChecklistSubmission,
+  ChecklistSubmissionItem,
 } from '@prisma/client';
 export {
   Role,
@@ -15,4 +21,6 @@ export {
   TaskStatus,
   LogCategory,
   AnnouncePriority,
+  StockStatus,
+  ChecklistItemStatus,
 } from '@prisma/client';

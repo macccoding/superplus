@@ -59,11 +59,15 @@ model Store {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  users         User[]
-  threads       Thread[]
-  tasks         Task[]
-  logEntries    LogEntry[]
-  announcements Announcement[]
+  users                User[]
+  threads              Thread[]
+  tasks                Task[]
+  logEntries           LogEntry[]
+  announcements        Announcement[]
+  categories           Category[]
+  products             Product[]
+  checklistTemplates   ChecklistTemplate[]
+  checklistSubmissions ChecklistSubmission[]
 }
 
 model User {
@@ -78,13 +82,14 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  store            Store           @relation(fields: [storeId], references: [id])
-  createdThreads   Thread[]        @relation("ThreadAuthor")
-  threadMessages   ThreadMessage[]
-  createdTasks     Task[]          @relation("TaskCreator")
-  assignedTasks    Task[]          @relation("TaskAssignee")
-  logEntries       LogEntry[]
-  announcements    Announcement[]
+  store                Store               @relation(fields: [storeId], references: [id])
+  createdThreads       Thread[]            @relation("ThreadAuthor")
+  threadMessages       ThreadMessage[]
+  createdTasks         Task[]              @relation("TaskCreator")
+  assignedTasks        Task[]              @relation("TaskAssignee")
+  logEntries           LogEntry[]
+  announcements        Announcement[]
+  checklistSubmissions ChecklistSubmission[]
 
   @@index([storeId])
   @@index([phone])
@@ -173,4 +178,117 @@ model Announcement {
   author User   @relation(fields: [authorId], references: [id])
 
   @@index([storeId, createdAt])
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW
+  OUT_OF_STOCK
+}
+
+enum ChecklistItemStatus {
+  DONE
+  SKIPPED
+  NOT_APPLICABLE
+}
+
+model Category {
+  id                   String   @id @default(cuid())
+  storeId              String
+  name                 String
+  defaultMarkupPercent Decimal  @default(30)
+  sortOrder            Int      @default(0)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  store    Store     @relation(fields: [storeId], references: [id])
+  products Product[]
+
+  @@unique([storeId, name])
+  @@index([storeId, sortOrder])
+}
+
+model Product {
+  id              String      @id @default(cuid())
+  storeId         String
+  categoryId      String?
+  name            String
+  barcode         String?
+  sku             String?
+  costPrice       Decimal
+  retailPrice     Decimal
+  markupPercent   Decimal
+  useCustomMarkup Boolean     @default(false)
+  location        String?
+  supplier        String?
+  stockStatus     StockStatus @default(IN_STOCK)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  store    Store     @relation(fields: [storeId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
+
+  @@unique([storeId, barcode])
+  @@index([storeId, name])
+  @@index([storeId, categoryId])
+}
+
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store       Store                  @relation(fields: [storeId], references: [id])
+  items       ChecklistTemplateItem[]
+  submissions ChecklistSubmission[]
+
+  @@index([storeId])
+}
+
+model ChecklistTemplateItem {
+  id         String  @id @default(cuid())
+  templateId String
+  label      String
+  sortOrder  Int     @default(0)
+  isRequired Boolean @default(true)
+
+  template        ChecklistTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  submissionItems ChecklistSubmissionItem[]
+
+  @@index([templateId, sortOrder])
+}
+
+model ChecklistSubmission {
+  id            String   @id @default(cuid())
+  storeId       String
+  templateId    String
+  submittedById String
+  date          DateTime @db.Date
+  completedAt   DateTime @default(now())
+  notes         String?
+
+  store       Store              @relation(fields: [storeId], references: [id])
+  template    ChecklistTemplate  @relation(fields: [templateId], references: [id])
+  submittedBy User               @relation(fields: [submittedById], references: [id])
+  items       ChecklistSubmissionItem[]
+
+  @@unique([storeId, templateId, date])
+  @@index([storeId, date])
+}
+
+model ChecklistSubmissionItem {
+  id             String              @id @default(cuid())
+  submissionId   String
+  templateItemId String
+  status         ChecklistItemStatus
+  reason         String?
+
+  submission   ChecklistSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  templateItem ChecklistTemplateItem @relation(fields: [templateItemId], references: [id])
+
+  @@index([submissionId])
 }

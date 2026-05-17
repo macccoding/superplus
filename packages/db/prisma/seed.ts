@@ -55,7 +55,53 @@ async function main() {
     },
   });
 
-  console.log('Seed complete: 1 store, 4 users (PIN: 1234 for all)');
+  // Phase 2: Categories
+  const grocery = await prisma.category.create({
+    data: { storeId: store.id, name: 'Grocery', defaultMarkupPercent: 25, sortOrder: 0 },
+  });
+  const beverages = await prisma.category.create({
+    data: { storeId: store.id, name: 'Beverages', defaultMarkupPercent: 35, sortOrder: 1 },
+  });
+  const household = await prisma.category.create({
+    data: { storeId: store.id, name: 'Household', defaultMarkupPercent: 20, sortOrder: 2 },
+  });
+  const produce = await prisma.category.create({
+    data: { storeId: store.id, name: 'Produce', defaultMarkupPercent: 40, sortOrder: 3 },
+  });
+
+  // Phase 2: Sample products
+  await prisma.product.createMany({
+    data: [
+      { storeId: store.id, categoryId: grocery.id, name: 'Grace Corned Beef 340g', barcode: '5012345678901', costPrice: 450, retailPrice: 563, markupPercent: 25, location: 'Aisle 2, Shelf A' },
+      { storeId: store.id, categoryId: grocery.id, name: 'National Flour 2kg', barcode: '5012345678902', costPrice: 380, retailPrice: 475, markupPercent: 25, location: 'Aisle 2, Shelf C' },
+      { storeId: store.id, categoryId: beverages.id, name: 'Pepsi 2L', barcode: '5012345678903', costPrice: 200, retailPrice: 270, markupPercent: 35, location: 'Aisle 1, Shelf B' },
+      { storeId: store.id, categoryId: beverages.id, name: 'Wata Water 1.5L', barcode: '5012345678904', costPrice: 80, retailPrice: 108, markupPercent: 35, location: 'Aisle 1, Shelf A' },
+      { storeId: store.id, categoryId: household.id, name: 'Breeze Detergent 900g', barcode: '5012345678905', costPrice: 520, retailPrice: 624, markupPercent: 20, location: 'Aisle 4, Shelf B' },
+      { storeId: store.id, categoryId: produce.id, name: 'Scotch Bonnet Pepper (per lb)', costPrice: 300, retailPrice: 420, markupPercent: 40, location: 'Produce Section', stockStatus: 'LOW' },
+    ],
+  });
+
+  // Phase 2: Checklist template
+  const closingTemplate = await prisma.checklistTemplate.create({
+    data: {
+      storeId: store.id,
+      name: 'Nightly Closing',
+      items: {
+        create: [
+          { label: 'Count all registers and secure cash', sortOrder: 0 },
+          { label: 'Check all freezer temperatures and log readings', sortOrder: 1 },
+          { label: 'Sweep and mop all aisles', sortOrder: 2 },
+          { label: 'Restock front-end displays', sortOrder: 3 },
+          { label: 'Lock back receiving door', sortOrder: 4 },
+          { label: 'Arm security system', sortOrder: 5 },
+          { label: 'Turn off non-essential lights', sortOrder: 6 },
+          { label: 'Check produce section for spoilage', sortOrder: 7, isRequired: false },
+        ],
+      },
+    },
+  });
+
+  console.log('Seed complete: 1 store, 4 users (PIN: 1234), 4 categories, 6 products, 1 checklist template');
 }
 
 main()
