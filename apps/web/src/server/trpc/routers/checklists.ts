@@ -97,7 +97,7 @@ export const checklistsRouter = router({
       });
     }),
 
-  todayStatus: supervisorProcedure
+  todayStatus: protectedProcedure
     .input(z.object({ templateId: z.string() }))
     .query(async ({ ctx, input }) => {
       const today = getJamaicaDate();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 import { EmptyState } from '@superplus/ui';
@@ -13,6 +13,12 @@ export default function ProductLookupPage() {
   const [stockFilter, setStockFilter] = useState<string | undefined>();
   const [showScanner, setShowScanner] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleScan = useCallback((barcode: string) => {
+    setQuery(barcode);
+    setShowScanner(false);
+    inputRef.current?.focus();
+  }, []);
 
   // Debounce search
   useEffect(() => {
@@ -84,7 +90,7 @@ export default function ProductLookupPage() {
               stockFilter === s ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
             }`}
           >
-            {s.replace('_', ' ')}
+            {s.replaceAll('_', ' ')}
           </button>
         ))}
       </div>
@@ -122,7 +128,7 @@ export default function ProductLookupPage() {
                   <p className="text-lg font-bold text-on-surface">${Number(product.retailPrice).toFixed(2)}</p>
                   <div className="flex items-center gap-1 mt-1 justify-end">
                     <span className={`w-2 h-2 rounded-full ${stockDot[product.stockStatus]}`} />
-                    <span className="text-xs text-outline">{product.stockStatus.replace('_', ' ')}</span>
+                    <span className="text-xs text-outline">{product.stockStatus.replaceAll('_', ' ')}</span>
                   </div>
                 </div>
               </div>
@@ -138,6 +144,10 @@ export default function ProductLookupPage() {
           )
         )}
 
+        {results && results.nextCursor && (
+          <p className="text-center text-xs text-outline py-4">Showing first 20 results. Refine your search for more.</p>
+        )}
+
         {!debouncedQuery && !categoryFilter && !stockFilter && !isLoading && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <span className="material-symbols-outlined text-[48px] text-outline mb-3">inventory_2</span>
@@ -149,7 +159,7 @@ export default function ProductLookupPage() {
       {/* Barcode Scanner Modal */}
       {showScanner && (
         <BarcodeScanner
-          onScan={(barcode) => { setQuery(barcode); setShowScanner(false); inputRef.current?.focus(); }}
+          onScan={handleScan}
           onClose={() => setShowScanner(false)}
         />
       )}

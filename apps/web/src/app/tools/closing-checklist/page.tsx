@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc-client';
 
 type ItemState = { templateItemId: string; status: 'DONE' | 'SKIPPED' | 'NOT_APPLICABLE' | null; reason: string };
 
 export default function ClosingChecklistPage() {
-  const { data: templates } = trpc.checklists.listTemplates.useQuery();
+  const { data: session } = useSession();
+  const canSubmit = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
+  const { data: templates, isLoading: templatesLoading } = trpc.checklists.listTemplates.useQuery();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [items, setItems] = useState<ItemState[]>([]);
   const [reasonModal, setReasonModal] = useState<{ index: number; status: 'SKIPPED' | 'NOT_APPLICABLE' } | null>(null);
@@ -62,6 +65,36 @@ export default function ClosingChecklistPage() {
     setItems(prev => prev.map((item, i) => i === reasonModal.index ? { ...item, status: reasonModal.status, reason: reasonText.trim() } : item));
     setReasonModal(null);
     setReasonText('');
+  }
+
+  // Loading state
+  if (templatesLoading) {
+    return (
+      <div className="px-[--spacing-container] py-6">
+        <section className="px-0 pt-0 pb-4">
+          <h2 className="text-2xl font-bold text-on-surface">Closing Checklist</h2>
+        </section>
+        <div className="flex items-center justify-center py-12">
+          <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+        </div>
+      </div>
+    );
+  }
+
+  // STAFF read-only view
+  if (!canSubmit) {
+    return (
+      <div className="px-[--spacing-container] py-6">
+        <section className="px-0 pt-0 pb-4">
+          <h2 className="text-2xl font-bold text-on-surface">Closing Checklist</h2>
+        </section>
+        <div className="bg-surface-container-low rounded-xl p-6 text-center">
+          <span className="material-symbols-outlined text-outline text-[48px] mb-2">lock</span>
+          <h3 className="text-lg font-bold text-on-surface">Supervisors Only</h3>
+          <p className="text-sm text-on-surface-variant mt-2">Only supervisors can submit checklists.</p>
+        </div>
+      </div>
+    );
   }
 
   // Already submitted today
@@ -192,6 +225,14 @@ export default function ClosingChecklistPage() {
           );
         })}
       </section>
+
+      {/* Error display */}
+      {submit.error && (
+        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-xl p-4 flex items-center gap-2">
+          <span className="material-symbols-outlined">error</span>
+          <span className="text-sm font-medium">{submit.error.message}</span>
+        </div>
+      )}
 
       {/* Submit button */}
       {allAddressed && (

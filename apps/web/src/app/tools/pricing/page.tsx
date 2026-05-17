@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc-client';
 
 export default function PricingPage() {
@@ -8,6 +9,8 @@ export default function PricingPage() {
   const [tab, setTab] = useState<'calculator' | 'rules'>('calculator');
   const { data: categories } = trpc.categories.list.useQuery();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { data: session } = useSession();
+  const canEditRules = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const costNum = parseFloat(cost) || 0;
   const margins = [20, 25, 30, 35, 40, 50];
@@ -22,26 +25,28 @@ export default function PricingPage() {
       </section>
 
       {/* Tabs */}
-      <div className="px-[--spacing-container] mb-4">
-        <div className="flex bg-surface-container-high rounded-xl p-1">
-          <button
-            onClick={() => setTab('calculator')}
-            className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
-              tab === 'calculator' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'
-            }`}
-          >
-            Calculator
-          </button>
-          <button
-            onClick={() => setTab('rules')}
-            className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
-              tab === 'rules' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'
-            }`}
-          >
-            Margin Rules
-          </button>
+      {canEditRules && (
+        <div className="px-[--spacing-container] mb-4">
+          <div className="flex bg-surface-container-high rounded-xl p-1">
+            <button
+              onClick={() => setTab('calculator')}
+              className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
+                tab === 'calculator' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'
+              }`}
+            >
+              Calculator
+            </button>
+            <button
+              onClick={() => setTab('rules')}
+              className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
+                tab === 'rules' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'
+              }`}
+            >
+              Margin Rules
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {tab === 'calculator' ? (
         <div className="px-[--spacing-container] space-y-4">

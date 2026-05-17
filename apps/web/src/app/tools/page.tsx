@@ -1,9 +1,8 @@
 import { IconGrid } from '@superplus/ui';
 
 const toolItems = [
-  { label: 'Calculator', icon: 'calculate', href: '/tools/calculator', color: '#446185' },
+  { label: 'Pricing', icon: 'calculate', href: '/tools/pricing', color: '#446185' },
   { label: 'Lookup', icon: 'search', href: '/tools/product-lookup', color: '#2e7d32' },
-  { label: 'Markup', icon: 'price_change', href: '/tools/markup', color: '#845500' },
   { label: 'Checklist', icon: 'checklist', href: '/tools/closing-checklist', color: '#c00029' },
 ];
 

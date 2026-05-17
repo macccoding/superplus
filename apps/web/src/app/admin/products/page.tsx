@@ -7,7 +7,7 @@ import { trpc } from '@/lib/trpc-client';
 export default function ProductsAdminPage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const { data } = trpc.products.search.useQuery({ query: search || undefined, limit: 50 });
+  const { data } = trpc.products.search.useQuery({ query: search || undefined, limit: 200 });
 
   return (
     <div>
