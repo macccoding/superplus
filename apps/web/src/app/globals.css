@@ -2,6 +2,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
+@source "../../../../packages/ui/src/**/*.tsx";
+@source "../../../../packages/config/src/**/*.ts";
+
 @theme {
   --color-primary: #c00029;
   --color-primary-container: #ffdad6;
