@@ -36,7 +36,8 @@ export const protectedProcedure = t.procedure.use(enforceAuth);
 
 export function requireRole(minRole: Role) {
   return t.middleware(({ ctx, next }) => {
-    if (!hasMinRole(ctx.user.role as Role, minRole)) {
+    const user = (ctx as any).user;
+    if (!user || !hasMinRole(user.role as Role, minRole)) {
       throw new TRPCError({ code: 'FORBIDDEN' });
     }
     return next({ ctx });
