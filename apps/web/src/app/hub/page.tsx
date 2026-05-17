@@ -8,9 +8,15 @@ const hubItems = [
   { label: 'Tasks', icon: 'assignment', href: '/hub/tasks', color: '#446185' },
   { label: 'Threads', icon: 'forum', href: '/hub/threads', color: '#2e7d32' },
   { label: 'Logbook', icon: 'history', href: '/hub/logbook', color: '#845500' },
-  { label: 'Announce', icon: 'campaign', href: '/hub/announcements', color: '#c00029' },
   { label: 'Schedule', icon: 'calendar_month', href: '/hub/schedule', color: '#1565c0' },
+  { label: 'Deals', icon: 'sell', href: '/hub/promotions', color: '#c00029' },
   { label: 'Tools', icon: 'build', href: '/tools', color: '#673ab7' },
+];
+
+const moreItems = [
+  { label: 'Announce', icon: 'campaign', href: '/hub/announcements', color: '#a73b21' },
+  { label: 'Learn', icon: 'school', href: '/hub/training', color: '#845500' },
+  { label: 'Suggest', icon: 'lightbulb', href: '/hub/suggestions', color: '#5c1f5c' },
 ];
 
 function getGreeting() {
@@ -37,6 +43,12 @@ export default function HubHomePage() {
 
       {/* Icon grid */}
       <IconGrid items={hubItems} />
+
+      {/* More section */}
+      <section className="px-[--spacing-container] mt-2 mb-2">
+        <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wide mb-2">More</h3>
+      </section>
+      <IconGrid items={moreItems} />
 
       {/* Quick info card — only shown when there are tasks */}
       {totalTasks > 0 && (

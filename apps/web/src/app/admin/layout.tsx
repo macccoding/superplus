@@ -11,6 +11,11 @@ const adminNav = [
   { label: 'Checklists', icon: 'checklist', href: '/admin/checklists' },
   { label: 'Reports', icon: 'analytics', href: '/admin/reports' },
   { label: 'Schedules', icon: 'calendar_month', href: '/admin/schedules' },
+  { label: 'Suppliers', icon: 'local_shipping', href: '/admin/suppliers' },
+  { label: 'Orders', icon: 'receipt_long', href: '/admin/orders' },
+  { label: 'Promotions', icon: 'sell', href: '/admin/promotions' },
+  { label: 'Training', icon: 'school', href: '/admin/training' },
+  { label: 'Suggestions', icon: 'lightbulb', href: '/admin/suggestions' },
   { label: 'Activity', icon: 'timeline', href: '/admin/activity' },
   { label: 'Stores', icon: 'store', href: '/admin/stores' },
 ];

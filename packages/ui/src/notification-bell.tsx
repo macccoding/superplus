@@ -6,8 +6,8 @@ interface Notification {
   id: string;
   type: string;
   title: string;
-  body?: string;
-  link?: string;
+  body?: string | null;
+  link?: string | null;
   isRead: boolean;
   createdAt: any;
 }
