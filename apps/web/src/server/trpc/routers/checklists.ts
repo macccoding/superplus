@@ -3,6 +3,17 @@ import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, supervisorProcedure, managerProcedure } from '../init';
 import { ChecklistItemStatus } from '@superplus/db';
 
+function getJamaicaDate(): Date {
+  const now = new Date();
+  // Jamaica is always UTC-5
+  const jamaicaOffset = -5 * 60; // minutes
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const jamaicaMs = utcMs + jamaicaOffset * 60000;
+  const jamaicaDate = new Date(jamaicaMs);
+  jamaicaDate.setHours(0, 0, 0, 0);
+  return jamaicaDate;
+}
+
 export const checklistsRouter = router({
   listTemplates: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.checklistTemplate.findMany({
@@ -60,10 +71,14 @@ export const checklistsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, items, ...data } = input;
 
+      // Verify ownership first
+      await ctx.db.checklistTemplate.findFirstOrThrow({
+        where: { id, storeId: ctx.storeId },
+      });
+
       if (items) {
-        // Delete existing items and recreate (simpler than diffing)
         await ctx.db.checklistTemplateItem.deleteMany({
-          where: { templateId: id },
+          where: { templateId: id, template: { storeId: ctx.storeId } },
         });
         await ctx.db.checklistTemplateItem.createMany({
           data: items.map((item, i) => ({
@@ -85,8 +100,7 @@ export const checklistsRouter = router({
   todayStatus: supervisorProcedure
     .input(z.object({ templateId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = getJamaicaDate();
       const submission = await ctx.db.checklistSubmission.findUnique({
         where: {
           storeId_templateId_date: {
@@ -121,44 +135,53 @@ export const checklistsRouter = router({
         }
       }
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Check for existing submission today
-      const existing = await ctx.db.checklistSubmission.findUnique({
-        where: {
-          storeId_templateId_date: {
-            storeId: ctx.storeId,
-            templateId: input.templateId,
-            date: today,
-          },
-        },
+      // Verify template belongs to store and get items for label snapshot
+      const template = await ctx.db.checklistTemplate.findFirstOrThrow({
+        where: { id: input.templateId, storeId: ctx.storeId },
+        include: { items: true },
       });
 
-      if (existing) {
+      // Validate all items are covered
+      if (input.items.length !== template.items.length) {
         throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'Checklist already submitted for today',
+          code: 'BAD_REQUEST',
+          message: 'All checklist items must be addressed',
         });
       }
 
-      return ctx.db.checklistSubmission.create({
-        data: {
-          storeId: ctx.storeId,
-          templateId: input.templateId,
-          submittedById: ctx.user.id,
-          date: today,
-          notes: input.notes,
-          items: {
-            create: input.items.map((item) => ({
-              templateItemId: item.templateItemId,
-              status: item.status,
-              reason: item.reason || null,
-            })),
+      const today = getJamaicaDate();
+
+      // Build label map for snapshot
+      const labelMap = new Map(template.items.map(i => [i.id, i.label]));
+
+      try {
+        return await ctx.db.checklistSubmission.create({
+          data: {
+            storeId: ctx.storeId,
+            templateId: input.templateId,
+            submittedById: ctx.user.id,
+            date: today,
+            notes: input.notes,
+            items: {
+              create: input.items.map((item) => ({
+                templateItemId: item.templateItemId,
+                status: item.status,
+                reason: item.reason || null,
+                label: labelMap.get(item.templateItemId) || 'Unknown item',
+              })),
+            },
           },
-        },
-        include: { items: true },
-      });
+          include: { items: true },
+        });
+      } catch (err: any) {
+        if (err.code === 'P2002') {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Checklist already submitted for today',
+          });
+        }
+        throw err;
+      }
     }),
 
   listSubmissions: managerProcedure

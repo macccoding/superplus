@@ -283,12 +283,13 @@ model ChecklistSubmission {
 model ChecklistSubmissionItem {
   id             String              @id @default(cuid())
   submissionId   String
-  templateItemId String
+  templateItemId String?
   status         ChecklistItemStatus
   reason         String?
+  label          String?
 
-  submission   ChecklistSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  templateItem ChecklistTemplateItem @relation(fields: [templateItemId], references: [id])
+  submission   ChecklistSubmission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  templateItem ChecklistTemplateItem? @relation(fields: [templateItemId], references: [id], onDelete: SetNull)
 
   @@index([submissionId])
 }
