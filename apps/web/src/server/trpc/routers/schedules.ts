@@ -108,7 +108,6 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
       const { text } = await generateText({
         model: anthropic('claude-sonnet-4-20250514'),
         prompt,
-        maxTokens: 4000,
       });
 
       let slots: { userId: string; date: string; startTime: string; endTime: string; role: string }[];
