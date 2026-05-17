@@ -54,7 +54,7 @@ export const expiryAlertsRouter = router({
         where: { id: input.id, storeId: ctx.storeId },
         data: {
           status: input.status,
-          resolvedAt: input.status !== ExpiryStatus.ACTIVE ? new Date() : null,
+          resolvedAt: input.status === ExpiryStatus.RESOLVED ? new Date() : input.status === ExpiryStatus.ACTIVE ? null : undefined,
         },
       });
     }),

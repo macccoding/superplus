@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc-client';
 import { EmptyState } from '@superplus/ui';
 
@@ -15,16 +16,22 @@ const severityConfig: Record<string, { color: string; label: string }> = {
   MEDIUM: { color: 'bg-surface-container-high text-on-surface-variant', label: 'Medium' },
   LOW: { color: 'bg-outline-variant/30 text-on-surface-variant', label: 'Low' },
 };
+const statusLabels: Record<string, string> = { OPEN: 'Open', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved', CLOSED: 'Closed' };
 
 export default function IncidentsPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const utils = trpc.useUtils();
-  const { data: incidents } = trpc.incidents.list.useQuery();
+  const { data: incidents, isLoading, isError } = trpc.incidents.list.useQuery();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ category: 'OTHER' as string, title: '', description: '', severity: 'MEDIUM' as string });
+  const [mutationError, setMutationError] = useState('');
+
+  const canCreate = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const create = trpc.incidents.create.useMutation({
     onSuccess: () => { utils.incidents.invalidate(); setShowCreate(false); setForm({ category: 'OTHER', title: '', description: '', severity: 'MEDIUM' }); },
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
 
   return (
@@ -34,8 +41,24 @@ export default function IncidentsPage() {
         <p className="text-sm text-on-surface-variant mt-1">{incidents?.filter((i: any) => i.status === 'OPEN' || i.status === 'IN_PROGRESS').length || 0} open</p>
       </section>
 
+      {mutationError && (
+        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-xl p-3 flex items-center gap-2 text-sm">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          {mutationError}
+        </div>
+      )}
+
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {incidents && incidents.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : isError ? (
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-[48px] text-outline mb-3 block">lock</span>
+            <p className="text-on-surface-variant">Only supervisors can view incidents.</p>
+          </div>
+        ) : incidents && incidents.length > 0 ? (
           incidents.map((incident: any) => {
             const sev = severityConfig[incident.severity] || severityConfig.MEDIUM;
             return (
@@ -53,7 +76,7 @@ export default function IncidentsPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-outline">{incident.reportedBy.fullName}</span>
                       <span className="text-xs text-outline">·</span>
-                      <span className={`text-xs font-medium ${incident.status === 'OPEN' ? 'text-error' : incident.status === 'RESOLVED' ? 'text-success' : 'text-on-surface-variant'}`}>{incident.status}</span>
+                      <span className={`text-xs font-medium ${incident.status === 'OPEN' ? 'text-error' : incident.status === 'RESOLVED' ? 'text-success' : 'text-on-surface-variant'}`}>{statusLabels[incident.status] || incident.status}</span>
                     </div>
                   </div>
                 </div>
@@ -65,8 +88,8 @@ export default function IncidentsPage() {
         )}
       </section>
 
-      {/* Create form */}
-      {showCreate && (
+      {/* Create form — supervisor+ only */}
+      {canCreate && showCreate && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowCreate(false)}>
           <div className="bg-surface-container-lowest w-full rounded-t-2xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
@@ -112,9 +135,12 @@ export default function IncidentsPage() {
         </div>
       )}
 
-      <button onClick={() => setShowCreate(true)} className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-secondary text-on-secondary shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200">
-        <span className="material-symbols-outlined text-[28px]">add</span>
-      </button>
+      {/* FAB — supervisor+ only */}
+      {canCreate && (
+        <button onClick={() => setShowCreate(true)} className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-secondary text-on-secondary shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200">
+          <span className="material-symbols-outlined text-[28px]">add</span>
+        </button>
+      )}
     </div>
   );
 }

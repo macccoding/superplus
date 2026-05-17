@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, supervisorProcedure, managerProcedure } from '../init';
 import { IncidentCategory, IncidentSeverity, IncidentStatus } from '@superplus/db';
 
@@ -68,8 +69,14 @@ export const incidentsRouter = router({
   close: managerProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.incident.update({
+      const incident = await ctx.db.incident.findFirstOrThrow({
         where: { id: input.id, storeId: ctx.storeId },
+      });
+      if (incident.status !== IncidentStatus.RESOLVED) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Incident must be resolved before closing' });
+      }
+      return ctx.db.incident.update({
+        where: { id: input.id },
         data: { status: IncidentStatus.CLOSED },
       });
     }),

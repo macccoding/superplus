@@ -58,7 +58,7 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
 
         <div className="mt-4 pt-4 border-t border-outline-variant/20 flex items-center gap-2 text-sm text-outline">
           <span className="material-symbols-outlined text-[16px]">person</span>
-          {incident.reportedBy.fullName} · {incident.createdAt.toLocaleDateString()}
+          {incident.reportedBy.fullName} · {new Date(incident.createdAt as any).toLocaleDateString()}
         </div>
 
         {incident.resolution && (
@@ -70,7 +70,7 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
         )}
 
         {/* Manager actions */}
-        {isManager && incident.status === 'OPEN' && (
+        {isManager && (incident.status === 'OPEN' || incident.status === 'IN_PROGRESS') && (
           <div className="mt-6 space-y-3">
             <textarea value={resolution} onChange={(e) => setResolution(e.target.value)} placeholder="Resolution notes..." rows={2} className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline resize-none transition-colors" />
             <button

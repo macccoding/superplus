@@ -5,24 +5,29 @@ import { trpc } from '@/lib/trpc-client';
 import { useSession } from 'next-auth/react';
 import { EmptyState } from '@superplus/ui';
 
+const statusLabels: Record<string, string> = { REPORTED: 'Reported', ACKNOWLEDGED: 'Acknowledged', RESTOCKED: 'Restocked' };
+
 export default function StockOutPage() {
   const { data: session } = useSession();
   const utils = trpc.useUtils();
-  const { data: reports } = trpc.stockOuts.list.useQuery();
+  const { data: reports, isLoading } = trpc.stockOuts.list.useQuery();
   const { data: myRecent } = trpc.stockOuts.myRecent.useQuery();
   const [tab, setTab] = useState<'open' | 'mine'>('open');
   const [showForm, setShowForm] = useState(false);
   const [productName, setProductName] = useState('');
   const [location, setLocation] = useState('');
+  const [mutationError, setMutationError] = useState('');
 
   const canManage = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const create = trpc.stockOuts.create.useMutation({
     onSuccess: () => { utils.stockOuts.invalidate(); setShowForm(false); setProductName(''); setLocation(''); },
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
 
   const updateStatus = trpc.stockOuts.updateStatus.useMutation({
     onSuccess: () => utils.stockOuts.invalidate(),
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
 
   const items = tab === 'open' ? reports : myRecent;
@@ -34,6 +39,13 @@ export default function StockOutPage() {
         <p className="text-sm text-on-surface-variant mt-1">{reports?.length || 0} open reports</p>
       </section>
 
+      {mutationError && (
+        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-xl p-3 flex items-center gap-2 text-sm">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          {mutationError}
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="px-[--spacing-container] mb-4">
         <div className="flex bg-surface-container-high rounded-xl p-1">
@@ -43,7 +55,11 @@ export default function StockOutPage() {
       </div>
 
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {items && items.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : items && items.length > 0 ? (
           items.map((report: any) => (
             <div key={report.id} className="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
               <div className="flex items-start justify-between">
@@ -57,7 +73,7 @@ export default function StockOutPage() {
                     report.status === 'REPORTED' ? 'bg-error/10 text-error' :
                     report.status === 'ACKNOWLEDGED' ? 'bg-tertiary-container/30 text-on-tertiary-container' :
                     'bg-success/10 text-success'
-                  }`}>{report.status}</span>
+                  }`}>{statusLabels[report.status] || report.status}</span>
                 </div>
                 {canManage && report.status !== 'RESTOCKED' && (
                   <div className="flex gap-1">

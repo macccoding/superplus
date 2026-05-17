@@ -8,26 +8,31 @@ import { EmptyState } from '@superplus/ui';
 export default function ExpiryTrackerPage() {
   const { data: session } = useSession();
   const utils = trpc.useUtils();
-  const { data: alerts } = trpc.expiryAlerts.list.useQuery();
+  const { data: alerts, isLoading } = trpc.expiryAlerts.list.useQuery();
   const [showForm, setShowForm] = useState(false);
   const [productName, setProductName] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState('');
+  const [mutationError, setMutationError] = useState('');
 
   const canManage = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const create = trpc.expiryAlerts.create.useMutation({
     onSuccess: () => { utils.expiryAlerts.invalidate(); setShowForm(false); setProductName(''); setExpiryDate(''); setQuantity('1'); setLocation(''); },
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
 
   const updateStatus = trpc.expiryAlerts.updateStatus.useMutation({
     onSuccess: () => utils.expiryAlerts.invalidate(),
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
 
   function getUrgency(dateStr: string) {
     const today = new Date(); today.setHours(0,0,0,0);
-    const expiry = new Date(dateStr); expiry.setHours(0,0,0,0);
+    // Parse as UTC date (Prisma @db.Date returns midnight UTC)
+    const parts = new Date(dateStr).toISOString().slice(0, 10).split('-').map(Number);
+    const expiry = new Date(parts[0], parts[1] - 1, parts[2]);
     const diff = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (diff < 0) return { label: 'Expired', color: 'bg-error text-on-error', border: 'border-l-error', days: diff };
     if (diff === 0) return { label: 'Today', color: 'bg-error text-on-error animate-pulse', border: 'border-l-error', days: 0 };
@@ -43,8 +48,19 @@ export default function ExpiryTrackerPage() {
         <p className="text-sm text-on-surface-variant mt-1">{alerts?.length || 0} active alerts</p>
       </section>
 
+      {mutationError && (
+        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-xl p-3 flex items-center gap-2 text-sm">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          {mutationError}
+        </div>
+      )}
+
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {alerts && alerts.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : alerts && alerts.length > 0 ? (
           alerts.map((alert: any) => {
             const urgency = getUrgency(alert.expiryDate);
             return (
@@ -105,7 +121,11 @@ export default function ExpiryTrackerPage() {
             </div>
             <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (e.g. Aisle 3)" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" />
             <button
-              onClick={() => create.mutate({ productName, expiryDate: new Date(expiryDate + 'T00:00:00'), quantity: parseInt(quantity) || 1, location: location || undefined })}
+              onClick={() => {
+                const [y, m, d] = expiryDate.split('-').map(Number);
+                const parsedDate = new Date(y, m - 1, d);
+                create.mutate({ productName, expiryDate: parsedDate, quantity: parseInt(quantity) || 1, location: location || undefined });
+              }}
               disabled={!productName.trim() || !expiryDate || create.isPending}
               className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
             >

@@ -1,6 +1,6 @@
 import { router, managerProcedure } from '../init';
 import { z } from 'zod';
-import { TaskStatus, ChecklistItemStatus } from '@superplus/db';
+import { TaskStatus, ChecklistItemStatus, ExpiryStatus, IncidentStatus } from '@superplus/db';
 
 export const reportsRouter = router({
   taskPerformance: managerProcedure
@@ -29,7 +29,8 @@ export const reportsRouter = router({
       take: 100,
     });
 
-    const submissionRate = Math.round((submissions.length / 30) * 100);
+    const uniqueDays = new Set(submissions.map(s => new Date(s.date).toISOString().slice(0, 10))).size;
+    const submissionRate = Math.min(100, Math.round((uniqueDays / 30) * 100));
 
     const skippedCounts = new Map<string, { label: string; count: number }>();
     for (const sub of submissions) {
@@ -54,7 +55,7 @@ export const reportsRouter = router({
     weekAgo.setDate(weekAgo.getDate() - 7);
 
     const [activeAlerts, stockOutsThisWeek, topStockOuts] = await Promise.all([
-      ctx.db.expiryAlert.count({ where: { storeId: ctx.storeId, status: 'ACTIVE' } }),
+      ctx.db.expiryAlert.count({ where: { storeId: ctx.storeId, status: ExpiryStatus.ACTIVE } }),
       ctx.db.stockOutReport.count({ where: { storeId: ctx.storeId, createdAt: { gte: weekAgo } } }),
       ctx.db.stockOutReport.groupBy({
         by: ['productName'],
@@ -81,7 +82,7 @@ export const reportsRouter = router({
     const [openByCategory, thisMonth, lastMonth] = await Promise.all([
       ctx.db.incident.groupBy({
         by: ['category'],
-        where: { storeId: ctx.storeId, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+        where: { storeId: ctx.storeId, status: { in: [IncidentStatus.OPEN, IncidentStatus.IN_PROGRESS] } },
         _count: true,
       }),
       ctx.db.incident.count({ where: { storeId: ctx.storeId, createdAt: { gte: thirtyDaysAgo } } }),
