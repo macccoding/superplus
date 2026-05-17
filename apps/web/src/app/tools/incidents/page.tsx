@@ -68,42 +68,46 @@ export default function IncidentsPage() {
       {/* Create form */}
       {showCreate && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowCreate(false)}>
-          <div className="bg-surface-container-lowest w-full rounded-t-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
-            <h3 className="text-xl font-bold text-on-surface">Log Incident</h3>
+          <div className="bg-surface-container-lowest w-full rounded-t-2xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
+              <h3 className="text-xl font-bold text-on-surface">Log Incident</h3>
 
-            <div>
-              <label className="block text-xs font-medium text-on-surface-variant mb-2">Category</label>
-              <div className="grid grid-cols-3 gap-2">
-                {Object.entries(categoryIcons).map(([cat, icon]) => (
-                  <button key={cat} onClick={() => setForm({ ...form, category: cat })} className={`py-3 rounded-xl text-xs font-medium flex flex-col items-center gap-1 transition-all ${form.category === cat ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                    <span className="material-symbols-outlined text-[20px]">{icon}</span>
-                    {cat}
-                  </button>
-                ))}
+              <div>
+                <label className="block text-xs font-medium text-on-surface-variant mb-2">Category</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(categoryIcons).map(([cat, icon]) => (
+                    <button key={cat} onClick={() => setForm({ ...form, category: cat })} className={`py-3 rounded-xl text-xs font-medium flex flex-col items-center gap-1 transition-all ${form.category === cat ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                      <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Brief title" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" />
+
+              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What happened?" rows={3} className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline resize-none transition-colors" />
+
+              <div>
+                <label className="block text-xs font-medium text-on-surface-variant mb-2">Severity</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map((s) => (
+                    <button key={s} onClick={() => setForm({ ...form, severity: s })} className={`py-2.5 rounded-xl text-xs font-bold transition-all ${form.severity === s ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>{s}</button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Brief title" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" />
-
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What happened?" rows={3} className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline resize-none transition-colors" />
-
-            <div>
-              <label className="block text-xs font-medium text-on-surface-variant mb-2">Severity</label>
-              <div className="grid grid-cols-4 gap-2">
-                {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map((s) => (
-                  <button key={s} onClick={() => setForm({ ...form, severity: s })} className={`py-2.5 rounded-xl text-xs font-bold transition-all ${form.severity === s ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>{s}</button>
-                ))}
-              </div>
+            <div className="p-6 pt-0 shrink-0">
+              <button
+                onClick={() => create.mutate({ category: form.category as any, title: form.title, description: form.description, severity: form.severity as any })}
+                disabled={!form.title.trim() || !form.description.trim() || create.isPending}
+                className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
+              >
+                Log Incident
+              </button>
             </div>
-
-            <button
-              onClick={() => create.mutate({ category: form.category as any, title: form.title, description: form.description, severity: form.severity as any })}
-              disabled={!form.title.trim() || !form.description.trim() || create.isPending}
-              className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
-            >
-              Log Incident
-            </button>
           </div>
         </div>
       )}

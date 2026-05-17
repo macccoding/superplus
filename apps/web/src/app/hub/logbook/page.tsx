@@ -13,7 +13,7 @@ export default function LogbookPage() {
   const [category, setCategory] = useState<typeof categories[number]>('GENERAL');
   const [isFlagged, setIsFlagged] = useState(false);
 
-  const { data: entries } = trpc.logbook.listByDate.useQuery();
+  const { data: entries, isLoading } = trpc.logbook.listByDate.useQuery();
 
   const create = trpc.logbook.create.useMutation({
     onSuccess: () => {
@@ -35,7 +35,11 @@ export default function LogbookPage() {
       </section>
 
       <section className="px-[--spacing-container] pb-24 space-y-3">
-        {entries && entries.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          </div>
+        ) : entries && entries.length > 0 ? (
           entries.map((entry) => (
             <LogEntryCard
               key={entry.id}

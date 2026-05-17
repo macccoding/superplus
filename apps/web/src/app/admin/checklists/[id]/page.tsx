@@ -51,7 +51,7 @@ export default function EditChecklistPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-on-surface">Items (drag to reorder)</label>
+          <label className="block text-sm font-medium text-on-surface">Items (use arrows to reorder)</label>
           {items.map((item, i) => (
             <div key={i} className="flex items-center gap-2 bg-surface-container-low rounded-xl p-3">
               <div className="flex flex-col">
@@ -67,10 +67,15 @@ export default function EditChecklistPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => { const copy = [...items]; copy[i].label = e.target.value; setItems(copy); }}
                 className="flex-1 h-10 px-3 bg-surface-container-lowest border border-outline-variant/50 rounded-lg text-sm text-on-surface focus:border-primary focus:outline-none transition-colors"
               />
-              <label className="flex items-center gap-1 text-xs text-on-surface-variant cursor-pointer">
-                <input type="checkbox" checked={item.isRequired} onChange={(e) => { const copy = [...items]; copy[i].isRequired = e.target.checked; setItems(copy); }} className="w-4 h-4 accent-primary" />
-                Req
-              </label>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => { const copy = [...items]; copy[i].isRequired = !copy[i].isRequired; setItems(copy); }}
+                  className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${item.isRequired ? 'bg-primary border-primary' : 'border-outline-variant'}`}
+                >
+                  {item.isRequired && <span className="material-symbols-outlined text-on-primary text-[16px]">check</span>}
+                </button>
+                <span className="text-xs text-on-surface-variant">Req</span>
+              </div>
               <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="text-error">
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>

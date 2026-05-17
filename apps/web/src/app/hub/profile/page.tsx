@@ -61,18 +61,11 @@ export default function ProfilePage() {
               <p className="text-sm font-medium text-on-surface">{user.phone}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 py-3 border-b border-outline-variant/20">
+          <div className="flex items-center gap-3 py-3">
             <span className="material-symbols-outlined text-on-surface-variant">store</span>
             <div>
               <p className="text-xs text-outline">Store</p>
               <p className="text-sm font-medium text-on-surface">{user.store.name}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 py-3">
-            <span className="material-symbols-outlined text-on-surface-variant">badge</span>
-            <div>
-              <p className="text-xs text-outline">Role</p>
-              <p className="text-sm font-medium text-on-surface">{user.role}</p>
             </div>
           </div>
         </div>

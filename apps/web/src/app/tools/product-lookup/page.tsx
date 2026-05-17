@@ -149,10 +149,7 @@ export default function ProductLookupPage() {
         )}
 
         {!debouncedQuery && !categoryFilter && !stockFilter && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <span className="material-symbols-outlined text-[48px] text-outline mb-3">inventory_2</span>
-            <p className="text-on-surface-variant">Search by name or scan a barcode</p>
-          </div>
+          <EmptyState icon="inventory_2" title="Search products" description="Search by name or scan a barcode" />
         )}
       </section>
 

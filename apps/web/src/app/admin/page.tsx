@@ -61,7 +61,10 @@ export default function AdminDashboardPage() {
                 <h3 className="font-bold text-on-surface text-lg">{store.name}</h3>
                 <p className="text-sm text-on-surface-variant mt-1">{store.parish}</p>
               </div>
-              <div className={`w-3 h-3 rounded-full mt-1 ${store.isActive ? 'bg-success' : 'bg-error'}`} />
+              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${store.isActive ? 'bg-success/10' : 'bg-error/10'}`}>
+                <span className={`w-2 h-2 rounded-full ${store.isActive ? 'bg-success' : 'bg-error'}`} />
+                <span className={`text-xs font-medium ${store.isActive ? 'text-success' : 'text-error'}`}>{store.isActive ? 'Active' : 'Closed'}</span>
+              </div>
             </div>
             <p className="text-sm text-outline mt-3">{store.address}</p>
           </div>

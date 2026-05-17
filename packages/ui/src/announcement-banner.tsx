@@ -6,10 +6,10 @@ interface AnnouncementBannerProps {
   createdAt: string;
 }
 
-const priorityConfig: Record<string, { bg: string; border: string; icon: string }> = {
-  CRITICAL: { bg: 'bg-primary/5', border: 'border-l-primary', icon: 'emergency' },
-  IMPORTANT: { bg: 'bg-tertiary-container/20', border: 'border-l-tertiary-container', icon: 'info' },
-  NORMAL: { bg: 'bg-surface-container-lowest', border: 'border-l-outline-variant', icon: 'campaign' },
+const priorityConfig: Record<string, { bg: string; border: string; icon: string; iconColor: string }> = {
+  CRITICAL: { bg: 'bg-primary/5', border: 'border-l-primary', icon: 'emergency', iconColor: 'text-primary' },
+  IMPORTANT: { bg: 'bg-tertiary-container/20', border: 'border-l-tertiary-container', icon: 'info', iconColor: 'text-tertiary' },
+  NORMAL: { bg: 'bg-surface-container-lowest', border: 'border-l-outline-variant', icon: 'campaign', iconColor: 'text-on-surface-variant' },
 };
 
 export function AnnouncementBanner({ title, body, author, priority, createdAt }: AnnouncementBannerProps) {
@@ -18,7 +18,7 @@ export function AnnouncementBanner({ title, body, author, priority, createdAt }:
   return (
     <div className={`${config.bg} border-l-4 ${config.border} rounded-xl p-4 shadow-sm`}>
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined text-on-surface-variant mt-0.5">{config.icon}</span>
+        <span className={`material-symbols-outlined ${config.iconColor} mt-0.5`}>{config.icon}</span>
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-on-surface">{title}</h3>

@@ -6,7 +6,7 @@ const toolItems = [
   { label: 'Checklist', icon: 'checklist', href: '/tools/closing-checklist', color: '#c00029' },
   { label: 'Expiry', icon: 'event_busy', href: '/tools/expiry-tracker', color: '#845500' },
   { label: 'Stock-Out', icon: 'remove_shopping_cart', href: '/tools/stock-out', color: '#a73b21' },
-  { label: 'Incidents', icon: 'report_problem', href: '/tools/incidents', color: '#446185' },
+  { label: 'Incidents', icon: 'report_problem', href: '/tools/incidents', color: '#a73b21' },
 ];
 
 export default function ToolsPage() {

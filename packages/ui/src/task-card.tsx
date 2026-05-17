@@ -37,7 +37,7 @@ export function TaskCard({ title, priority, status, assignedTo, createdBy, dueDa
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${p.color} ${priority === 'URGENT' ? 'animate-pulse' : ''}`} />
-          <span className={`text-xs font-bold uppercase tracking-wider ${priority === 'URGENT' ? 'text-primary' : priority === 'HIGH' ? 'text-on-tertiary-container' : 'text-outline'}`}>
+          <span className={`text-xs font-bold uppercase tracking-wider ${priority === 'URGENT' ? 'text-primary' : priority === 'HIGH' ? 'text-tertiary' : 'text-outline'}`}>
             {p.label}
           </span>
         </div>
