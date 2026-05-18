@@ -38,13 +38,14 @@ export const trainingRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, steps, ...data } = input;
       await ctx.db.sOPGuide.findFirstOrThrow({ where: { id, storeId: ctx.storeId } });
-      if (steps) {
-        await ctx.db.$transaction([
-          ctx.db.sOPStep.deleteMany({ where: { guideId: id } }),
-          ctx.db.sOPStep.createMany({ data: steps.map((s, i) => ({ guideId: id, ...s, stepNumber: i + 1 })) }),
-        ]);
-      }
-      return ctx.db.sOPGuide.update({ where: { id }, data, include: { steps: { orderBy: { stepNumber: 'asc' } } } });
+
+      return ctx.db.$transaction(async (tx) => {
+        if (steps) {
+          await tx.sOPStep.deleteMany({ where: { guideId: id } });
+          await tx.sOPStep.createMany({ data: steps.map((s, i) => ({ guideId: id, ...s, stepNumber: i + 1 })) });
+        }
+        return tx.sOPGuide.update({ where: { id }, data, include: { steps: { orderBy: { stepNumber: 'asc' } } } });
+      });
     }),
   togglePublish: managerProcedure
     .input(z.object({ id: z.string() }))

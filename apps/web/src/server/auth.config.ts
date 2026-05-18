@@ -3,6 +3,22 @@ import Credentials from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { db } from '@superplus/db';
 
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 5;
+const COOLDOWN_MS = 60_000; // 1 minute
+
+function checkRateLimit(phone: string): boolean {
+  const now = Date.now();
+  const record = loginAttempts.get(phone);
+  if (record && now < record.resetAt) {
+    if (record.count >= MAX_ATTEMPTS) return false;
+    record.count++;
+    return true;
+  }
+  loginAttempts.set(phone, { count: 1, resetAt: now + COOLDOWN_MS });
+  return true;
+}
+
 export const authConfig: NextAuthConfig = {
   providers: [
     Credentials({
@@ -14,21 +30,15 @@ export const authConfig: NextAuthConfig = {
       async authorize(credentials) {
         if (!credentials?.phone || !credentials?.pin) return null;
 
-        const identifier = credentials.phone as string;
+        const phone = credentials.phone as string;
         const pin = credentials.pin as string;
 
-        // Try lookup by ID first (user-select flow), then by phone (fallback)
-        let user = await db.user.findUnique({
-          where: { id: identifier },
+        if (!checkRateLimit(phone)) return null;
+
+        const user = await db.user.findUnique({
+          where: { phone },
           include: { store: true },
         });
-
-        if (!user) {
-          user = await db.user.findUnique({
-            where: { phone: identifier },
-            include: { store: true },
-          });
-        }
 
         if (!user || !user.isActive) return null;
 

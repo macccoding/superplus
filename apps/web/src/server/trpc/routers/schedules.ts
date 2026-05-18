@@ -135,12 +135,15 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
         await ctx.db.shiftSchedule.delete({ where: { id: existing.id } });
       }
 
+      // Strip user IDs from stored prompt for privacy
+      const sanitizedPrompt = prompt.replace(/: "[a-z0-9]+"/g, ': "[redacted]"');
+
       return ctx.db.shiftSchedule.create({
         data: {
           storeId: ctx.storeId,
           weekStart: input.weekStart,
           generatedBy: 'ai',
-          aiPrompt: prompt,
+          aiPrompt: sanitizedPrompt,
           aiResponse: text,
           slots: {
             create: slots.map(s => ({

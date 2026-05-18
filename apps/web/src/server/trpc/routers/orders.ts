@@ -36,8 +36,7 @@ export const ordersRouter = router({
         return await ctx.db.purchaseOrder.create({ data, include: { items: true } });
       } catch (err: any) {
         if (err.code === 'P2002') {
-          const retryCount = await ctx.db.purchaseOrder.count({ where: { storeId: ctx.storeId } });
-          const retryNumber = `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(retryCount + 2).padStart(4, '0')}`;
+          const retryNumber = `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
           return ctx.db.purchaseOrder.create({ data: { ...data, orderNumber: retryNumber }, include: { items: true } });
         }
         throw err;
