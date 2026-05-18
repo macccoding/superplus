@@ -41,6 +41,7 @@ export const authConfig: NextAuthConfig = {
         });
 
         if (!user || !user.isActive) return null;
+        if (!user.store) return null;
 
         const pinValid = await compare(pin, user.pinHash);
         if (!pinValid) return null;

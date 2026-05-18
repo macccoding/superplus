@@ -131,51 +131,52 @@ export const productsRouter = router({
       let imported = 0;
       const errors: { row: number; reason: string }[] = [];
 
-      try {
-        return await ctx.db.$transaction(async (tx) => {
-          // Pre-fetch/create categories
-          const categoryMap = new Map<string, string>();
-          for (const p of input.products) {
-            if (p.categoryName && !categoryMap.has(p.categoryName)) {
-              let cat = await tx.category.findUnique({
-                where: { storeId_name: { storeId: ctx.storeId, name: p.categoryName } },
+      // Pre-fetch/create categories (outside transaction — these should persist even if products fail)
+      const categoryMap = new Map<string, string>();
+      for (const p of input.products) {
+        if (p.categoryName && !categoryMap.has(p.categoryName)) {
+          try {
+            let cat = await ctx.db.category.findUnique({
+              where: { storeId_name: { storeId: ctx.storeId, name: p.categoryName } },
+            });
+            if (!cat) {
+              cat = await ctx.db.category.create({
+                data: { storeId: ctx.storeId, name: p.categoryName, defaultMarkupPercent: 0 },
               });
-              if (!cat) {
-                cat = await tx.category.create({
-                  data: { storeId: ctx.storeId, name: p.categoryName, defaultMarkupPercent: 0 },
-                });
-              }
-              categoryMap.set(p.categoryName, cat.id);
             }
+            categoryMap.set(p.categoryName, cat.id);
+          } catch (err: any) {
+            // Category creation failed — skip products in this category
+            errors.push({ row: 0, reason: `Category "${p.categoryName}" creation failed: ${err.message}` });
           }
-
-          for (let i = 0; i < input.products.length; i++) {
-            const p = input.products[i];
-            try {
-              const markupPercent = p.markupPercent ?? (p.costPrice > 0 ? ((p.retailPrice - p.costPrice) / p.costPrice) * 100 : 0);
-              await tx.product.create({
-                data: {
-                  storeId: ctx.storeId,
-                  name: p.name,
-                  barcode: p.barcode || null,
-                  sku: p.sku || null,
-                  categoryId: p.categoryName ? categoryMap.get(p.categoryName) : null,
-                  costPrice: p.costPrice,
-                  retailPrice: p.retailPrice,
-                  markupPercent,
-                  location: p.location || null,
-                  supplier: p.supplier || null,
-                },
-              });
-              imported++;
-            } catch (err: any) {
-              errors.push({ row: i + 1, reason: err.message?.includes('Unique') ? 'Duplicate barcode' : err.message || 'Unknown error' });
-            }
-          }
-          return { imported, errors };
-        });
-      } catch (err: any) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Import failed: ' + (err.message || 'Unknown error') });
+        }
       }
+
+      // Create products individually (no transaction — each row independent)
+      for (let i = 0; i < input.products.length; i++) {
+        const p = input.products[i];
+        try {
+          const markupPercent = p.markupPercent ?? (p.costPrice > 0 ? ((p.retailPrice - p.costPrice) / p.costPrice) * 100 : 0);
+          await ctx.db.product.create({
+            data: {
+              storeId: ctx.storeId,
+              name: p.name,
+              barcode: p.barcode || null,
+              sku: p.sku || null,
+              categoryId: p.categoryName ? categoryMap.get(p.categoryName) : null,
+              costPrice: p.costPrice,
+              retailPrice: p.retailPrice,
+              markupPercent,
+              location: p.location || null,
+              supplier: p.supplier || null,
+            },
+          });
+          imported++;
+        } catch (err: any) {
+          errors.push({ row: i + 1, reason: err.message?.includes('Unique') ? 'Duplicate barcode' : err.message || 'Unknown error' });
+        }
+      }
+
+      return { imported, errors };
     }),
 });
