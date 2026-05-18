@@ -122,8 +122,11 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
         });
       }
 
-      const validUserIds = new Set(staff.map(s => s.id));
-      slots = slots.filter(s => validUserIds.has(s.userId));
+      // Validate AI output: filter to valid users and map roles from DB
+      const staffMap = new Map(staff.map(s => [s.id, s]));
+      slots = slots
+        .filter(s => staffMap.has(s.userId))
+        .map(s => ({ ...s, role: staffMap.get(s.userId)!.role }));
 
       const existing = await ctx.db.shiftSchedule.findUnique({
         where: { storeId_weekStart: { storeId: ctx.storeId, weekStart: input.weekStart } },

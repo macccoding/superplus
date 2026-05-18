@@ -54,16 +54,18 @@ export const ordersRouter = router({
     .input(z.object({ orderId: z.string(), items: z.array(z.object({ itemId: z.string(), receivedQty: z.number().int().min(0) })) }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.purchaseOrder.findFirstOrThrow({ where: { id: input.orderId, storeId: ctx.storeId } });
-      for (const item of input.items) {
-        await ctx.db.purchaseOrderItem.update({ where: { id: item.itemId, orderId: input.orderId }, data: { receivedQty: item.receivedQty } });
-      }
-      const allItems = await ctx.db.purchaseOrderItem.findMany({ where: { orderId: input.orderId } });
-      const allReceived = allItems.every(i => i.receivedQty !== null && i.receivedQty >= i.quantity);
-      const someReceived = allItems.some(i => i.receivedQty !== null && i.receivedQty > 0);
-      const status = allReceived ? POStatus.RECEIVED : someReceived ? POStatus.PARTIALLY_RECEIVED : undefined;
-      if (status) {
-        await ctx.db.purchaseOrder.update({ where: { id: input.orderId }, data: { status, ...(status === POStatus.RECEIVED ? { receivedAt: new Date() } : {}) } });
-      }
-      return ctx.db.purchaseOrder.findUniqueOrThrow({ where: { id: input.orderId }, include: { items: true } });
+      return ctx.db.$transaction(async (tx) => {
+        for (const item of input.items) {
+          await tx.purchaseOrderItem.update({ where: { id: item.itemId, orderId: input.orderId }, data: { receivedQty: item.receivedQty } });
+        }
+        const allItems = await tx.purchaseOrderItem.findMany({ where: { orderId: input.orderId } });
+        const allReceived = allItems.every(i => i.receivedQty !== null && i.receivedQty >= i.quantity);
+        const someReceived = allItems.some(i => i.receivedQty !== null && i.receivedQty > 0);
+        const status = allReceived ? POStatus.RECEIVED : someReceived ? POStatus.PARTIALLY_RECEIVED : undefined;
+        if (status) {
+          await tx.purchaseOrder.update({ where: { id: input.orderId }, data: { status, ...(status === POStatus.RECEIVED ? { receivedAt: new Date() } : {}) } });
+        }
+        return tx.purchaseOrder.findUniqueOrThrow({ where: { id: input.orderId }, include: { items: true } });
+      });
     }),
 });
