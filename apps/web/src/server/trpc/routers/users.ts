@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure, managerProcedure } from '../init';
+import { router, publicProcedure, protectedProcedure, managerProcedure } from '../init';
 import { Role } from '@superplus/db';
 import { hasMinRole } from '@superplus/config';
 import type { Role as ConfigRole } from '@superplus/config';
@@ -7,6 +7,22 @@ import { TRPCError } from '@trpc/server';
 import { hash } from 'bcryptjs';
 
 export const usersRouter = router({
+  loginList: publicProcedure.query(async ({ ctx }) => {
+    const users = await ctx.db.user.findMany({
+      where: { isActive: true },
+      include: { store: { select: { name: true } } },
+      orderBy: { fullName: 'asc' },
+    });
+    return users.map(u => ({
+      id: u.id,
+      fullName: u.fullName,
+      firstName: u.fullName.split(' ')[0],
+      initials: u.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase(),
+      role: u.role,
+      storeName: u.store.name,
+    }));
+  }),
+
   me: protectedProcedure
     .query(async ({ ctx }) => {
       return ctx.db.user.findUniqueOrThrow({

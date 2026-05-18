@@ -1,23 +1,23 @@
-import { db } from '@superplus/db';
+'use client';
+
+import { trpc } from '@/lib/trpc-client';
 import { LoginClient } from './login-client';
 
-export const dynamic = 'force-dynamic';
+export default function LoginPage() {
+  const { data: staff, isLoading } = trpc.users.loginList.useQuery();
 
-export default async function LoginPage() {
-  const users = await db.user.findMany({
-    where: { isActive: true },
-    include: { store: true },
-    orderBy: { fullName: 'asc' },
-  });
-
-  const staff = users.map(u => ({
-    id: u.id,
-    fullName: u.fullName,
-    firstName: u.fullName.split(' ')[0],
-    initials: u.fullName.split(' ').map(n => n[0]).join('').toUpperCase(),
-    role: u.role,
-    storeName: u.store.name,
-  }));
+  if (isLoading || !staff) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center brand-shadow">
+            <span className="text-on-primary text-2xl font-black tracking-tight">S+</span>
+          </div>
+          <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+        </div>
+      </div>
+    );
+  }
 
   return <LoginClient staff={staff} />;
 }
