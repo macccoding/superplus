@@ -33,8 +33,45 @@ enum Priority {
 enum TaskStatus {
   OPEN
   IN_PROGRESS
+  NEEDS_HELP
+  IN_REVIEW
   DONE
   CANCELLED
+}
+
+enum TaskUpdateType {
+  CREATED
+  NOTE
+  HELP_REQUESTED
+  HELP_RESOLVED
+  STATUS_CHANGED
+  REASSIGNED
+  COMPLETION
+  SUBMITTED_REVIEW
+  APPROVED
+  SENT_BACK
+  CANCELLED
+  CHECKLIST_UPDATED
+  ATTACHMENT_ADDED
+}
+
+enum TaskAttachmentType {
+  IMAGE
+  DOCUMENT
+  LINK
+}
+
+enum TaskLinkType {
+  INCIDENT
+  LOGBOOK
+  CHECKLIST
+  PRODUCT
+  STOCK_OUT
+  EXPIRY_ALERT
+  PURCHASE_ORDER
+  SOP_GUIDE
+  THREAD
+  OTHER
 }
 
 enum LogCategory {
@@ -65,6 +102,7 @@ model Store {
   users                User[]
   threads              Thread[]
   tasks                Task[]
+  taskTemplates        TaskTemplate[]
   logEntries           LogEntry[]
   announcements        Announcement[]
   categories           Category[]
@@ -99,6 +137,11 @@ model User {
   threadMessages       ThreadMessage[]
   createdTasks         Task[]              @relation("TaskCreator")
   assignedTasks        Task[]              @relation("TaskAssignee")
+  reviewedTasks        Task[]              @relation("TaskReviewer")
+  taskUpdates          TaskUpdate[]
+  completedTaskItems   TaskChecklistItem[] @relation("TaskItemCompleter")
+  taskAttachments      TaskAttachment[]
+  taskTemplates        TaskTemplate[]      @relation("TaskTemplateCreator")
   logEntries           LogEntry[]
   announcements        Announcement[]
   checklistSubmissions ChecklistSubmission[]
@@ -153,25 +196,146 @@ model ThreadMessage {
 }
 
 model Task {
-  id           String     @id @default(cuid())
-  storeId      String
-  title        String
-  description  String?
-  category     String?
-  createdById  String
-  assignedToId String?
-  priority     Priority   @default(NORMAL)
-  status       TaskStatus @default(OPEN)
-  dueDate      DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime   @default(now())
+  id                     String     @id @default(cuid())
+  storeId                String
+  title                  String
+  description            String?
+  category               String?
+  workArea               String?
+  assetLabel             String?
+  createdById            String
+  assignedToId           String?
+  reviewedById           String?
+  priority               Priority   @default(NORMAL)
+  status                 TaskStatus @default(OPEN)
+  startDate              DateTime?
+  dueDate                DateTime?
+  dueReminderAt          DateTime?
+  reviewRequired         Boolean    @default(false)
+  requireCompletionNote  Boolean    @default(false)
+  requireCompletionPhoto Boolean    @default(false)
+  helpRequestedAt        DateTime?
+  helpResolvedAt         DateTime?
+  completionNote         String?
+  submittedForReviewAt   DateTime?
+  reviewedAt             DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @default(now()) @updatedAt
 
-  store      Store @relation(fields: [storeId], references: [id])
-  createdBy  User  @relation("TaskCreator", fields: [createdById], references: [id])
-  assignedTo User? @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  store          Store               @relation(fields: [storeId], references: [id])
+  createdBy      User                @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedTo     User?               @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  reviewedBy     User?               @relation("TaskReviewer", fields: [reviewedById], references: [id])
+  updates        TaskUpdate[]
+  checklistItems TaskChecklistItem[]
+  attachments    TaskAttachment[]
+  links          TaskLink[]
 
   @@index([storeId, status])
   @@index([assignedToId, status])
+  @@index([storeId, dueDate])
+  @@index([storeId, workArea])
+}
+
+model TaskUpdate {
+  id         String         @id @default(cuid())
+  taskId     String
+  authorId   String
+  type       TaskUpdateType @default(NOTE)
+  body       String?
+  fromStatus TaskStatus?
+  toStatus   TaskStatus?
+  createdAt  DateTime       @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([taskId, createdAt])
+}
+
+model TaskChecklistItem {
+  id            String    @id @default(cuid())
+  taskId        String
+  label         String
+  sortOrder     Int       @default(0)
+  isRequired    Boolean   @default(true)
+  isDone        Boolean   @default(false)
+  completedAt   DateTime?
+  completedById String?
+
+  task        Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedBy User? @relation("TaskItemCompleter", fields: [completedById], references: [id])
+
+  @@index([taskId, sortOrder])
+}
+
+model TaskAttachment {
+  id           String             @id @default(cuid())
+  taskId       String
+  uploadedById String
+  type         TaskAttachmentType
+  url          String
+  label        String?
+  createdAt    DateTime           @default(now())
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([taskId, createdAt])
+}
+
+model TaskLink {
+  id        String       @id @default(cuid())
+  taskId    String
+  type      TaskLinkType
+  entityId  String
+  label     String?
+  createdAt DateTime     @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([type, entityId])
+}
+
+model TaskTemplate {
+  id                     String   @id @default(cuid())
+  storeId                String
+  title                  String
+  description            String?
+  category               String?
+  defaultWorkArea        String?
+  defaultAssetLabel      String?
+  priority               Priority @default(NORMAL)
+  reviewRequired         Boolean  @default(false)
+  requireCompletionNote  Boolean  @default(false)
+  requireCompletionPhoto Boolean  @default(false)
+  recurrenceRule         String?
+  isActive               Boolean  @default(true)
+  createdById            String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  store     Store              @relation(fields: [storeId], references: [id])
+  createdBy User               @relation("TaskTemplateCreator", fields: [createdById], references: [id])
+  items     TaskTemplateItem[]
+
+  @@index([storeId, isActive])
+  @@index([storeId, category])
+}
+
+model TaskTemplateItem {
+  id         String  @id @default(cuid())
+  templateId String
+  label      String
+  sortOrder  Int     @default(0)
+  isRequired Boolean @default(true)
+
+  template TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, sortOrder])
 }
 
 model LogEntry {

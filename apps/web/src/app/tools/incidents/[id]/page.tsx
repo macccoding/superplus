@@ -15,9 +15,11 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
   const [resolution, setResolution] = useState('');
 
   const isManager = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
+  const canCreateTask = isManager || session?.user?.role === 'SUPERVISOR';
 
   const resolve = trpc.incidents.resolve.useMutation({ onSuccess: () => utils.incidents.invalidate() });
   const close = trpc.incidents.close.useMutation({ onSuccess: () => { utils.incidents.invalidate(); router.push('/tools/incidents'); } });
+  const createTask = trpc.tasks.createFromSource.useMutation({ onSuccess: () => utils.tasks.invalidate() });
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span></div>;
   if (isError || !incident) return (
@@ -67,6 +69,27 @@ export default function IncidentDetailPage({ params }: { params: Promise<{ id: s
             <p className="text-sm text-on-surface">{incident.resolution}</p>
             {incident.resolvedBy && <p className="text-xs text-on-surface-secondary mt-2">— {incident.resolvedBy.fullName}</p>}
           </div>
+        )}
+
+        {canCreateTask && (
+          <button
+            onClick={() => createTask.mutate({
+              sourceType: 'INCIDENT' as any,
+              sourceId: incident.id,
+              sourceLabel: incident.title,
+              title: `Follow up: ${incident.title}`,
+              description: incident.description,
+              category: 'Incident',
+              workArea: incident.category,
+              priority: incident.severity === 'CRITICAL' ? 'URGENT' as any : incident.severity === 'HIGH' ? 'HIGH' as any : 'NORMAL' as any,
+              reviewRequired: true,
+            })}
+            disabled={createTask.isPending}
+            className="mt-5 w-full h-14 bg-navy text-on-navy font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">add_task</span>
+            Create Follow-Up Task
+          </button>
         )}
 
         {/* Manager actions */}

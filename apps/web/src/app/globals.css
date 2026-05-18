@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
 @source "../../../../packages/ui/src/**/*.tsx";
@@ -39,13 +38,44 @@ body {
 }
 
 .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined Variable';
+  font-weight: normal;
+  font-style: normal;
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   display: inline-block; line-height: 1; text-transform: none;
   letter-spacing: normal; word-wrap: normal; white-space: nowrap; direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
 }
 .material-symbols-outlined.filled {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 .brand-shadow {
   box-shadow: 0 4px 12px rgba(227, 24, 55, 0.25);
+}
+
+.page-transition {
+  animation: page-enter 160ms ease-out both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0.92;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+
+  *, ::before, ::after {
+    scroll-behavior: auto !important;
+  }
 }

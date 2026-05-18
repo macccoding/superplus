@@ -27,6 +27,10 @@ export default function ExpiryTrackerPage() {
     onSuccess: () => utils.expiryAlerts.invalidate(),
     onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
+  const createTask = trpc.tasks.createFromSource.useMutation({
+    onSuccess: () => utils.tasks.invalidate(),
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
+  });
 
   function getUrgency(dateStr: string) {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -77,6 +81,23 @@ export default function ExpiryTrackerPage() {
                   </div>
                   {canManage && (
                     <div className="flex gap-1">
+                      <button
+                        onClick={() => createTask.mutate({
+                          sourceType: 'EXPIRY_ALERT' as any,
+                          sourceId: alert.id,
+                          sourceLabel: alert.productName,
+                          title: `${urgency.days <= 0 ? 'Pull' : 'Check'} ${alert.productName}`,
+                          description: `${alert.quantity} item(s) expiring ${urgency.label}${alert.location ? ` at ${alert.location}` : ''}.`,
+                          category: 'Expiry',
+                          workArea: alert.location || undefined,
+                          priority: urgency.days <= 0 ? 'URGENT' as any : urgency.days <= 3 ? 'HIGH' as any : 'NORMAL' as any,
+                          reviewRequired: urgency.days <= 0,
+                        })}
+                        className="w-12 h-12 bg-navy/10 rounded-lg flex items-center justify-center"
+                        title="Create task"
+                      >
+                        <span className="material-symbols-outlined text-[20px] text-navy">add_task</span>
+                      </button>
                       <button
                         onClick={() => updateStatus.mutate({ id: alert.id, status: 'PULLED' })}
                         className="w-12 h-12 bg-warning/20/30 rounded-lg flex items-center justify-center"

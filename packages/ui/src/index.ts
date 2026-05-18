@@ -8,3 +8,4 @@ export { AnnouncementBanner } from './announcement-banner';
 export { EmptyState } from './empty-state';
 export { Sidebar, type SidebarItem } from './sidebar';
 export { NotificationBell } from './notification-bell';
+export { BackButton, PageHeader, PageSkeleton, PageTransition } from './page-chrome';

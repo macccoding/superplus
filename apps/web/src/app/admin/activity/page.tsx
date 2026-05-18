@@ -38,6 +38,8 @@ export default function ActivityPage() {
                 </div>
                 <span className={`text-xs font-bold px-3 py-1 rounded-full ${
                   task.status === 'DONE' ? 'bg-success/10 text-success' :
+                  task.status === 'NEEDS_HELP' ? 'bg-warning/15 text-warning' :
+                  task.status === 'IN_REVIEW' ? 'bg-navy/10 text-navy' :
                   task.status === 'IN_PROGRESS' ? 'bg-navy/10 text-navy' :
                   'bg-surface-cream text-on-surface-secondary'
                 }`}>

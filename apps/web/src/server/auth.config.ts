@@ -20,6 +20,7 @@ function checkRateLimit(phone: string): boolean {
 }
 
 export const authConfig: NextAuthConfig = {
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   providers: [
     Credentials({
       name: 'Phone + PIN',

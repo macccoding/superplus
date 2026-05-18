@@ -9,9 +9,18 @@ export const reportsRouter = router({
       const since = new Date();
       since.setDate(since.getDate() - input.days);
 
-      const [created, completed] = await Promise.all([
+      const now = new Date();
+      const [created, completed, needsHelp, overdue] = await Promise.all([
         ctx.db.task.count({ where: { storeId: ctx.storeId, createdAt: { gte: since } } }),
         ctx.db.task.count({ where: { storeId: ctx.storeId, status: TaskStatus.DONE, completedAt: { gte: since } } }),
+        ctx.db.task.count({ where: { storeId: ctx.storeId, status: TaskStatus.NEEDS_HELP } }),
+        ctx.db.task.count({
+          where: {
+            storeId: ctx.storeId,
+            dueDate: { lt: now },
+            status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] },
+          },
+        }),
       ]);
 
       const rate = created > 0 ? Math.round((completed / created) * 100) : 0;
@@ -30,7 +39,29 @@ export const reportsRouter = router({
         count: s._count,
       }));
 
-      return { created, completed, rate, topStaff };
+      const completedTasks = await ctx.db.task.findMany({
+        where: { storeId: ctx.storeId, status: TaskStatus.DONE, completedAt: { gte: since } },
+        select: { createdAt: true, completedAt: true },
+        take: 200,
+      });
+      const avgCompletionHours = completedTasks.length > 0
+        ? Math.round(completedTasks.reduce((sum, task) => sum + ((task.completedAt!.getTime() - task.createdAt.getTime()) / 3600000), 0) / completedTasks.length)
+        : null;
+
+      const bottlenecksRaw = await ctx.db.task.groupBy({
+        by: ['workArea'],
+        where: {
+          storeId: ctx.storeId,
+          status: { in: [TaskStatus.OPEN, TaskStatus.IN_PROGRESS, TaskStatus.NEEDS_HELP, TaskStatus.IN_REVIEW] },
+          workArea: { not: null },
+        },
+        _count: true,
+        orderBy: { _count: { workArea: 'desc' } },
+        take: 5,
+      });
+      const bottlenecks = bottlenecksRaw.map(item => ({ workArea: item.workArea || 'Unknown', count: item._count }));
+
+      return { created, completed, rate, topStaff, needsHelp, overdue, avgCompletionHours, bottlenecks };
     }),
 
   checklistCompliance: managerProcedure.query(async ({ ctx }) => {

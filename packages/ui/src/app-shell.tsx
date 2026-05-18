@@ -1,4 +1,5 @@
 import { BottomNav, type NavItem } from './bottom-nav';
+import { PageTransition } from './page-chrome';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -24,7 +25,9 @@ export function AppShell({ children, navItems, storeName, notificationSlot }: Ap
           )}
         </div>
       </header>
-      <main className="pb-24">{children}</main>
+      <main className="pb-24">
+        <PageTransition>{children}</PageTransition>
+      </main>
       <BottomNav items={navItems} />
     </div>
   );

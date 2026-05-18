@@ -29,6 +29,10 @@ export default function StockOutPage() {
     onSuccess: () => utils.stockOuts.invalidate(),
     onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
+  const createTask = trpc.tasks.createFromSource.useMutation({
+    onSuccess: () => utils.tasks.invalidate(),
+    onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
+  });
 
   const items = tab === 'open' ? reports : myRecent;
 
@@ -77,6 +81,21 @@ export default function StockOutPage() {
                 </div>
                 {canManage && report.status !== 'RESTOCKED' && (
                   <div className="flex gap-1">
+                    <button
+                      onClick={() => createTask.mutate({
+                        sourceType: 'STOCK_OUT' as any,
+                        sourceId: report.id,
+                        sourceLabel: report.productName,
+                        title: `Restock ${report.productName}`,
+                        description: `Stock-out reported${report.location ? ` at ${report.location}` : ''}.`,
+                        category: 'Stock',
+                        workArea: report.location || undefined,
+                        priority: 'HIGH' as any,
+                      })}
+                      className="h-12 px-3 bg-navy/10 rounded-lg text-sm font-bold text-navy"
+                    >
+                      Task
+                    </button>
                     {report.status === 'REPORTED' && (
                       <button onClick={() => updateStatus.mutate({ id: report.id, status: 'ACKNOWLEDGED' })} className="h-12 px-4 bg-surface-cream rounded-lg text-sm font-medium text-on-surface-secondary">Ack</button>
                     )}

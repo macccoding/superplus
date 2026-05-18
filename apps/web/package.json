@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
+    "@fontsource-variable/material-symbols-outlined": "^5.2.45",
+    "@prisma/client": "^6.0.0",
     "@superplus/config": "workspace:*",
     "@superplus/db": "workspace:*",
     "@superplus/ui": "workspace:*",

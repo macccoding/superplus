@@ -28,8 +28,8 @@ function getGreeting() {
 
 export default function HubHomePage() {
   const { data: session } = useSession();
-  const { data: myTasks } = trpc.tasks.list.useQuery({ assignedToMe: true });
-  const { data: availableTasks } = trpc.tasks.list.useQuery({ unassigned: true });
+  const { data: myTasks } = trpc.tasks.list.useQuery({ view: 'MINE' });
+  const { data: availableTasks } = trpc.tasks.list.useQuery({ view: 'AVAILABLE' });
 
   const totalTasks = (myTasks?.length || 0) + (availableTasks?.length || 0);
 

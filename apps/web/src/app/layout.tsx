@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
+import '@fontsource-variable/material-symbols-outlined/wght.css';
 import './globals.css';
 
 export const metadata: Metadata = {

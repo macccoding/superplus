@@ -20,10 +20,11 @@ export function BottomNav({ items }: { items: NavItem[] }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center justify-center min-w-[60px] py-1.5 rounded-2xl transition-all duration-200 active:scale-90 ${
+            aria-label={item.label}
+            className={`flex min-h-12 w-[72px] flex-col items-center justify-center rounded-2xl py-1.5 transition-colors duration-150 active:scale-[0.98] ${
               active
-                ? 'bg-brand text-on-brand px-4 shadow-sm'
-                : 'text-on-surface-secondary px-3'
+                ? 'bg-brand text-on-brand shadow-sm'
+                : 'text-on-surface-secondary'
             }`}
           >
             <span className="material-symbols-outlined text-[22px]" style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}>{item.icon}</span>

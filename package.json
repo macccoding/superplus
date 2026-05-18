@@ -7,6 +7,7 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:tasks": "pnpm --filter @superplus/db exec tsx ../../apps/web/src/server/trpc/routers/tasks-policy.test.ts",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:seed": "turbo db:seed"

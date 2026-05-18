@@ -3,17 +3,21 @@
 import { useState } from 'react';
 import { trpc } from '@/lib/trpc-client';
 import { LogEntryCard, EmptyState } from '@superplus/ui';
+import { useSession } from 'next-auth/react';
 
 const categories = ['GENERAL', 'INCIDENT', 'HANDOVER', 'INVENTORY'] as const;
+const roleRank: Record<string, number> = { STAFF: 1, SUPERVISOR: 2, MANAGER: 3, OWNER: 4 };
 
 export default function LogbookPage() {
   const utils = trpc.useUtils();
+  const { data: session } = useSession();
   const [showForm, setShowForm] = useState(false);
   const [body, setBody] = useState('');
   const [category, setCategory] = useState<typeof categories[number]>('GENERAL');
   const [isFlagged, setIsFlagged] = useState(false);
 
   const { data: entries, isLoading } = trpc.logbook.listByDate.useQuery();
+  const canCreateTask = roleRank[session?.user?.role || 'STAFF'] >= 2;
 
   const create = trpc.logbook.create.useMutation({
     onSuccess: () => {
@@ -24,6 +28,7 @@ export default function LogbookPage() {
       utils.logbook.invalidate();
     },
   });
+  const createTask = trpc.tasks.createFromSource.useMutation({ onSuccess: () => utils.tasks.invalidate() });
 
   return (
     <div>
@@ -41,14 +46,32 @@ export default function LogbookPage() {
           </div>
         ) : entries && entries.length > 0 ? (
           entries.map((entry) => (
-            <LogEntryCard
-              key={entry.id}
-              body={entry.body}
-              author={entry.author.fullName}
-              category={entry.category}
-              isFlagged={entry.isFlagged}
-              createdAt={entry.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            />
+            <div key={entry.id} className="space-y-2">
+              <LogEntryCard
+                body={entry.body}
+                author={entry.author.fullName}
+                category={entry.category}
+                isFlagged={entry.isFlagged}
+                createdAt={entry.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              />
+              {canCreateTask && entry.isFlagged && (
+                <button
+                  onClick={() => createTask.mutate({
+                    sourceType: 'LOGBOOK' as any,
+                    sourceId: entry.id,
+                    sourceLabel: entry.body.slice(0, 80),
+                    title: `${entry.category.toLowerCase().replace(/^\w/, (c) => c.toUpperCase())} follow-up`,
+                    description: entry.body,
+                    category: 'Logbook',
+                    priority: entry.category === 'INCIDENT' ? 'HIGH' as any : 'NORMAL' as any,
+                  })}
+                  className="w-full h-12 rounded-[--radius-lg] bg-navy/10 text-navy font-bold flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined">add_task</span>
+                  Make Task
+                </button>
+              )}
+            </div>
           ))
         ) : (
           <EmptyState

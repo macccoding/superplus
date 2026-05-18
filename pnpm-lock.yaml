@@ -20,6 +20,12 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^3.0.78
         version: 3.0.78(zod@3.25.76)
+      '@fontsource-variable/material-symbols-outlined':
+        specifier: ^5.2.45
+        version: 5.2.45
+      '@prisma/client':
+        specifier: ^6.0.0
+        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       '@superplus/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -350,6 +356,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource-variable/material-symbols-outlined@5.2.45':
+    resolution: {integrity: sha512-Hx6KX6W3rtMWEte72lTmV/4dJIpcAOi/tappR19Tz2dbvlWpboGqu0m7sJu7uIlLlDNuHjr/QComLCap6gSCug==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -1333,6 +1342,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.0':
     optional: true
+
+  '@fontsource-variable/material-symbols-outlined@5.2.45': {}
 
   '@img/colour@1.1.0':
     optional: true

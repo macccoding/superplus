@@ -40,9 +40,36 @@ export default function ReportsPage() {
                   <p className="text-xs text-on-surface-secondary">Rate</p>
                 </div>
               </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-warning/10 rounded-[--radius-lg] p-3 text-center">
+                  <p className="text-xl font-bold text-warning">{tasks.needsHelp}</p>
+                  <p className="text-xs text-on-surface-secondary">Need Help</p>
+                </div>
+                <div className="bg-error/5 rounded-[--radius-lg] p-3 text-center">
+                  <p className="text-xl font-bold text-error">{tasks.overdue}</p>
+                  <p className="text-xs text-on-surface-secondary">Overdue</p>
+                </div>
+                <div className="bg-surface-cream rounded-[--radius-lg] p-3 text-center">
+                  <p className="text-xl font-bold text-on-surface">{tasks.avgCompletionHours != null ? `${tasks.avgCompletionHours}h` : '—'}</p>
+                  <p className="text-xs text-on-surface-secondary">Avg Done</p>
+                </div>
+              </div>
               <div className="h-3 bg-surface-cream rounded-full overflow-hidden">
                 <div className="h-full bg-success rounded-full transition-all" style={{ width: `${tasks.rate}%` }} />
               </div>
+              {tasks.bottlenecks && tasks.bottlenecks.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-on-surface-secondary mb-2 uppercase tracking-wide">Busy Areas</p>
+                  <div className="space-y-2">
+                    {tasks.bottlenecks.map((item: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-on-surface truncate flex-1">{item.workArea}</span>
+                        <span className="text-xs font-bold text-warning ml-2">{item.count} open</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {tasks.topStaff && tasks.topStaff.length > 0 && (
                 <div>
                   <p className="text-xs font-bold text-on-surface-secondary mb-2 uppercase tracking-wide">Top Performers</p>
