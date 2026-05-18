@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@superplus/ui', '@superplus/config', '@superplus/db'],
   outputFileTracingRoot: path.join(__dirname, '../../'),
   outputFileTracingIncludes: {
-    '/api/**': ['../../node_modules/.prisma/client/**', '../../packages/db/node_modules/.prisma/client/**'],
+    '/**': [
+      '../../node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/*',
+      '../../node_modules/.pnpm/prisma*/node_modules/prisma/libquery_engine*',
+    ],
   },
 };
 
