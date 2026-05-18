@@ -30,18 +30,21 @@ export const authConfig: NextAuthConfig = {
       async authorize(credentials) {
         if (!credentials?.phone || !credentials?.pin) return null;
 
-        const phone = credentials.phone as string;
+        const identifier = credentials.phone as string;
         const pin = credentials.pin as string;
 
-        if (!checkRateLimit(phone)) return null;
+        if (!checkRateLimit(identifier)) return null;
 
-        const user = await db.user.findUnique({
-          where: { phone },
+        // Look up by ID (from user-select login) or phone (fallback)
+        const user = await db.user.findFirst({
+          where: {
+            OR: [{ id: identifier }, { phone: identifier }],
+            isActive: true,
+          },
           include: { store: true },
         });
 
-        if (!user || !user.isActive) return null;
-        if (!user.store) return null;
+        if (!user || !user.store) return null;
 
         const pinValid = await compare(pin, user.pinHash);
         if (!pinValid) return null;
