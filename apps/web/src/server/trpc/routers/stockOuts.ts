@@ -12,7 +12,7 @@ export const stockOutsRouter = router({
           storeId: ctx.storeId,
           ...(input?.status ? { status: input.status } : { status: { not: StockOutStatus.RESTOCKED } }),
         },
-        include: { reportedBy: true, product: true },
+        include: { reportedBy: { select: { id: true, fullName: true, role: true } }, product: true },
         orderBy: { createdAt: 'desc' },
         take: 50,
       });

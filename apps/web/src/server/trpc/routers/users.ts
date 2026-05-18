@@ -71,6 +71,10 @@ export const usersRouter = router({
           pinHash,
           role: input.role,
         },
+        select: {
+          id: true, fullName: true, phone: true, role: true,
+          storeId: true, isActive: true, createdAt: true,
+        },
       });
     }),
 
@@ -83,6 +87,10 @@ export const usersRouter = router({
       return ctx.db.user.update({
         where: { id: input.id },
         data: { isActive: !user.isActive },
+        select: {
+          id: true, fullName: true, phone: true, role: true,
+          storeId: true, isActive: true, createdAt: true,
+        },
       });
     }),
 
@@ -102,6 +110,7 @@ export const usersRouter = router({
       return ctx.db.user.update({
         where: { id: input.id, storeId: ctx.storeId },
         data: { pinHash },
+        select: { id: true, fullName: true },
       });
     }),
 
@@ -122,6 +131,7 @@ export const usersRouter = router({
       return ctx.db.user.update({
         where: { id: ctx.user.id },
         data: { pinHash },
+        select: { id: true, fullName: true },
       });
     }),
 });

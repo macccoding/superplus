@@ -21,7 +21,7 @@ export const tasksRouter = router({
 
       return ctx.db.task.findMany({
         where,
-        include: { createdBy: true, assignedTo: true },
+        include: { createdBy: { select: { id: true, fullName: true, role: true } }, assignedTo: { select: { id: true, fullName: true, role: true } } },
         orderBy: { createdAt: 'desc' },
         take: 50,
       });
@@ -32,7 +32,7 @@ export const tasksRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.db.task.findFirstOrThrow({
         where: { id: input.id, storeId: ctx.storeId },
-        include: { createdBy: true, assignedTo: true },
+        include: { createdBy: { select: { id: true, fullName: true, role: true } }, assignedTo: { select: { id: true, fullName: true, role: true } } },
       });
     }),
 

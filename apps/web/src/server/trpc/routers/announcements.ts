@@ -24,7 +24,7 @@ export const announcementsRouter = router({
             },
           ],
         },
-        include: { author: true },
+        include: { author: { select: { id: true, fullName: true, role: true } } },
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
         take: 20,
       });

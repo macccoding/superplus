@@ -11,7 +11,7 @@ export const expiryAlertsRouter = router({
           storeId: ctx.storeId,
           status: input?.status ?? ExpiryStatus.ACTIVE,
         },
-        include: { reportedBy: true, product: true },
+        include: { reportedBy: { select: { id: true, fullName: true, role: true } }, product: true },
         orderBy: { expiryDate: 'asc' },
         take: 100,
       });

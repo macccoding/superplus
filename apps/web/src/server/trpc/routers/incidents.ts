@@ -17,7 +17,7 @@ export const incidentsRouter = router({
 
       return ctx.db.incident.findMany({
         where,
-        include: { reportedBy: true, resolvedBy: true },
+        include: { reportedBy: { select: { id: true, fullName: true, role: true } }, resolvedBy: { select: { id: true, fullName: true, role: true } } },
         orderBy: [{ severity: 'desc' }, { createdAt: 'desc' }],
         take: 50,
       });
@@ -52,7 +52,7 @@ export const incidentsRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.db.incident.findFirstOrThrow({
         where: { id: input.id, storeId: ctx.storeId },
-        include: { reportedBy: true, resolvedBy: true },
+        include: { reportedBy: { select: { id: true, fullName: true, role: true } }, resolvedBy: { select: { id: true, fullName: true, role: true } } },
       });
     }),
 

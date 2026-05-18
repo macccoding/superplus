@@ -16,7 +16,7 @@ export const threadsRouter = router({
       return ctx.db.thread.findMany({
         where,
         include: {
-          author: true,
+          author: { select: { id: true, fullName: true, role: true } },
           _count: { select: { messages: true } },
         },
         orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
@@ -30,9 +30,9 @@ export const threadsRouter = router({
       return ctx.db.thread.findFirstOrThrow({
         where: { id: input.id, storeId: ctx.storeId },
         include: {
-          author: true,
+          author: { select: { id: true, fullName: true, role: true } },
           messages: {
-            include: { author: true },
+            include: { author: { select: { id: true, fullName: true, role: true } } },
             orderBy: { createdAt: 'asc' },
           },
         },

@@ -10,12 +10,12 @@ export const ordersRouter = router({
       const where: any = { storeId: ctx.storeId };
       if (input?.status) where.status = input.status;
       if (input?.supplierId) where.supplierId = input.supplierId;
-      return ctx.db.purchaseOrder.findMany({ where, include: { supplier: true, createdBy: true, _count: { select: { items: true } } }, orderBy: { createdAt: 'desc' }, take: 50 });
+      return ctx.db.purchaseOrder.findMany({ where, include: { supplier: true, createdBy: { select: { id: true, fullName: true, role: true } }, _count: { select: { items: true } } }, orderBy: { createdAt: 'desc' }, take: 50 });
     }),
   getById: managerProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.db.purchaseOrder.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, include: { supplier: true, createdBy: true, items: true } });
+      return ctx.db.purchaseOrder.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, include: { supplier: true, createdBy: { select: { id: true, fullName: true, role: true } }, items: true } });
     }),
   create: managerProcedure
     .input(z.object({

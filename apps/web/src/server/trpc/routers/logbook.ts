@@ -26,7 +26,7 @@ export const logbookRouter = router({
             lte: endOfDay,
           },
         },
-        include: { author: true },
+        include: { author: { select: { id: true, fullName: true, role: true } } },
         orderBy: { createdAt: 'desc' },
       });
     }),
@@ -54,7 +54,7 @@ export const logbookRouter = router({
     .query(async ({ ctx }) => {
       return ctx.db.logEntry.findMany({
         where: { storeId: ctx.storeId, isFlagged: true },
-        include: { author: true },
+        include: { author: { select: { id: true, fullName: true, role: true } } },
         orderBy: { createdAt: 'desc' },
         take: 20,
       });
