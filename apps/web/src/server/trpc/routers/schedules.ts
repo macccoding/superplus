@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, managerProcedure } from '../init';
-import { ScheduleStatus } from '@superplus/db';
+import { ScheduleStatus, Role } from '@superplus/db';
 import { generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { notifyStoreStaff } from '../../notifications';
@@ -197,7 +197,7 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
       date: z.date(),
       startTime: z.string().regex(/^\d{2}:\d{2}$/),
       endTime: z.string().regex(/^\d{2}:\d{2}$/),
-      role: z.string(),
+      role: z.nativeEnum(Role),
     }))
     .mutation(async ({ ctx, input }) => {
       const schedule = await ctx.db.shiftSchedule.findFirstOrThrow({
@@ -206,6 +206,9 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
       if (schedule.status === ScheduleStatus.PUBLISHED) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot edit published schedule' });
       }
+      await ctx.db.user.findFirstOrThrow({
+        where: { id: input.userId, storeId: ctx.storeId },
+      });
       return ctx.db.shiftSlot.create({
         data: {
           scheduleId: input.scheduleId,

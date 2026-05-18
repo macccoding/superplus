@@ -30,7 +30,7 @@ export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; ti
               href={item.href}
               onClick={() => onNavigate?.()}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-[--radius-md] text-sm font-medium transition-all duration-200 ${
-                active ? 'bg-brand text-white shadow-sm' : 'text-white/70 hover:bg-white/5'
+                active ? 'bg-white/10 text-white border-l-3 border-brand' : 'text-white/70 hover:bg-white/5'
               }`}
             >
               <span className="material-symbols-outlined text-[20px]" style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}>{item.icon}</span>

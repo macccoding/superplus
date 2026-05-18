@@ -4,7 +4,7 @@
   "description": "Staff operations platform",
   "start_url": "/hub",
   "display": "standalone",
-  "background_color": "#F8F9FA",
+  "background_color": "#FFF8F6",
   "theme_color": "#E31837",
   "icons": [
     {

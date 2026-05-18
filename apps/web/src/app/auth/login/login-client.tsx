@@ -15,7 +15,7 @@ interface StaffMember {
 
 const roleColors: Record<string, { bg: string; text: string }> = {
   OWNER: { bg: 'bg-brand/10', text: 'text-brand' },
-  MANAGER: { bg: 'bg-tertiary/10', text: 'text-warning' },
+  MANAGER: { bg: 'bg-warning/10', text: 'text-warning' },
   SUPERVISOR: { bg: 'bg-navy/10', text: 'text-navy' },
   STAFF: { bg: 'bg-surface-cream', text: 'text-on-surface-secondary' },
 };
@@ -76,7 +76,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
               <button
                 key={user.loginId}
                 onClick={() => { setSelected(user); setPin(''); setError(''); }}
-                className="flex flex-col items-center gap-2 p-4 bg-surface-white rounded-[--radius-lg] shadow-sm active:scale-95 transition-all duration-150 border-2 border-transparent hover:border-primary/30 focus:border-primary"
+                className="flex flex-col items-center gap-2 p-4 bg-surface-white rounded-[--radius-lg] shadow-sm active:scale-95 transition-all duration-150 border-2 border-transparent hover:border-brand/30 focus:border-brand"
               >
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg"
@@ -123,7 +123,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
               value={pin}
               onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError(''); }}
               placeholder="••••"
-              className="w-full h-[56px] px-4 text-center text-2xl tracking-[0.3em] bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none transition-colors text-on-surface placeholder:text-on-surface-secondary"
+              className="w-full h-[56px] px-4 text-center text-2xl tracking-[0.3em] bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-brand focus:outline-none transition-colors text-on-surface placeholder:text-on-surface-secondary"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter' && pin.length >= 4) handleSubmit(); }}
             />

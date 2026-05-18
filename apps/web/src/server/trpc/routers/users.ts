@@ -27,7 +27,11 @@ export const usersRouter = router({
     .query(async ({ ctx }) => {
       return ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.user.id },
-        include: { store: true },
+        select: {
+          id: true, fullName: true, phone: true, role: true,
+          storeId: true, isActive: true, createdAt: true,
+          store: { select: { id: true, name: true, parish: true, address: true } },
+        },
       });
     }),
 
@@ -39,6 +43,10 @@ export const usersRouter = router({
         : ctx.storeId;
       return ctx.db.user.findMany({
         where: { storeId },
+        select: {
+          id: true, fullName: true, phone: true, role: true,
+          storeId: true, isActive: true, createdAt: true,
+        },
         orderBy: { fullName: 'asc' },
       });
     }),

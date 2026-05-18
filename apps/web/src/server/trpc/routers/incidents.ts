@@ -83,7 +83,7 @@ export const incidentsRouter = router({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Incident must be resolved before closing' });
       }
       return ctx.db.incident.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId: ctx.storeId },
         data: { status: IncidentStatus.CLOSED },
       });
     }),

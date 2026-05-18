@@ -53,12 +53,16 @@ export const announcementsRouter = router({
         },
       });
       if (input.priority === 'CRITICAL' || input.priority === 'IMPORTANT') {
-        const storeId = input.broadcast ? undefined : ctx.storeId;
-        if (storeId) {
-          try {
-            await notifyStoreStaff(ctx.db, storeId, 'ANNOUNCEMENT', input.title, input.body?.substring(0, 100));
-          } catch {}
-        }
+        try {
+          if (input.broadcast) {
+            const stores = await ctx.db.store.findMany({ select: { id: true } });
+            await Promise.all(stores.map(s =>
+              notifyStoreStaff(ctx.db, s.id, 'ANNOUNCEMENT', input.title, input.body?.substring(0, 100))
+            ));
+          } else {
+            await notifyStoreStaff(ctx.db, ctx.storeId, 'ANNOUNCEMENT', input.title, input.body?.substring(0, 100));
+          }
+        } catch {}
       }
       return result;
     }),
