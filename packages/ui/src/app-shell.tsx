@@ -12,7 +12,7 @@ export function AppShell({ children, navItems, storeName, notificationSlot }: Ap
     <div className="min-h-dvh bg-surface">
       <header className="sticky top-0 z-40 bg-brand h-16 flex items-center justify-between px-5 shadow-md">
         <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="SuperPlus" className="h-7 brightness-0 invert" />
+          <img src="/logo.png" alt="SuperPlus" className="h-8" style={{ mixBlendMode: 'screen' }} />
           <span className="text-on-brand text-lg font-bold tracking-tight">SuperPlus</span>
         </div>
         <div className="flex items-center gap-2">

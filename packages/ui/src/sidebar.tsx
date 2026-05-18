@@ -15,7 +15,7 @@ export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; ti
   return (
     <aside className="w-64 h-dvh bg-navy text-on-navy fixed left-0 top-0 flex flex-col">
       <div className="p-5 border-b border-white/10 flex items-center gap-3">
-        <img src="/logo.png" alt="SuperPlus" className="h-8 brightness-0 invert" />
+        <img src="/logo.png" alt="SuperPlus" className="h-8" style={{ mixBlendMode: 'screen' }} />
         <div>
           <h1 className="text-lg font-bold">{title}</h1>
           <p className="text-[11px] text-white/50">Admin</p>

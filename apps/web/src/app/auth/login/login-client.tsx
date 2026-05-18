@@ -61,9 +61,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
     return (
       <div className="w-full max-w-lg mx-auto">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-brand rounded-2xl mx-auto mb-3 flex items-center justify-center brand-shadow">
-            <span className="text-on-brand text-2xl font-extrabold tracking-tight">S+</span>
-          </div>
+          <img src="/logo.png" alt="SuperPlus" className="h-24 mx-auto mb-3" />
           <h1 className="text-2xl font-extrabold text-on-surface">SuperPlus</h1>
           <p className="text-on-surface-secondary text-sm mt-1">Select your name to sign in</p>
         </div>
