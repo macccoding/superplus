@@ -14,7 +14,7 @@ export const usersRouter = router({
       orderBy: { fullName: 'asc' },
     });
     return users.map(u => ({
-      id: u.id,
+      phone: u.phone,
       fullName: u.fullName,
       firstName: u.fullName.split(' ')[0],
       initials: u.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase(),

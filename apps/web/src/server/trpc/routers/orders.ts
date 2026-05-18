@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, managerProcedure } from '../init';
 import { POStatus } from '@superplus/db';
 
@@ -27,13 +28,20 @@ export const ordersRouter = router({
       const count = await ctx.db.purchaseOrder.count({ where: { storeId: ctx.storeId } });
       const orderNumber = `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(count + 1).padStart(4, '0')}`;
       const totalAmount = input.items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
-      return ctx.db.purchaseOrder.create({
-        data: {
-          storeId: ctx.storeId, supplierId: input.supplierId, orderNumber, totalAmount, notes: input.notes, expectedAt: input.expectedAt, createdById: ctx.user.id,
-          items: { create: input.items },
-        },
-        include: { items: true },
-      });
+      const data = {
+        storeId: ctx.storeId, supplierId: input.supplierId, orderNumber, totalAmount, notes: input.notes, expectedAt: input.expectedAt, createdById: ctx.user.id,
+        items: { create: input.items },
+      };
+      try {
+        return await ctx.db.purchaseOrder.create({ data, include: { items: true } });
+      } catch (err: any) {
+        if (err.code === 'P2002') {
+          const retryCount = await ctx.db.purchaseOrder.count({ where: { storeId: ctx.storeId } });
+          const retryNumber = `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(retryCount + 2).padStart(4, '0')}`;
+          return ctx.db.purchaseOrder.create({ data: { ...data, orderNumber: retryNumber }, include: { items: true } });
+        }
+        throw err;
+      }
     }),
   updateStatus: managerProcedure
     .input(z.object({ id: z.string(), status: z.nativeEnum(POStatus), notes: z.string().optional() }))
@@ -48,7 +56,7 @@ export const ordersRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.db.purchaseOrder.findFirstOrThrow({ where: { id: input.orderId, storeId: ctx.storeId } });
       for (const item of input.items) {
-        await ctx.db.purchaseOrderItem.update({ where: { id: item.itemId }, data: { receivedQty: item.receivedQty } });
+        await ctx.db.purchaseOrderItem.update({ where: { id: item.itemId, orderId: input.orderId }, data: { receivedQty: item.receivedQty } });
       }
       const allItems = await ctx.db.purchaseOrderItem.findMany({ where: { orderId: input.orderId } });
       const allReceived = allItems.every(i => i.receivedQty !== null && i.receivedQty >= i.quantity);

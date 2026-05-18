@@ -39,8 +39,10 @@ export const trainingRouter = router({
       const { id, steps, ...data } = input;
       await ctx.db.sOPGuide.findFirstOrThrow({ where: { id, storeId: ctx.storeId } });
       if (steps) {
-        await ctx.db.sOPStep.deleteMany({ where: { guideId: id } });
-        await ctx.db.sOPStep.createMany({ data: steps.map((s, i) => ({ guideId: id, ...s, stepNumber: i + 1 })) });
+        await ctx.db.$transaction([
+          ctx.db.sOPStep.deleteMany({ where: { guideId: id } }),
+          ctx.db.sOPStep.createMany({ data: steps.map((s, i) => ({ guideId: id, ...s, stepNumber: i + 1 })) }),
+        ]);
       }
       return ctx.db.sOPGuide.update({ where: { id }, data, include: { steps: { orderBy: { stepNumber: 'asc' } } } });
     }),

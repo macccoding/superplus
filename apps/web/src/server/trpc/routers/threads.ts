@@ -81,7 +81,7 @@ export const threadsRouter = router({
       });
 
       await ctx.db.thread.update({
-        where: { id: input.threadId },
+        where: { id: input.threadId, storeId: ctx.storeId },
         data: { updatedAt: new Date() },
       });
 

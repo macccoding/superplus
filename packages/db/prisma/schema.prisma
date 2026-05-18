@@ -560,6 +560,7 @@ model PurchaseOrder {
   createdBy User                @relation("POCreator", fields: [createdById], references: [id])
   items     PurchaseOrderItem[]
 
+  @@unique([storeId, orderNumber])
   @@index([storeId, status])
   @@index([storeId, createdAt])
 }

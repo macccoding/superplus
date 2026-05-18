@@ -5,7 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 interface StaffMember {
-  id: string;
+  phone: string;
   fullName: string;
   firstName: string;
   initials: string;
@@ -41,7 +41,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
     setLoading(true);
 
     const result = await signIn('credentials', {
-      phone: selected.id,
+      phone: selected.phone,
       pin,
       redirect: false,
     });
@@ -74,7 +74,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
             const rc = roleColors[user.role] || roleColors.STAFF;
             return (
               <button
-                key={user.id}
+                key={user.phone}
                 onClick={() => { setSelected(user); setPin(''); setError(''); }}
                 className="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl shadow-sm active:scale-95 transition-all duration-150 border-2 border-transparent hover:border-primary/30 focus:border-primary"
               >

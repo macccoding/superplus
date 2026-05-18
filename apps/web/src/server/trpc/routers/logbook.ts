@@ -2,14 +2,10 @@ import { z } from 'zod';
 import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { LogCategory } from '@superplus/db';
 
-function getJamaicaDate(date?: Date): Date {
-  const d = date ?? new Date();
-  const jamaicaOffset = -5 * 60;
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
-  const jamaicaMs = utcMs + jamaicaOffset * 60000;
-  const jamaicaDate = new Date(jamaicaMs);
-  jamaicaDate.setHours(0, 0, 0, 0);
-  return jamaicaDate;
+function getJamaicaDate(d?: Date): Date {
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Jamaica' }).format(d ?? new Date());
+  const [y, m, day] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, day);
 }
 
 export const logbookRouter = router({

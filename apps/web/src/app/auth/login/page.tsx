@@ -4,7 +4,19 @@ import { trpc } from '@/lib/trpc-client';
 import { LoginClient } from './login-client';
 
 export default function LoginPage() {
-  const { data: staff, isLoading } = trpc.users.loginList.useQuery();
+  const { data: staff, isLoading, isError } = trpc.users.loginList.useQuery();
+
+  if (isError) {
+    return (
+      <div className="text-center">
+        <div className="w-16 h-16 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center brand-shadow">
+          <span className="text-on-primary text-2xl font-black">S+</span>
+        </div>
+        <h1 className="text-xl font-bold text-on-surface mb-2">SuperPlus</h1>
+        <p className="text-error text-sm">Could not load staff list. Check your connection.</p>
+      </div>
+    );
+  }
 
   if (isLoading || !staff) {
     return (

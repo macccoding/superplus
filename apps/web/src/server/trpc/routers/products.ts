@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, supervisorProcedure, managerProcedure } from '../init';
 import { StockStatus } from '@superplus/db';
 import { hasMinRole } from '@superplus/config';
@@ -130,48 +131,51 @@ export const productsRouter = router({
       let imported = 0;
       const errors: { row: number; reason: string }[] = [];
 
-      await ctx.db.$transaction(async (tx) => {
-        // Pre-fetch/create categories
-        const categoryMap = new Map<string, string>();
-        for (const p of input.products) {
-          if (p.categoryName && !categoryMap.has(p.categoryName)) {
-            let cat = await tx.category.findUnique({
-              where: { storeId_name: { storeId: ctx.storeId, name: p.categoryName } },
-            });
-            if (!cat) {
-              cat = await tx.category.create({
-                data: { storeId: ctx.storeId, name: p.categoryName, defaultMarkupPercent: 0 },
+      try {
+        return await ctx.db.$transaction(async (tx) => {
+          // Pre-fetch/create categories
+          const categoryMap = new Map<string, string>();
+          for (const p of input.products) {
+            if (p.categoryName && !categoryMap.has(p.categoryName)) {
+              let cat = await tx.category.findUnique({
+                where: { storeId_name: { storeId: ctx.storeId, name: p.categoryName } },
               });
+              if (!cat) {
+                cat = await tx.category.create({
+                  data: { storeId: ctx.storeId, name: p.categoryName, defaultMarkupPercent: 0 },
+                });
+              }
+              categoryMap.set(p.categoryName, cat.id);
             }
-            categoryMap.set(p.categoryName, cat.id);
           }
-        }
 
-        for (let i = 0; i < input.products.length; i++) {
-          const p = input.products[i];
-          try {
-            const markupPercent = p.markupPercent ?? (p.costPrice > 0 ? ((p.retailPrice - p.costPrice) / p.costPrice) * 100 : 0);
-            await tx.product.create({
-              data: {
-                storeId: ctx.storeId,
-                name: p.name,
-                barcode: p.barcode || null,
-                sku: p.sku || null,
-                categoryId: p.categoryName ? categoryMap.get(p.categoryName) : null,
-                costPrice: p.costPrice,
-                retailPrice: p.retailPrice,
-                markupPercent,
-                location: p.location || null,
-                supplier: p.supplier || null,
-              },
-            });
-            imported++;
-          } catch (err: any) {
-            errors.push({ row: i + 1, reason: err.message?.includes('Unique') ? 'Duplicate barcode' : err.message || 'Unknown error' });
+          for (let i = 0; i < input.products.length; i++) {
+            const p = input.products[i];
+            try {
+              const markupPercent = p.markupPercent ?? (p.costPrice > 0 ? ((p.retailPrice - p.costPrice) / p.costPrice) * 100 : 0);
+              await tx.product.create({
+                data: {
+                  storeId: ctx.storeId,
+                  name: p.name,
+                  barcode: p.barcode || null,
+                  sku: p.sku || null,
+                  categoryId: p.categoryName ? categoryMap.get(p.categoryName) : null,
+                  costPrice: p.costPrice,
+                  retailPrice: p.retailPrice,
+                  markupPercent,
+                  location: p.location || null,
+                  supplier: p.supplier || null,
+                },
+              });
+              imported++;
+            } catch (err: any) {
+              errors.push({ row: i + 1, reason: err.message?.includes('Unique') ? 'Duplicate barcode' : err.message || 'Unknown error' });
+            }
           }
-        }
-      });
-
-      return { imported, errors };
+          return { imported, errors };
+        });
+      } catch (err: any) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Import failed: ' + (err.message || 'Unknown error') });
+      }
     }),
 });

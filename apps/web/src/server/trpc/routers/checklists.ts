@@ -3,15 +3,10 @@ import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, supervisorProcedure, managerProcedure } from '../init';
 import { ChecklistItemStatus } from '@superplus/db';
 
-function getJamaicaDate(): Date {
-  const now = new Date();
-  // Jamaica is always UTC-5
-  const jamaicaOffset = -5 * 60; // minutes
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  const jamaicaMs = utcMs + jamaicaOffset * 60000;
-  const jamaicaDate = new Date(jamaicaMs);
-  jamaicaDate.setHours(0, 0, 0, 0);
-  return jamaicaDate;
+function getJamaicaDate(d?: Date): Date {
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Jamaica' }).format(d ?? new Date());
+  const [y, m, day] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, day);
 }
 
 export const checklistsRouter = router({
