@@ -28,6 +28,6 @@ export const promotionsRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const promo = await ctx.db.promotion.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId } });
-      return ctx.db.promotion.update({ where: { id: input.id }, data: { isActive: !promo.isActive } });
+      return ctx.db.promotion.update({ where: { id: input.id, storeId: ctx.storeId }, data: { isActive: !promo.isActive } });
     }),
 });

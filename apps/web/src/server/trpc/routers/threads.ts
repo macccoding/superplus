@@ -95,7 +95,7 @@ export const threadsRouter = router({
         where: { id: input.id, storeId: ctx.storeId },
       });
       return ctx.db.thread.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId: ctx.storeId },
         data: { isPinned: !thread.isPinned },
       });
     }),

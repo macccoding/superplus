@@ -51,6 +51,6 @@ export const trainingRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const guide = await ctx.db.sOPGuide.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId } });
-      return ctx.db.sOPGuide.update({ where: { id: input.id }, data: { isPublished: !guide.isPublished } });
+      return ctx.db.sOPGuide.update({ where: { id: input.id, storeId: ctx.storeId }, data: { isPublished: !guide.isPublished } });
     }),
 });
