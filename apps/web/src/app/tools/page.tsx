@@ -12,9 +12,9 @@ const toolItems = [
 export default function ToolsPage() {
   return (
     <div>
-      <section className="px-[--spacing-container] pt-6 pb-2">
+      <section className="px-5 pt-6 pb-2">
         <h2 className="text-2xl font-bold text-on-surface">Tools</h2>
-        <p className="text-sm text-on-surface-variant mt-1">Quick-access store tools</p>
+        <p className="text-sm text-on-surface-secondary mt-1">Quick-access store tools</p>
       </section>
 
       <IconGrid items={toolItems} />

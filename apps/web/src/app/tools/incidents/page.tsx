@@ -12,9 +12,9 @@ const categoryIcons: Record<string, string> = {
 };
 const severityConfig: Record<string, { color: string; label: string }> = {
   CRITICAL: { color: 'bg-error text-on-error', label: 'Critical' },
-  HIGH: { color: 'bg-tertiary-container text-on-tertiary-container', label: 'High' },
-  MEDIUM: { color: 'bg-surface-container-high text-on-surface-variant', label: 'Medium' },
-  LOW: { color: 'bg-outline-variant/30 text-on-surface-variant', label: 'Low' },
+  HIGH: { color: 'bg-warning/20 text-warning', label: 'High' },
+  MEDIUM: { color: 'bg-surface-cream text-on-surface-secondary', label: 'Medium' },
+  LOW: { color: 'bg-outline-variant/30 text-on-surface-secondary', label: 'Low' },
 };
 const statusLabels: Record<string, string> = { OPEN: 'Open', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved', CLOSED: 'Closed' };
 
@@ -36,47 +36,47 @@ export default function IncidentsPage() {
 
   return (
     <div>
-      <section className="px-[--spacing-container] pt-6 pb-4">
+      <section className="px-5 pt-6 pb-4">
         <h2 className="text-2xl font-bold text-on-surface">Incidents</h2>
-        <p className="text-sm text-on-surface-variant mt-1">{incidents?.filter((i: any) => i.status === 'OPEN' || i.status === 'IN_PROGRESS').length || 0} open</p>
+        <p className="text-sm text-on-surface-secondary mt-1">{incidents?.filter((i: any) => i.status === 'OPEN' || i.status === 'IN_PROGRESS').length || 0} open</p>
       </section>
 
       {mutationError && (
-        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-xl p-3 flex items-center gap-2 text-sm">
+        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-[--radius-lg] p-3 flex items-center gap-2 text-sm">
           <span className="material-symbols-outlined text-[18px]">error</span>
           {mutationError}
         </div>
       )}
 
-      <section className="px-[--spacing-container] pb-24 space-y-3">
+      <section className="px-5 pb-24 space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+            <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
           </div>
         ) : isError ? (
           <div className="text-center py-12">
-            <span className="material-symbols-outlined text-[48px] text-outline mb-3 block">lock</span>
-            <p className="text-on-surface-variant">Only supervisors can view incidents.</p>
+            <span className="material-symbols-outlined text-[48px] text-on-surface-secondary mb-3 block">lock</span>
+            <p className="text-on-surface-secondary">Only supervisors can view incidents.</p>
           </div>
         ) : incidents && incidents.length > 0 ? (
           incidents.map((incident: any) => {
             const sev = severityConfig[incident.severity] || severityConfig.MEDIUM;
             return (
-              <button key={incident.id} onClick={() => router.push(`/tools/incidents/${incident.id}`)} className="w-full text-left bg-surface-container-lowest rounded-xl p-4 shadow-sm active:scale-[0.98] transition-all">
+              <button key={incident.id} onClick={() => router.push(`/tools/incidents/${incident.id}`)} className="w-full text-left bg-surface-white rounded-[--radius-lg] p-4 shadow-sm active:scale-[0.98] transition-all">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-[20px] text-secondary">{categoryIcons[incident.category] || 'report'}</span>
+                  <div className="w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[20px] text-navy">{categoryIcons[incident.category] || 'report'}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-on-surface truncate">{incident.title}</h3>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${sev.color}`}>{sev.label}</span>
                     </div>
-                    <p className="text-sm text-on-surface-variant mt-1 line-clamp-1">{incident.description}</p>
+                    <p className="text-sm text-on-surface-secondary mt-1 line-clamp-1">{incident.description}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-outline">{incident.reportedBy.fullName}</span>
-                      <span className="text-xs text-outline">·</span>
-                      <span className={`text-xs font-medium ${incident.status === 'OPEN' ? 'text-error' : incident.status === 'RESOLVED' ? 'text-success' : 'text-on-surface-variant'}`}>{statusLabels[incident.status] || incident.status}</span>
+                      <span className="text-xs text-on-surface-secondary">{incident.reportedBy.fullName}</span>
+                      <span className="text-xs text-on-surface-secondary">·</span>
+                      <span className={`text-xs font-medium ${incident.status === 'OPEN' ? 'text-error' : incident.status === 'RESOLVED' ? 'text-success' : 'text-on-surface-secondary'}`}>{statusLabels[incident.status] || incident.status}</span>
                     </div>
                   </div>
                 </div>
@@ -91,16 +91,16 @@ export default function IncidentsPage() {
       {/* Create form — supervisor+ only */}
       {canCreate && showCreate && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowCreate(false)}>
-          <div className="bg-surface-container-lowest w-full rounded-t-2xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-white w-full rounded-t-2xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
               <h3 className="text-xl font-bold text-on-surface">Log Incident</h3>
 
               <div>
-                <label className="block text-xs font-medium text-on-surface-variant mb-2">Category</label>
+                <label className="block text-xs font-medium text-on-surface-secondary mb-2">Category</label>
                 <div className="grid grid-cols-3 gap-2">
                   {Object.entries(categoryIcons).map(([cat, icon]) => (
-                    <button key={cat} onClick={() => setForm({ ...form, category: cat })} className={`py-3 rounded-xl text-xs font-medium flex flex-col items-center gap-1 transition-all ${form.category === cat ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                    <button key={cat} onClick={() => setForm({ ...form, category: cat })} className={`py-3 rounded-[--radius-lg] text-xs font-medium flex flex-col items-center gap-1 transition-all ${form.category === cat ? 'bg-brand text-on-brand' : 'bg-surface-cream text-on-surface-secondary'}`}>
                       <span className="material-symbols-outlined text-[20px]">{icon}</span>
                       {cat}
                     </button>
@@ -108,15 +108,15 @@ export default function IncidentsPage() {
                 </div>
               </div>
 
-              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Brief title" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" />
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Brief title" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
 
-              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What happened?" rows={3} className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline resize-none transition-colors" />
+              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What happened?" rows={3} className="w-full px-4 py-3 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary resize-none transition-colors" />
 
               <div>
-                <label className="block text-xs font-medium text-on-surface-variant mb-2">Severity</label>
+                <label className="block text-xs font-medium text-on-surface-secondary mb-2">Severity</label>
                 <div className="grid grid-cols-4 gap-2">
                   {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map((s) => (
-                    <button key={s} onClick={() => setForm({ ...form, severity: s })} className={`py-2.5 rounded-xl text-xs font-bold transition-all ${form.severity === s ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>{s}</button>
+                    <button key={s} onClick={() => setForm({ ...form, severity: s })} className={`py-2.5 rounded-[--radius-lg] text-xs font-bold transition-all ${form.severity === s ? 'bg-brand text-on-brand' : 'bg-surface-cream text-on-surface-secondary'}`}>{s}</button>
                   ))}
                 </div>
               </div>
@@ -126,7 +126,7 @@ export default function IncidentsPage() {
               <button
                 onClick={() => create.mutate({ category: form.category as any, title: form.title, description: form.description, severity: form.severity as any })}
                 disabled={!form.title.trim() || !form.description.trim() || create.isPending}
-                className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
+                className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"
               >
                 Log Incident
               </button>
@@ -137,7 +137,7 @@ export default function IncidentsPage() {
 
       {/* FAB — supervisor+ only */}
       {canCreate && (
-        <button onClick={() => setShowCreate(true)} className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-secondary text-on-secondary shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200">
+        <button onClick={() => setShowCreate(true)} className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-navy text-on-navy shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200">
           <span className="material-symbols-outlined text-[28px]">add</span>
         </button>
       )}

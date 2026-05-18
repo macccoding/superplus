@@ -20,44 +20,44 @@ export default function SuggestionsPage() {
 
   return (
     <div>
-      <section className="px-[--spacing-container] pt-6 pb-4">
+      <section className="px-5 pt-6 pb-4">
         <h2 className="text-2xl font-bold text-on-surface">Suggestion Box</h2>
-        <p className="text-sm text-on-surface-variant mt-1">Your voice matters</p>
+        <p className="text-sm text-on-surface-secondary mt-1">Your voice matters</p>
       </section>
 
       {submitted && (
-        <div className="mx-[--spacing-container] mb-4 bg-success/10 text-success rounded-xl p-4 flex items-center gap-2">
+        <div className="mx-[--spacing-container] mb-4 bg-success/10 text-success rounded-[--radius-lg] p-4 flex items-center gap-2">
           <span className="material-symbols-outlined">check_circle</span>
           <span className="text-sm font-medium">Thank you! Your suggestion was submitted.</span>
         </div>
       )}
 
-      <section className="px-[--spacing-container] mb-8">
-        <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm space-y-4">
+      <section className="px-5 mb-8">
+        <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm space-y-4">
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="What would make this store better?"
             rows={4}
-            className="w-full px-4 py-3 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline resize-none transition-colors"
+            className="w-full px-4 py-3 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary resize-none transition-colors"
           />
           <div className="flex flex-wrap gap-2">
             {categories.map((c) => (
-              <button key={c} onClick={() => setCategory(c)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${category === c ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+              <button key={c} onClick={() => setCategory(c)} className={`px-3 py-2 rounded-[--radius-lg] text-xs font-bold transition-all ${category === c ? 'bg-brand text-on-brand' : 'bg-surface-cream text-on-surface-secondary'}`}>
                 {c}
               </button>
             ))}
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
-            <button onClick={() => setIsAnonymous(!isAnonymous)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${isAnonymous ? 'bg-primary border-primary' : 'border-outline-variant'}`}>
-              {isAnonymous && <span className="material-symbols-outlined text-on-primary text-[16px]">check</span>}
+            <button onClick={() => setIsAnonymous(!isAnonymous)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${isAnonymous ? 'bg-brand border-primary' : 'border-outline'}`}>
+              {isAnonymous && <span className="material-symbols-outlined text-on-brand text-[16px]">check</span>}
             </button>
             <span className="text-sm font-medium text-on-surface">Submit anonymously</span>
           </label>
           <button
             onClick={() => submit.mutate({ body, category, isAnonymous })}
             disabled={!body.trim() || submit.isPending}
-            className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all duration-150 flex items-center justify-center gap-2 shadow-md"
+            className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all duration-150 flex items-center justify-center gap-2 shadow-md"
           >
             <span className="material-symbols-outlined">send</span>
             Submit Suggestion
@@ -65,24 +65,24 @@ export default function SuggestionsPage() {
         </div>
       </section>
 
-      <section className="px-[--spacing-container] pb-24">
-        <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wide mb-3">My Suggestions</h3>
+      <section className="px-5 pb-24">
+        <h3 className="text-sm font-bold text-on-surface-secondary uppercase tracking-wide mb-3">My Suggestions</h3>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12"><span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span></div>
+          <div className="flex items-center justify-center py-12"><span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span></div>
         ) : myList && myList.length > 0 ? (
           <div className="space-y-3">
             {myList.map((s: any) => (
-              <div key={s.id} className="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+              <div key={s.id} className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm">
                 <p className="text-sm text-on-surface">{s.body}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.status === 'IMPLEMENTED' ? 'bg-success/10 text-success' : s.status === 'REVIEWED' ? 'bg-secondary/10 text-secondary' : s.status === 'DISMISSED' ? 'bg-outline/10 text-outline' : 'bg-tertiary-container/30 text-on-tertiary-container'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.status === 'IMPLEMENTED' ? 'bg-success/10 text-success' : s.status === 'REVIEWED' ? 'bg-navy/10 text-navy' : s.status === 'DISMISSED' ? 'bg-outline/10 text-on-surface-secondary' : 'bg-warning/20/30 text-warning'}`}>
                     {s.status}
                   </span>
-                  <span className="text-xs text-outline">{new Date(s.createdAt).toLocaleDateString()}</span>
+                  <span className="text-xs text-on-surface-secondary">{new Date(s.createdAt).toLocaleDateString()}</span>
                 </div>
                 {s.response && (
-                  <div className="mt-3 bg-secondary/5 rounded-lg p-3">
-                    <p className="text-xs font-bold text-secondary mb-1">Response</p>
+                  <div className="mt-3 bg-navy/5 rounded-lg p-3">
+                    <p className="text-xs font-bold text-navy mb-1">Response</p>
                     <p className="text-sm text-on-surface">{s.response}</p>
                   </div>
                 )}

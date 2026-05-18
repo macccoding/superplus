@@ -34,51 +34,51 @@ export default function StockOutPage() {
 
   return (
     <div>
-      <section className="px-[--spacing-container] pt-6 pb-4">
+      <section className="px-5 pt-6 pb-4">
         <h2 className="text-2xl font-bold text-on-surface">Stock-Out Reports</h2>
-        <p className="text-sm text-on-surface-variant mt-1">{reports?.length || 0} open reports</p>
+        <p className="text-sm text-on-surface-secondary mt-1">{reports?.length || 0} open reports</p>
       </section>
 
       {mutationError && (
-        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-xl p-3 flex items-center gap-2 text-sm">
+        <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-[--radius-lg] p-3 flex items-center gap-2 text-sm">
           <span className="material-symbols-outlined text-[18px]">error</span>
           {mutationError}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="px-[--spacing-container] mb-4">
-        <div className="flex bg-surface-container-high rounded-xl p-1">
-          <button onClick={() => setTab('open')} className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all ${tab === 'open' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}>Open</button>
-          <button onClick={() => setTab('mine')} className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all ${tab === 'mine' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'}`}>My Reports</button>
+      <div className="px-5 mb-4">
+        <div className="flex bg-surface-cream rounded-[--radius-lg] p-1">
+          <button onClick={() => setTab('open')} className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all ${tab === 'open' ? 'bg-brand text-on-brand shadow-sm' : 'text-on-surface-secondary'}`}>Open</button>
+          <button onClick={() => setTab('mine')} className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all ${tab === 'mine' ? 'bg-brand text-on-brand shadow-sm' : 'text-on-surface-secondary'}`}>My Reports</button>
         </div>
       </div>
 
-      <section className="px-[--spacing-container] pb-24 space-y-3">
+      <section className="px-5 pb-24 space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+            <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
           </div>
         ) : items && items.length > 0 ? (
           items.map((report: any) => (
-            <div key={report.id} className="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+            <div key={report.id} className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-bold text-on-surface">{report.productName}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                    {report.location && <span className="text-xs text-outline">{report.location}</span>}
-                    <span className="text-xs text-on-surface-variant">by {report.reportedBy?.fullName || 'You'}</span>
+                    {report.location && <span className="text-xs text-on-surface-secondary">{report.location}</span>}
+                    <span className="text-xs text-on-surface-secondary">by {report.reportedBy?.fullName || 'You'}</span>
                   </div>
                   <span className={`inline-block mt-2 text-xs font-bold px-2 py-0.5 rounded-full ${
                     report.status === 'REPORTED' ? 'bg-error/10 text-error' :
-                    report.status === 'ACKNOWLEDGED' ? 'bg-tertiary-container/30 text-on-tertiary-container' :
+                    report.status === 'ACKNOWLEDGED' ? 'bg-warning/20/30 text-warning' :
                     'bg-success/10 text-success'
                   }`}>{statusLabels[report.status] || report.status}</span>
                 </div>
                 {canManage && report.status !== 'RESTOCKED' && (
                   <div className="flex gap-1">
                     {report.status === 'REPORTED' && (
-                      <button onClick={() => updateStatus.mutate({ id: report.id, status: 'ACKNOWLEDGED' })} className="h-12 px-4 bg-surface-container-high rounded-lg text-sm font-medium text-on-surface-variant">Ack</button>
+                      <button onClick={() => updateStatus.mutate({ id: report.id, status: 'ACKNOWLEDGED' })} className="h-12 px-4 bg-surface-cream rounded-lg text-sm font-medium text-on-surface-secondary">Ack</button>
                     )}
                     <button onClick={() => updateStatus.mutate({ id: report.id, status: 'RESTOCKED' })} className="h-12 px-4 bg-success/10 rounded-lg text-sm font-bold text-success">Restocked</button>
                   </div>
@@ -94,15 +94,15 @@ export default function StockOutPage() {
       {/* Quick report form */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowForm(false)}>
-          <div className="bg-surface-container-lowest w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-white w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
             <h3 className="text-xl font-bold text-on-surface">Report Stock-Out</h3>
-            <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Product name" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" autoFocus />
-            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors" />
+            <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Product name" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" autoFocus />
+            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
             <button
               onClick={() => create.mutate({ productName, location: location || undefined })}
               disabled={!productName.trim() || create.isPending}
-              className="w-full h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
+              className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"
             >
               Report Empty Shelf
             </button>

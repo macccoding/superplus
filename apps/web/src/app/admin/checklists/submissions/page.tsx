@@ -11,13 +11,13 @@ export default function SubmissionsPage() {
 
   return (
     <div>
-      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-secondary mb-6">
         <span className="material-symbols-outlined text-[18px]">arrow_back</span>
         Back to Checklists
       </button>
 
-      <h1 className="text-3xl font-black text-on-surface mb-2">Submission History</h1>
-      <p className="text-on-surface-variant mb-8">{submissions?.length || 0} submissions</p>
+      <h1 className="text-3xl font-extrabold text-on-surface mb-2">Submission History</h1>
+      <p className="text-on-surface-secondary mb-8">{submissions?.length || 0} submissions</p>
 
       <div className="space-y-3">
         {submissions?.map((sub: any) => {
@@ -27,7 +27,7 @@ export default function SubmissionsPage() {
           const isExpanded = expandedId === sub.id;
 
           return (
-            <div key={sub.id} className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+            <div key={sub.id} className="bg-surface-white rounded-[--radius-lg] shadow-sm overflow-hidden">
               <button
                 onClick={() => setExpandedId(isExpanded ? null : sub.id)}
                 className="w-full p-5 flex items-center justify-between text-left"
@@ -36,27 +36,27 @@ export default function SubmissionsPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-on-surface">{sub.template.name}</h3>
                     {skipped.length > 0 && (
-                      <span className="text-xs bg-tertiary-container/30 text-on-tertiary-container px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-xs bg-warning/20/30 text-warning px-2 py-0.5 rounded-full font-medium">
                         {skipped.length} skipped
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-on-surface-variant mt-1">
+                  <p className="text-sm text-on-surface-secondary mt-1">
                     {sub.submittedBy.fullName} · {sub.completedAt.toLocaleDateString()} at {sub.completedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-on-surface">{doneCount}/{total}</span>
-                  <span className="material-symbols-outlined text-outline">{isExpanded ? 'expand_less' : 'expand_more'}</span>
+                  <span className="material-symbols-outlined text-on-surface-secondary">{isExpanded ? 'expand_less' : 'expand_more'}</span>
                 </div>
               </button>
 
               {isExpanded && (
-                <div className="border-t border-outline-variant/20 px-5 py-4 space-y-2">
+                <div className="border-t border-outline/20 px-5 py-4 space-y-2">
                   {sub.items.map((item: any) => (
-                    <div key={item.id} className={`flex items-start gap-3 py-2 ${item.status !== 'DONE' ? 'bg-tertiary-container/10 -mx-2 px-2 rounded-lg' : ''}`}>
+                    <div key={item.id} className={`flex items-start gap-3 py-2 ${item.status !== 'DONE' ? 'bg-warning/20/10 -mx-2 px-2 rounded-lg' : ''}`}>
                       <span className={`material-symbols-outlined text-[18px] mt-0.5 ${
-                        item.status === 'DONE' ? 'text-success' : item.status === 'SKIPPED' ? 'text-tertiary' : 'text-outline'
+                        item.status === 'DONE' ? 'text-success' : item.status === 'SKIPPED' ? 'text-warning' : 'text-on-surface-secondary'
                       }`}>
                         {item.status === 'DONE' ? 'check_circle' : item.status === 'SKIPPED' ? 'skip_next' : 'remove_circle'}
                       </span>
@@ -65,7 +65,7 @@ export default function SubmissionsPage() {
                           {item.templateItem.label}
                         </p>
                         {item.reason && (
-                          <p className="text-xs text-on-surface-variant italic mt-0.5">"{item.reason}"</p>
+                          <p className="text-xs text-on-surface-secondary italic mt-0.5">"{item.reason}"</p>
                         )}
                       </div>
                     </div>
@@ -77,8 +77,8 @@ export default function SubmissionsPage() {
         })}
 
         {(!submissions || submissions.length === 0) && (
-          <div className="text-center py-12 text-on-surface-variant">
-            <span className="material-symbols-outlined text-[48px] text-outline mb-3">history</span>
+          <div className="text-center py-12 text-on-surface-secondary">
+            <span className="material-symbols-outlined text-[48px] text-on-surface-secondary mb-3">history</span>
             <p>No submissions yet</p>
           </div>
         )}

@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 
 const priorityConfig: Record<string, { color: string; label: string }> = {
-  URGENT: { color: 'text-primary', label: 'Urgent' },
-  HIGH: { color: 'text-on-tertiary-container', label: 'High' },
-  NORMAL: { color: 'text-on-surface-variant', label: 'Normal' },
-  LOW: { color: 'text-outline', label: 'Low' },
+  URGENT: { color: 'text-brand', label: 'Urgent' },
+  HIGH: { color: 'text-warning', label: 'High' },
+  NORMAL: { color: 'text-on-surface-secondary', label: 'Normal' },
+  LOW: { color: 'text-on-surface-secondary', label: 'Low' },
 };
 
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,18 +22,18 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+        <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
       </div>
     );
   }
   if (!task || isError) return (
-    <div className="px-[--spacing-container] py-6">
-      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+    <div className="px-5 py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-secondary mb-4">
         <span className="material-symbols-outlined text-[18px]">arrow_back</span>Back
       </button>
       <div className="text-center py-12">
-        <span className="material-symbols-outlined text-[48px] text-outline mb-3">search_off</span>
-        <p className="text-on-surface-variant">Task not found</p>
+        <span className="material-symbols-outlined text-[48px] text-on-surface-secondary mb-3">search_off</span>
+        <p className="text-on-surface-secondary">Task not found</p>
       </div>
     </div>
   );
@@ -41,32 +41,32 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const p = priorityConfig[task.priority] || priorityConfig.NORMAL;
 
   return (
-    <div className="px-[--spacing-container] py-6">
-      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-variant mb-4">
+    <div className="px-5 py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-on-surface-secondary mb-4">
         <span className="material-symbols-outlined text-[18px]">arrow_back</span>
         Back
       </button>
 
-      <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
+      <div className="bg-surface-white rounded-[--radius-lg] p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <span className={`text-xs font-bold uppercase tracking-wider ${p.color}`}>{p.label}</span>
-          <span className="text-xs text-outline">·</span>
-          <span className="text-xs text-outline">{task.createdAt.toLocaleDateString()}</span>
+          <span className="text-xs text-on-surface-secondary">·</span>
+          <span className="text-xs text-on-surface-secondary">{task.createdAt.toLocaleDateString()}</span>
         </div>
 
         <h2 className="text-xl font-bold text-on-surface">{task.title}</h2>
         {task.description && (
-          <p className="text-on-surface-variant mt-2 leading-relaxed">{task.description}</p>
+          <p className="text-on-surface-secondary mt-2 leading-relaxed">{task.description}</p>
         )}
 
         <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="bg-surface-container-low rounded-xl p-3">
-            <span className="text-xs text-outline block mb-1">Created by</span>
+          <div className="bg-surface rounded-[--radius-lg] p-3">
+            <span className="text-xs text-on-surface-secondary block mb-1">Created by</span>
             <span className="text-sm font-bold text-on-surface">{task.createdBy.fullName}</span>
           </div>
-          <div className="bg-surface-container-low rounded-xl p-3">
-            <span className="text-xs text-outline block mb-1">Assigned to</span>
-            <span className={`text-sm font-bold ${task.assignedTo ? 'text-secondary' : 'text-tertiary'}`}>
+          <div className="bg-surface rounded-[--radius-lg] p-3">
+            <span className="text-xs text-on-surface-secondary block mb-1">Assigned to</span>
+            <span className={`text-sm font-bold ${task.assignedTo ? 'text-navy' : 'text-warning'}`}>
               {task.assignedTo?.fullName || 'Unassigned'}
             </span>
           </div>
@@ -77,7 +77,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           {!task.assignedToId && (
             <button
               onClick={() => pickup.mutate({ id: task.id })}
-              className="w-full h-14 bg-secondary text-on-secondary font-bold rounded-xl active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full h-14 bg-navy text-on-navy font-bold rounded-[--radius-lg] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined">front_hand</span>
               Take This Task
@@ -86,7 +86,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           {task.status === 'OPEN' && task.assignedToId && (
             <button
               onClick={() => updateStatus.mutate({ id: task.id, status: 'IN_PROGRESS' })}
-              className="w-full h-14 bg-tertiary-container text-on-tertiary-container font-bold rounded-xl active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full h-14 bg-warning/20 text-warning font-bold rounded-[--radius-lg] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined">play_arrow</span>
               Start Working
@@ -95,7 +95,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           {task.status === 'IN_PROGRESS' && (
             <button
               onClick={() => updateStatus.mutate({ id: task.id, status: 'DONE' })}
-              className="w-full h-14 bg-success text-white font-bold rounded-xl active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full h-14 bg-success text-white font-bold rounded-[--radius-lg] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined">check_circle</span>
               Mark Done

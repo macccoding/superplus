@@ -28,12 +28,12 @@ export default function CategoriesPage() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-black text-on-surface">Categories</h1>
-          <p className="text-on-surface-variant mt-1">Manage product categories and default margins</p>
+          <h1 className="text-3xl font-extrabold text-on-surface">Categories</h1>
+          <p className="text-on-surface-secondary mt-1">Manage product categories and default margins</p>
         </div>
         <button
           onClick={() => setShowAdd(true)}
-          className="h-12 px-5 bg-primary text-on-primary font-bold rounded-xl flex items-center gap-2 active:scale-95 transition-all"
+          className="h-12 px-5 bg-brand text-on-brand font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           Add Category
@@ -42,14 +42,14 @@ export default function CategoriesPage() {
 
       <div className="space-y-3">
         {categories?.map((cat) => (
-          <div key={cat.id} className="bg-surface-container-lowest rounded-xl p-5 shadow-sm flex items-center justify-between">
+          <div key={cat.id} className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                <span className="material-symbols-outlined text-secondary">category</span>
+              <div className="w-12 h-12 rounded-[--radius-lg] bg-navy/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-navy">category</span>
               </div>
               <div>
                 <h3 className="font-bold text-on-surface">{cat.name}</h3>
-                <p className="text-sm text-on-surface-variant">{cat._count.products} products · {Number(cat.defaultMarkupPercent)}% default markup</p>
+                <p className="text-sm text-on-surface-secondary">{cat._count.products} products · {Number(cat.defaultMarkupPercent)}% default markup</p>
               </div>
             </div>
             {cat._count.products === 0 && (
@@ -63,7 +63,7 @@ export default function CategoriesPage() {
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(null)}
-                    className="text-xs text-on-surface-variant px-3 py-1.5 rounded-lg bg-surface-container-high"
+                    className="text-xs text-on-surface-secondary px-3 py-1.5 rounded-lg bg-surface-cream"
                   >
                     Cancel
                   </button>
@@ -83,13 +83,13 @@ export default function CategoriesPage() {
 
       {showAdd && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowAdd(false)}>
-          <div className="bg-surface-container-lowest rounded-xl p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-white rounded-[--radius-lg] p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-on-surface">Add Category</h2>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Category name"
-              className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface placeholder:text-outline transition-colors"
+              className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors"
               autoFocus
             />
             <div>
@@ -98,15 +98,15 @@ export default function CategoriesPage() {
                 type="number"
                 value={newMarkup}
                 onChange={(e) => setNewMarkup(e.target.value)}
-                className="w-full h-14 px-4 bg-surface-container-low border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-on-surface transition-colors"
+                className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface transition-colors"
               />
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowAdd(false)} className="flex-1 h-14 border-2 border-outline-variant rounded-xl text-on-surface-variant font-bold active:scale-95 transition-all">Cancel</button>
+              <button onClick={() => setShowAdd(false)} className="flex-1 h-14 border-2 border-outline rounded-[--radius-lg] text-on-surface-secondary font-bold active:scale-95 transition-all">Cancel</button>
               <button
                 onClick={() => createCategory.mutate({ name: newName, defaultMarkupPercent: parseFloat(newMarkup) || 0 })}
                 disabled={!newName.trim()}
-                className="flex-1 h-14 bg-primary text-on-primary font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
+                className="flex-1 h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"
               >
                 Add
               </button>

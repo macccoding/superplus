@@ -43,13 +43,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex items-center gap-3 mb-6 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high"
+            className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream"
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
-          <h1 className="text-lg font-bold text-primary flex-1">SuperPlus Admin</h1>
-          <a href="/hub" className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-high">
-            <span className="material-symbols-outlined text-on-surface-variant">home</span>
+          <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
+          <a href="/hub" className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream">
+            <span className="material-symbols-outlined text-on-surface-secondary">home</span>
           </a>
         </div>
         {children}

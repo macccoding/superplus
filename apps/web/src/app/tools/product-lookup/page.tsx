@@ -38,44 +38,44 @@ export default function ProductLookupPage() {
 
   const stockDot: Record<string, string> = {
     IN_STOCK: 'bg-success',
-    LOW: 'bg-tertiary-container',
+    LOW: 'bg-warning/20',
     OUT_OF_STOCK: 'bg-error',
   };
 
   return (
     <div>
-      <section className="px-[--spacing-container] pt-6 pb-4">
+      <section className="px-5 pt-6 pb-4">
         <h2 className="text-2xl font-bold text-on-surface">Product Lookup</h2>
       </section>
 
       {/* Search bar */}
-      <div className="px-[--spacing-container] mb-4">
+      <div className="px-5 mb-4">
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline">search</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-secondary">search</span>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or barcode..."
-            className="w-full h-14 pl-12 pr-14 bg-surface-container-lowest border-2 border-outline-variant rounded-xl focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-outline transition-colors shadow-sm"
+            className="w-full h-14 pl-12 pr-14 bg-surface-white border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary transition-colors shadow-sm"
             autoFocus
           />
           <button
             onClick={() => setShowScanner(true)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-surface-cream rounded-lg flex items-center justify-center"
           >
-            <span className="material-symbols-outlined text-on-surface-variant">qr_code_scanner</span>
+            <span className="material-symbols-outlined text-on-surface-secondary">qr_code_scanner</span>
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="px-[--spacing-container] mb-4 flex gap-2 overflow-x-auto pb-1">
+      <div className="px-5 mb-4 flex gap-2 overflow-x-auto pb-1">
         <select
           value={categoryFilter || ''}
           onChange={(e) => setCategoryFilter(e.target.value || undefined)}
-          className="h-9 px-3 bg-surface-container-high rounded-lg text-xs font-medium text-on-surface-variant border-0 focus:outline-none"
+          className="h-9 px-3 bg-surface-cream rounded-lg text-xs font-medium text-on-surface-secondary border-0 focus:outline-none"
         >
           <option value="">All Categories</option>
           {categories?.map((c) => (
@@ -87,7 +87,7 @@ export default function ProductLookupPage() {
             key={s}
             onClick={() => setStockFilter(stockFilter === s ? undefined : s)}
             className={`h-9 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-              stockFilter === s ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
+              stockFilter === s ? 'bg-brand text-on-brand' : 'bg-surface-cream text-on-surface-secondary'
             }`}
           >
             {s.replaceAll('_', ' ')}
@@ -96,10 +96,10 @@ export default function ProductLookupPage() {
       </div>
 
       {/* Results */}
-      <section className="px-[--spacing-container] pb-24 space-y-3">
+      <section className="px-5 pb-24 space-y-3">
         {isLoading && (
           <div className="flex items-center justify-center py-12">
-            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+            <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
           </div>
         )}
 
@@ -108,19 +108,19 @@ export default function ProductLookupPage() {
             <button
               key={product.id}
               onClick={() => router.push(`/tools/product-lookup/${product.id}`)}
-              className="w-full text-left bg-surface-container-lowest rounded-xl p-4 shadow-sm active:scale-[0.98] transition-all duration-200"
+              className="w-full text-left bg-surface-white rounded-[--radius-lg] p-4 shadow-sm active:scale-[0.98] transition-all duration-200"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-on-surface truncate">{product.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     {product.category && (
-                      <span className="text-xs px-2 py-0.5 bg-surface-container-high rounded text-on-surface-variant">
+                      <span className="text-xs px-2 py-0.5 bg-surface-cream rounded text-on-surface-secondary">
                         {product.category.name}
                       </span>
                     )}
                     {product.location && (
-                      <span className="text-xs text-outline">{product.location}</span>
+                      <span className="text-xs text-on-surface-secondary">{product.location}</span>
                     )}
                   </div>
                 </div>
@@ -128,7 +128,7 @@ export default function ProductLookupPage() {
                   <p className="text-lg font-bold text-on-surface">${Number(product.retailPrice).toFixed(2)}</p>
                   <div className="flex items-center gap-1 mt-1 justify-end">
                     <span className={`w-2 h-2 rounded-full ${stockDot[product.stockStatus]}`} />
-                    <span className="text-xs text-outline">{product.stockStatus.replaceAll('_', ' ')}</span>
+                    <span className="text-xs text-on-surface-secondary">{product.stockStatus.replaceAll('_', ' ')}</span>
                   </div>
                 </div>
               </div>
@@ -145,7 +145,7 @@ export default function ProductLookupPage() {
         )}
 
         {results && results.nextCursor && (
-          <p className="text-center text-xs text-outline py-4">Showing first 20 results. Refine your search for more.</p>
+          <p className="text-center text-xs text-on-surface-secondary py-4">Showing first 20 results. Refine your search for more.</p>
         )}
 
         {!debouncedQuery && !categoryFilter && !stockFilter && !isLoading && (
@@ -222,13 +222,13 @@ function BarcodeScanner({ onScan, onClose }: { onScan: (code: string) => void; o
         <div className="text-center">
           <span className="material-symbols-outlined text-[48px] text-white/60 mb-4">no_photography</span>
           <p className="text-white">{error}</p>
-          <button onClick={onClose} className="mt-4 px-6 py-3 bg-white text-black font-bold rounded-xl">
+          <button onClick={onClose} className="mt-4 px-6 py-3 bg-white text-black font-bold rounded-[--radius-lg]">
             Close
           </button>
         </div>
       ) : (
         <>
-          <video ref={videoRef} className="w-full max-w-sm rounded-xl" playsInline muted />
+          <video ref={videoRef} className="w-full max-w-sm rounded-[--radius-lg]" playsInline muted />
           <p className="text-white/80 text-sm mt-4">Point camera at barcode</p>
         </>
       )}

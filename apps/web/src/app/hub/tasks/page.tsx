@@ -30,9 +30,9 @@ export default function TasksPage() {
   return (
     <div>
       {/* Header + Tabs */}
-      <section className="px-[--spacing-container] pt-6 pb-4">
+      <section className="px-5 pt-6 pb-4">
         <h2 className="text-2xl font-bold text-on-surface mb-4">Tasks</h2>
-        <div className="flex bg-surface-container-high rounded-xl p-1">
+        <div className="flex bg-surface-cream rounded-[--radius-lg] p-1">
           {([
             { key: 'mine', label: 'My Tasks' },
             { key: 'available', label: 'Pick Up' },
@@ -43,8 +43,8 @@ export default function TasksPage() {
               onClick={() => setTab(key)}
               className={`flex-1 py-2.5 text-center rounded-lg text-sm font-medium transition-all duration-200 ${
                 tab === key
-                  ? 'bg-primary text-on-primary shadow-sm rounded-lg'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest rounded-lg'
+                  ? 'bg-brand text-on-brand shadow-sm rounded-lg'
+                  : 'text-on-surface-secondary hover:bg-surface-creamest rounded-lg'
               }`}
             >
               {label}
@@ -54,10 +54,10 @@ export default function TasksPage() {
       </section>
 
       {/* Task list */}
-      <section className="px-[--spacing-container] pb-24 space-y-3">
+      <section className="px-5 pb-24 space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+            <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
           </div>
         ) : tasks && tasks.length > 0 ? (
           tasks.map((task) => (
@@ -84,7 +84,7 @@ export default function TasksPage() {
       {/* FAB */}
       <button
         onClick={() => router.push('/hub/tasks/create')}
-        className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
+        className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-brand text-on-brand shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
       >
         <span className="material-symbols-outlined text-[28px]">add</span>
       </button>

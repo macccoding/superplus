@@ -36,32 +36,32 @@ export default function HubHomePage() {
   return (
     <div>
       {/* Welcome section */}
-      <section className="px-[--spacing-container] pt-6 pb-2">
+      <section className="px-5 pt-6 pb-2">
         <h2 className="text-2xl font-bold text-on-surface">{getGreeting()}</h2>
-        <p className="text-sm text-on-surface-variant mt-1">{session?.user?.storeName || 'SuperPlus'}</p>
+        <p className="text-sm text-on-surface-secondary mt-1">{session?.user?.storeName || 'SuperPlus'}</p>
       </section>
 
       {/* Icon grid */}
       <IconGrid items={hubItems} />
 
       {/* More section */}
-      <section className="px-[--spacing-container] mt-2 mb-2">
-        <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wide mb-2">More</h3>
+      <section className="px-5 mt-2 mb-2">
+        <h3 className="text-xs font-bold text-on-surface-secondary uppercase tracking-wide mb-2">More</h3>
       </section>
       <IconGrid items={moreItems} />
 
       {/* Quick info card — only shown when there are tasks */}
       {totalTasks > 0 && (
-        <div className="mx-[--spacing-container] mt-2 bg-primary-fixed/10 border-l-4 border-primary rounded-xl p-4 flex items-start gap-3 shadow-sm">
+        <div className="mx-[--spacing-container] mt-2 bg-brand-light/10 border-l-4 border-primary rounded-[--radius-lg] p-4 flex items-start gap-3 shadow-sm">
           <span
-            className="material-symbols-outlined text-primary"
+            className="material-symbols-outlined text-brand"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >info</span>
           <div>
             <h3 className="text-sm font-bold text-on-surface">
               {totalTasks} task{totalTasks !== 1 ? 's' : ''} need attention
             </h3>
-            <p className="text-xs text-on-surface-variant mt-0.5">
+            <p className="text-xs text-on-surface-secondary mt-0.5">
               {availableTasks?.length || 0} unassigned, {myTasks?.length || 0} assigned to you
             </p>
           </div>
