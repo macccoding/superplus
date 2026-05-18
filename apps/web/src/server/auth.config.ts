@@ -14,13 +14,21 @@ export const authConfig: NextAuthConfig = {
       async authorize(credentials) {
         if (!credentials?.phone || !credentials?.pin) return null;
 
-        const phone = credentials.phone as string;
+        const identifier = credentials.phone as string;
         const pin = credentials.pin as string;
 
-        const user = await db.user.findUnique({
-          where: { phone },
+        // Try lookup by ID first (user-select flow), then by phone (fallback)
+        let user = await db.user.findUnique({
+          where: { id: identifier },
           include: { store: true },
         });
+
+        if (!user) {
+          user = await db.user.findUnique({
+            where: { phone: identifier },
+            include: { store: true },
+          });
+        }
 
         if (!user || !user.isActive) return null;
 
