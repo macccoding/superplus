@@ -10,15 +10,15 @@ interface AppShellProps {
 export function AppShell({ children, navItems, storeName, notificationSlot }: AppShellProps) {
   return (
     <div className="min-h-dvh bg-surface">
-      <header className="sticky top-0 z-40 bg-surface-container-lowest h-[--spacing-nav-height] flex items-center justify-between px-[--spacing-container] border-b-2 border-surface-variant shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary text-[28px]">storefront</span>
-          <h1 className="text-2xl font-black text-primary tracking-tight">SuperPlus</h1>
+      <header className="sticky top-0 z-40 bg-brand h-16 flex items-center justify-between px-5 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="SuperPlus" className="h-7 brightness-0 invert" />
+          <span className="text-on-brand text-lg font-bold tracking-tight">SuperPlus</span>
         </div>
         <div className="flex items-center gap-2">
           {notificationSlot}
           {storeName && (
-            <span className="text-xs font-medium text-on-surface-variant bg-surface-container-high px-4 py-1.5 rounded-full">
+            <span className="text-[11px] font-medium text-on-brand/80 bg-on-brand/15 px-3 py-1 rounded-full">
               {storeName}
             </span>
           )}

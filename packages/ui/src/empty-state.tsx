@@ -1,5 +1,5 @@
 interface EmptyStateProps {
-  icon: string; // Material Symbols icon name
+  icon: string;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -7,13 +7,13 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-[--spacing-container] text-center">
-      <div className="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
-        <span className="material-symbols-outlined text-[40px] text-outline">{icon}</span>
+    <div className="flex flex-col items-center justify-center py-16 px-5 text-center">
+      <div className="w-20 h-20 rounded-3xl bg-surface-cream flex items-center justify-center mb-5">
+        <span className="material-symbols-outlined text-[40px] text-brand-light">{icon}</span>
       </div>
       <h3 className="text-lg font-bold text-on-surface">{title}</h3>
-      {description && <p className="text-sm text-on-surface-variant mt-1 max-w-xs">{description}</p>}
-      {action && <div className="mt-6">{action}</div>}
+      {description && <p className="text-sm text-on-surface-secondary mt-1.5 max-w-xs">{description}</p>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }

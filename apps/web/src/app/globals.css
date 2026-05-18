@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
@@ -6,67 +6,45 @@
 @source "../../../../packages/config/src/**/*.ts";
 
 @theme {
-  --color-primary: #c00029;
-  --color-primary-container: #ffdad6;
-  --color-on-primary: #fff7f6;
-  --color-on-primary-container: #000000;
-  --color-secondary: #446185;
-  --color-secondary-container: #d2e4ff;
-  --color-on-secondary: #f7f9ff;
-  --color-on-secondary-container: #365377;
-  --color-tertiary: #845500;
-  --color-tertiary-container: #f8a826;
-  --color-on-tertiary: #fff7f3;
-  --color-on-tertiary-container: #4e3000;
-  --color-surface: #f8f9fa;
-  --color-surface-container: #ebeef0;
-  --color-surface-container-low: #f1f4f5;
-  --color-surface-container-high: #e5e9eb;
-  --color-surface-container-highest: #dee3e6;
-  --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #2d3335;
-  --color-on-surface-variant: #5a6062;
-  --color-outline: #767c7e;
-  --color-outline-variant: #adb3b5;
-  --color-error: #a73b21;
-  --color-error-container: #fd795a;
-  --color-on-error: #fff7f6;
-  --color-success: #2e7d32;
-  --color-on-success: #ffffff;
-  --color-inverse-surface: #0c0f10;
-  --color-inverse-on-surface: #9b9d9e;
-  --spacing-base: 8px;
-  --spacing-gutter: 12px;
-  --spacing-container: 16px;
-  --spacing-nav-height: 64px;
-  --spacing-fab-size: 56px;
-  --spacing-touch: 48px;
-  --radius-card: 12px;
-  --radius-button: 8px;
-  --radius-input: 6px;
+  --color-brand: #E31837;
+  --color-brand-dark: #B81430;
+  --color-brand-light: #FF4D6A;
+  --color-navy: #1B2A4A;
+  --color-surface: #FFF8F6;
+  --color-surface-white: #FFFFFF;
+  --color-surface-cream: #FFF0EC;
+  --color-on-surface: #1A1A2E;
+  --color-on-surface-secondary: #6B7280;
+  --color-outline: #D1D5DB;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-on-brand: #FFFFFF;
+  --color-on-navy: #FFFFFF;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-full: 9999px;
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-nav: 0 -2px 8px rgba(0,0,0,0.06);
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Sora', system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  background-color: #FFF8F6;
+  color: #1A1A2E;
 }
 
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  display: inline-block;
-  line-height: 1;
-  text-transform: none;
-  letter-spacing: normal;
-  word-wrap: normal;
-  white-space: nowrap;
-  direction: ltr;
+  display: inline-block; line-height: 1; text-transform: none;
+  letter-spacing: normal; word-wrap: normal; white-space: nowrap; direction: ltr;
 }
-
 .material-symbols-outlined.filled {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
-
 .brand-shadow {
-  box-shadow: 0 4px 12px rgba(192, 0, 41, 0.2);
+  box-shadow: 0 4px 12px rgba(227, 24, 55, 0.25);
 }

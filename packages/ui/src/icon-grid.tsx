@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 
 export interface IconGridItem {
   label: string;
-  icon: string; // Material Symbols icon name
+  icon: string;
   href: string;
-  color: string; // bg color class or hex
+  color: string;
   badge?: number;
 }
 
@@ -14,27 +14,22 @@ export function IconGrid({ items }: { items: IconGridItem[] }) {
   const router = useRouter();
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-[--spacing-gutter] p-[--spacing-container]">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-5">
       {items.map((item) => (
         <button
           key={item.href}
           onClick={() => router.push(item.href)}
-          className="relative flex flex-col items-center justify-center gap-0 p-6 bg-surface-container-lowest rounded-xl shadow-sm active:scale-95 transition-all duration-200 min-h-[160px] border-2 border-transparent"
+          className="relative flex flex-col items-center justify-center gap-3 p-5 bg-surface-white rounded-[--radius-lg] shadow-[--shadow-card] active:scale-95 active:shadow-sm transition-all duration-200 min-h-[140px] border-2 border-transparent focus:border-brand"
         >
           <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-white mb-4"
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm"
             style={{ backgroundColor: item.color }}
           >
-            <span
-              className="material-symbols-outlined text-[32px]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              {item.icon}
-            </span>
+            <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
           </div>
-          <span className="text-lg font-bold text-on-surface">{item.label}</span>
+          <span className="text-[15px] font-bold text-on-surface">{item.label}</span>
           {item.badge && item.badge > 0 ? (
-            <span className="absolute top-3 right-3 min-w-6 h-6 bg-primary text-on-primary text-xs font-bold rounded-full flex items-center justify-center px-1">
+            <span className="absolute top-2.5 right-2.5 min-w-5 h-5 bg-brand text-on-brand text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm">
               {item.badge > 99 ? '99+' : item.badge}
             </span>
           ) : null}
