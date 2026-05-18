@@ -43,6 +43,19 @@ export default function ReportsPage() {
               <div className="h-3 bg-surface-container-high rounded-full overflow-hidden">
                 <div className="h-full bg-success rounded-full transition-all" style={{ width: `${tasks.rate}%` }} />
               </div>
+              {tasks.topStaff && tasks.topStaff.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-wide">Top Performers</p>
+                  <div className="space-y-2">
+                    {tasks.topStaff.map((staff: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-on-surface truncate flex-1">{staff.name}</span>
+                        <span className="text-xs font-bold text-success ml-2">{staff.count} done</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : <LoadingSkeleton />}
         </div>
@@ -57,7 +70,7 @@ export default function ReportsPage() {
             <ErrorDisplay />
           ) : checklists ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-on-surface">{checklists.submissionRate}%</p>
                   <p className="text-xs text-on-surface-variant">Days Submitted</p>
@@ -65,6 +78,10 @@ export default function ReportsPage() {
                 <div className="text-center">
                   <p className="text-2xl font-bold text-on-surface">{checklists.totalSubmissions}</p>
                   <p className="text-xs text-on-surface-variant">Total Submissions</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-secondary">{checklists.avgTime ?? '—'}</p>
+                  <p className="text-xs text-on-surface-variant">Avg Time</p>
                 </div>
               </div>
               {checklists.mostSkipped.length > 0 && (
@@ -94,7 +111,7 @@ export default function ReportsPage() {
             <ErrorDisplay />
           ) : stock ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="bg-tertiary-container/10 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-tertiary">{stock.activeAlerts}</p>
                   <p className="text-xs text-on-surface-variant">Expiry Alerts</p>
@@ -102,6 +119,10 @@ export default function ReportsPage() {
                 <div className="bg-error/5 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-error">{stock.stockOutsThisWeek}</p>
                   <p className="text-xs text-on-surface-variant">Stock-Outs (7d)</p>
+                </div>
+                <div className="bg-surface-container-high rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-on-surface">{stock.avgRestockHours != null ? `${stock.avgRestockHours}h` : '—'}</p>
+                  <p className="text-xs text-on-surface-variant">Avg Restock</p>
                 </div>
               </div>
               {stock.topStockOuts.length > 0 && (
@@ -131,7 +152,7 @@ export default function ReportsPage() {
             <ErrorDisplay />
           ) : incidents ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-on-surface">{incidents.thisMonth}</p>
                   <p className="text-xs text-on-surface-variant">This Month</p>
@@ -139,6 +160,10 @@ export default function ReportsPage() {
                 <div className="text-center">
                   <p className="text-2xl font-bold text-outline">{incidents.lastMonth}</p>
                   <p className="text-xs text-on-surface-variant">Last Month</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-on-surface">{incidents.avgResolutionHours != null ? `${incidents.avgResolutionHours}h` : '—'}</p>
+                  <p className="text-xs text-on-surface-variant">Avg Resolution</p>
                 </div>
               </div>
               {incidents.openByCategory.length > 0 && (

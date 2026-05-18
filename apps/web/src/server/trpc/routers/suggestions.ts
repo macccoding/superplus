@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../init';
 import { SuggestionCategory, SuggestionStatus } from '@superplus/db';
+import { createNotification } from '../../notifications';
 
 export const suggestionsRouter = router({
   submit: protectedProcedure
@@ -25,9 +26,16 @@ export const suggestionsRouter = router({
   respond: managerProcedure
     .input(z.object({ id: z.string(), response: z.string().min(1).max(1000), status: z.nativeEnum(SuggestionStatus) }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.suggestion.update({
+      const result = await ctx.db.suggestion.update({
         where: { id: input.id, storeId: ctx.storeId },
         data: { response: input.response, status: input.status, respondedById: ctx.user.id, respondedAt: new Date() },
       });
+      const suggestion = await ctx.db.suggestion.findUnique({ where: { id: input.id } });
+      if (suggestion?.authorId) {
+        try {
+          await createNotification(ctx.db, suggestion.authorId, 'SUGGESTION_RESPONSE', 'Your suggestion got a response', input.response.substring(0, 100), '/hub/suggestions');
+        } catch {}
+      }
+      return result;
     }),
 });

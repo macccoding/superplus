@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, supervisorProcedure, managerProcedure } from '../init';
 import { IncidentCategory, IncidentSeverity, IncidentStatus } from '@superplus/db';
+import { notifyByRole } from '../../notifications';
 
 export const incidentsRouter = router({
   list: supervisorProcedure
@@ -31,13 +32,19 @@ export const incidentsRouter = router({
       photoUrl: z.string().url().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.incident.create({
+      const result = await ctx.db.incident.create({
         data: {
           storeId: ctx.storeId,
           reportedById: ctx.user.id,
           ...input,
         },
       });
+      if (input.severity === 'HIGH' || input.severity === 'CRITICAL') {
+        try {
+          await notifyByRole(ctx.db, ctx.storeId, ['MANAGER', 'OWNER'], 'INCIDENT', `Incident: ${input.title}`, input.description?.substring(0, 100), '/tools/incidents');
+        } catch {}
+      }
+      return result;
     }),
 
   getById: supervisorProcedure

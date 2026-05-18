@@ -16,7 +16,21 @@ export const reportsRouter = router({
 
       const rate = created > 0 ? Math.round((completed / created) * 100) : 0;
 
-      return { created, completed, rate };
+      const topStaffRaw = await ctx.db.task.groupBy({
+        by: ['assignedToId'],
+        where: { storeId: ctx.storeId, status: TaskStatus.DONE, completedAt: { gte: since }, assignedToId: { not: null } },
+        _count: true,
+        orderBy: { _count: { assignedToId: 'desc' } },
+        take: 5,
+      });
+      const topStaffIds = topStaffRaw.map(s => s.assignedToId!);
+      const topStaffUsers = await ctx.db.user.findMany({ where: { id: { in: topStaffIds } }, select: { id: true, fullName: true } });
+      const topStaff = topStaffRaw.map(s => ({
+        name: topStaffUsers.find(u => u.id === s.assignedToId)?.fullName || 'Unknown',
+        count: s._count,
+      }));
+
+      return { created, completed, rate, topStaff };
     }),
 
   checklistCompliance: managerProcedure.query(async ({ ctx }) => {
@@ -47,7 +61,12 @@ export const reportsRouter = router({
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    return { submissionRate, totalSubmissions: submissions.length, mostSkipped };
+    const avgHour = submissions.length > 0
+      ? Math.round(submissions.reduce((sum, s) => sum + new Date(s.completedAt).getHours(), 0) / submissions.length)
+      : null;
+    const avgTime = avgHour !== null ? `${avgHour > 12 ? avgHour - 12 : avgHour}:00 ${avgHour >= 12 ? 'PM' : 'AM'}` : null;
+
+    return { submissionRate, totalSubmissions: submissions.length, mostSkipped, avgTime };
   }),
 
   stockAndExpiry: managerProcedure.query(async ({ ctx }) => {
@@ -66,10 +85,19 @@ export const reportsRouter = router({
       }),
     ]);
 
+    const restocked = await ctx.db.stockOutReport.findMany({
+      where: { storeId: ctx.storeId, status: 'RESTOCKED', resolvedAt: { not: null }, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+      select: { createdAt: true, resolvedAt: true },
+    });
+    const avgRestockHours = restocked.length > 0
+      ? Math.round(restocked.reduce((sum, r) => sum + (r.resolvedAt!.getTime() - r.createdAt.getTime()) / 3600000, 0) / restocked.length)
+      : null;
+
     return {
       activeAlerts,
       stockOutsThisWeek,
       topStockOuts: topStockOuts.map(t => ({ productName: t.productName, count: t._count })),
+      avgRestockHours,
     };
   }),
 
@@ -89,10 +117,19 @@ export const reportsRouter = router({
       ctx.db.incident.count({ where: { storeId: ctx.storeId, createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
     ]);
 
+    const resolved = await ctx.db.incident.findMany({
+      where: { storeId: ctx.storeId, status: { in: ['RESOLVED', 'CLOSED'] }, resolvedAt: { not: null }, createdAt: { gte: thirtyDaysAgo } },
+      select: { createdAt: true, resolvedAt: true },
+    });
+    const avgResolutionHours = resolved.length > 0
+      ? Math.round(resolved.reduce((sum, i) => sum + (i.resolvedAt!.getTime() - i.createdAt.getTime()) / 3600000, 0) / resolved.length)
+      : null;
+
     return {
       openByCategory: openByCategory.map(g => ({ category: g.category, count: g._count })),
       thisMonth,
       lastMonth,
+      avgResolutionHours,
     };
   }),
 });

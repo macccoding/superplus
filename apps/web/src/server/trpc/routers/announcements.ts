@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../init';
 import { AnnouncePriority } from '@superplus/db';
 import { TRPCError } from '@trpc/server';
+import { notifyStoreStaff } from '../../notifications';
 
 export const announcementsRouter = router({
   list: protectedProcedure
@@ -41,7 +42,7 @@ export const announcementsRouter = router({
       if (input.broadcast && ctx.user.role !== 'OWNER') {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Only owners can broadcast to all stores' });
       }
-      return ctx.db.announcement.create({
+      const result = await ctx.db.announcement.create({
         data: {
           storeId: input.broadcast ? null : ctx.storeId,
           authorId: ctx.user.id,
@@ -51,5 +52,14 @@ export const announcementsRouter = router({
           expiresAt: input.expiresAt,
         },
       });
+      if (input.priority === 'CRITICAL' || input.priority === 'IMPORTANT') {
+        const storeId = input.broadcast ? undefined : ctx.storeId;
+        if (storeId) {
+          try {
+            await notifyStoreStaff(ctx.db, storeId, 'ANNOUNCEMENT', input.title, input.body?.substring(0, 100));
+          } catch {}
+        }
+      }
+      return result;
     }),
 });

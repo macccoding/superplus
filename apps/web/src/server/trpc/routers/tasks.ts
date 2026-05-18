@@ -4,6 +4,7 @@ import { TaskStatus, Priority } from '@superplus/db';
 import { hasMinRole } from '@superplus/config';
 import type { Role } from '@superplus/config';
 import { TRPCError } from '@trpc/server';
+import { createNotification } from '../../notifications';
 
 export const tasksRouter = router({
   list: protectedProcedure
@@ -50,13 +51,19 @@ export const tasksRouter = router({
           where: { id: input.assignedToId, storeId: ctx.storeId },
         });
       }
-      return ctx.db.task.create({
+      const result = await ctx.db.task.create({
         data: {
           ...input,
           storeId: ctx.storeId,
           createdById: ctx.user.id,
         },
       });
+      if (result.assignedToId) {
+        try {
+          await createNotification(ctx.db, result.assignedToId, 'TASK_ASSIGNED', `New task: ${result.title}`, `Assigned by ${ctx.user.name}`, `/hub/tasks/${result.id}`);
+        } catch {}
+      }
+      return result;
     }),
 
   pickup: protectedProcedure

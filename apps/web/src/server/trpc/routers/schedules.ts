@@ -4,6 +4,7 @@ import { router, protectedProcedure, managerProcedure } from '../init';
 import { ScheduleStatus } from '@superplus/db';
 import { generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
+import { notifyStoreStaff } from '../../notifications';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -237,7 +238,7 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
   publish: managerProcedure
     .input(z.object({ scheduleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.shiftSchedule.update({
+      const result = await ctx.db.shiftSchedule.update({
         where: { id: input.scheduleId, storeId: ctx.storeId, status: ScheduleStatus.DRAFT },
         data: {
           status: ScheduleStatus.PUBLISHED,
@@ -245,6 +246,20 @@ Return ONLY valid JSON — no markdown, no explanation. Format:
           publishedById: ctx.user.id,
         },
       });
+      try {
+        await notifyStoreStaff(ctx.db, ctx.storeId, 'SCHEDULE_PUBLISHED', 'Schedule published', 'Check your shifts for this week', '/hub/schedule');
+      } catch {}
+      return result;
+    }),
+
+  regenerate: managerProcedure
+    .input(z.object({ scheduleId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.shiftSchedule.findFirstOrThrow({
+        where: { id: input.scheduleId, storeId: ctx.storeId, status: ScheduleStatus.DRAFT },
+      });
+      await ctx.db.shiftSchedule.delete({ where: { id: input.scheduleId } });
+      return { success: true };
     }),
 
   mySchedule: protectedProcedure

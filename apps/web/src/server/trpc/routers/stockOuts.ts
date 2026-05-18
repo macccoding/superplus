@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { StockOutStatus } from '@superplus/db';
+import { notifyByRole } from '../../notifications';
 
 export const stockOutsRouter = router({
   list: protectedProcedure
@@ -29,7 +30,7 @@ export const stockOutsRouter = router({
           where: { id: input.productId, storeId: ctx.storeId },
         });
       }
-      return ctx.db.stockOutReport.create({
+      const result = await ctx.db.stockOutReport.create({
         data: {
           storeId: ctx.storeId,
           reportedById: ctx.user.id,
@@ -38,6 +39,10 @@ export const stockOutsRouter = router({
           location: input.location,
         },
       });
+      try {
+        await notifyByRole(ctx.db, ctx.storeId, ['SUPERVISOR', 'MANAGER', 'OWNER'], 'STOCK_OUT', `Stock-out: ${input.productName}`, input.location || undefined, '/tools/stock-out');
+      } catch {}
+      return result;
     }),
 
   myRecent: protectedProcedure.query(async ({ ctx }) => {
