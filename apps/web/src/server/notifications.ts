@@ -1,7 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { db as _db } from '@superplus/db';
+
+type DB = typeof _db;
 
 export async function createNotification(
-  db: PrismaClient,
+  db: DB,
   userId: string,
   type: string,
   title: string,
@@ -14,7 +16,7 @@ export async function createNotification(
 }
 
 export async function notifyStoreStaff(
-  db: PrismaClient,
+  db: DB,
   storeId: string,
   type: string,
   title: string,
@@ -27,12 +29,12 @@ export async function notifyStoreStaff(
   });
   if (users.length === 0) return;
   await db.notification.createMany({
-    data: users.map(u => ({ userId: u.id, type: type as any, title, body, link })),
+    data: users.map((u: { id: string }) => ({ userId: u.id, type: type as any, title, body, link })),
   });
 }
 
 export async function notifyByRole(
-  db: PrismaClient,
+  db: DB,
   storeId: string,
   roles: string[],
   type: string,
@@ -46,6 +48,6 @@ export async function notifyByRole(
   });
   if (users.length === 0) return;
   await db.notification.createMany({
-    data: users.map(u => ({ userId: u.id, type: type as any, title, body, link })),
+    data: users.map((u: { id: string }) => ({ userId: u.id, type: type as any, title, body, link })),
   });
 }

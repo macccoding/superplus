@@ -52,7 +52,7 @@ export default function HubHomePage() {
 
       {/* Quick info card — only shown when there are tasks */}
       {totalTasks > 0 && (
-        <div className="mx-[--spacing-container] mt-2 bg-brand-light/10 border-l-4 border-primary rounded-[--radius-lg] p-4 flex items-start gap-3 shadow-sm">
+        <div className="mx-5 mt-2 bg-brand-light/10 border-l-4 border-brand rounded-[--radius-lg] p-4 flex items-start gap-3 shadow-sm">
           <span
             className="material-symbols-outlined text-brand"
             style={{ fontVariationSettings: "'FILL' 1" }}
