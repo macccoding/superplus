@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccountSwitchButton } from '@/app/account-switch-button';
 import { PageTransition, Sidebar } from '@superplus/ui';
 
@@ -27,16 +27,52 @@ const adminNav = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('admin-sidebar-collapsed');
+    if (saved === 'true') setSidebarCollapsed(true);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('admin-sidebar-collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    sidebarRef.current?.querySelector<HTMLButtonElement>('[data-sidebar-close]')?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSidebarOpen(false);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [sidebarOpen]);
 
   return (
     <div className="flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onPointerDown={() => setSidebarOpen(false)}
+          onTouchStart={() => setSidebarOpen(false)}
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
       {sidebarOpen && (
         <button
           type="button"
+          onPointerDown={() => setSidebarOpen(false)}
+          onTouchStart={() => setSidebarOpen(false)}
           onClick={() => setSidebarOpen(false)}
           className="fixed right-4 top-4 z-[60] flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-lg active:scale-[0.98] lg:hidden"
         >
@@ -46,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
 
       {/* Sidebar — hidden on mobile, fixed on desktop */}
-      <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:translate-x-0 ${
+      <div ref={sidebarRef} className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none lg:pointer-events-auto'
       }`}>
         <Sidebar
@@ -66,7 +102,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main content */}
       <main className={`flex-1 min-h-dvh bg-surface p-4 transition-[margin] duration-200 lg:p-8 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <div className="mb-4 hidden items-center justify-start lg:flex">
+        <div className="sticky top-0 z-30 -mx-8 mb-4 hidden items-center justify-between gap-2 border-b border-border bg-surface/95 px-8 py-3 backdrop-blur lg:flex">
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => !current)}
