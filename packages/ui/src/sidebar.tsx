@@ -36,6 +36,14 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
         {onNavigate && !collapsed && (
           <button
             type="button"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              onNavigate();
+            }}
+            onTouchStart={(event) => {
+              event.preventDefault();
+              onNavigate();
+            }}
             onClick={onNavigate}
             className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-[--radius-md] bg-white/10 text-sm font-bold text-white lg:hidden"
           >
@@ -71,6 +79,24 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
         })}
       </nav>
       <div className={`${collapsed ? 'p-2' : 'p-3'} border-t border-white/10`}>
+        {onNavigate && !collapsed && (
+          <button
+            type="button"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              onNavigate();
+            }}
+            onTouchStart={(event) => {
+              event.preventDefault();
+              onNavigate();
+            }}
+            onClick={onNavigate}
+            className="mb-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[--radius-md] bg-brand text-sm font-extrabold text-on-brand shadow-sm lg:hidden"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+            Close Admin Menu
+          </button>
+        )}
         {footerSlot && <div className="mb-2">{footerSlot}</div>}
         <Link
           href="/hub"
