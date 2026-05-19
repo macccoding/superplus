@@ -16,10 +16,9 @@ interface SidebarProps {
   onNavigate?: () => void;
   footerSlot?: React.ReactNode;
   collapsed?: boolean;
-  onToggleCollapsed?: () => void;
 }
 
-export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = false, onToggleCollapsed }: SidebarProps) {
+export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = false }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -42,17 +41,6 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
             Close Menu
-          </button>
-        )}
-        {onToggleCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? 'Expand admin menu' : 'Collapse admin menu'}
-            className={`${collapsed ? 'mt-3 w-full' : 'mt-4 w-full'} hidden min-h-10 items-center justify-center gap-2 rounded-[--radius-md] bg-white/5 text-sm font-bold text-white/75 transition-colors hover:bg-white/10 hover:text-white lg:flex`}
-          >
-            <span className="material-symbols-outlined text-[20px]">{collapsed ? 'menu_open' : 'keyboard_double_arrow_left'}</span>
-            {!collapsed && <span>Hide Menu</span>}
           </button>
         )}
       </div>

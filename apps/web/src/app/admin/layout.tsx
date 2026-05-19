@@ -54,7 +54,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           title="SuperPlus"
           onNavigate={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
-          onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
           footerSlot={(
             <AccountSwitchButton
               variant="navy"
@@ -77,16 +76,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {sidebarCollapsed ? 'Show Menu' : 'Hide Menu'}
           </button>
         </div>
-        {/* Mobile header with hamburger */}
-        <div className="flex items-center gap-3 mb-6 lg:hidden">
+        {/* Mobile admin bar */}
+        <div className="sticky top-0 z-30 -mx-4 mb-6 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
           <button
+            type="button"
+            aria-expanded={sidebarOpen}
+            aria-label={sidebarOpen ? 'Close admin menu' : 'Open admin menu'}
             onClick={() => {
               setSidebarCollapsed(false);
-              setSidebarOpen(true);
+              setSidebarOpen((current) => !current);
             }}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream"
+            className="flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <span className="material-symbols-outlined text-[20px]">{sidebarOpen ? 'close' : 'menu'}</span>
+            {sidebarOpen ? 'Close' : 'Menu'}
           </button>
           <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
           <AccountSwitchButton variant="light" />
