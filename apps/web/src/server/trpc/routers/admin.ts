@@ -132,7 +132,7 @@ async function buildAttentionItems(ctx: any, scope: AdminScope, input?: { type?:
       take: 12,
     }),
     ctx.db.logEntry.findMany({
-      where: { ...where, isFlagged: true },
+      where: { ...where, isFlagged: true, resolvedAt: null },
       include: { store: true, author: { select: { fullName: true } } },
       orderBy: { createdAt: 'desc' },
       take: 8,
@@ -359,7 +359,7 @@ async function buildStoreHealth(ctx: any, scope: AdminScope) {
       ctx.db.task.count({ where: { storeId: store.id, dueDate: { lt: now }, status: { in: activeTaskStatuses } } }),
       ctx.db.task.count({ where: { storeId: store.id, status: TaskStatus.NEEDS_HELP } }),
       ctx.db.task.count({ where: { storeId: store.id, status: TaskStatus.IN_REVIEW } }),
-      ctx.db.logEntry.count({ where: { storeId: store.id, isFlagged: true } }),
+      ctx.db.logEntry.count({ where: { storeId: store.id, isFlagged: true, resolvedAt: null } }),
       ctx.db.incident.count({ where: { storeId: store.id, status: { in: [IncidentStatus.OPEN, IncidentStatus.IN_PROGRESS] } } }),
       ctx.db.stockOutReport.count({ where: { storeId: store.id, status: { not: StockOutStatus.RESTOCKED } } }),
       ctx.db.expiryAlert.count({ where: { storeId: store.id, status: ExpiryStatus.ACTIVE } }),
@@ -538,7 +538,7 @@ async function buildSummary(ctx: any, scope: AdminScope, days: 1 | 7 | 30) {
     ctx.db.task.count({ where: { ...where, dueDate: { lt: now }, status: { in: activeTaskStatuses } } }),
     ctx.db.task.count({ where: { ...where, status: TaskStatus.NEEDS_HELP } }),
     ctx.db.task.count({ where: { ...where, status: TaskStatus.IN_REVIEW } }),
-    ctx.db.logEntry.count({ where: { ...where, isFlagged: true } }),
+    ctx.db.logEntry.count({ where: { ...where, isFlagged: true, resolvedAt: null } }),
     ctx.db.incident.count({ where: { ...where, status: { in: [IncidentStatus.OPEN, IncidentStatus.IN_PROGRESS] } } }),
     ctx.db.stockOutReport.count({ where: { ...where, status: { not: StockOutStatus.RESTOCKED } } }),
     ctx.db.expiryAlert.count({ where: { ...where, status: ExpiryStatus.ACTIVE } }),
@@ -915,7 +915,7 @@ async function buildActivityFeed(ctx: any, scope: AdminScope, input?: { type?: s
     ctx.db.stockOutReport.findMany({ where: { ...where, ...(timeFilter ? { createdAt: timeFilter } : {}) }, include: { store: { select: { id: true, name: true } }, reportedBy: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'desc' }, take: 15 }),
     ctx.db.expiryAlert.findMany({ where: { ...where, ...(timeFilter ? { createdAt: timeFilter } : {}) }, include: { store: { select: { id: true, name: true } }, reportedBy: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'desc' }, take: 15 }),
     ctx.db.suggestion.findMany({ where: { ...where, ...(timeFilter ? { createdAt: timeFilter } : {}) }, include: { store: { select: { id: true, name: true } }, author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'desc' }, take: 15 }),
-    ctx.db.logEntry.findMany({ where: { ...where, isFlagged: true, ...(timeFilter ? { createdAt: timeFilter } : {}) }, include: { store: { select: { id: true, name: true } }, author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'desc' }, take: 15 }),
+    ctx.db.logEntry.findMany({ where: { ...where, isFlagged: true, resolvedAt: null, ...(timeFilter ? { createdAt: timeFilter } : {}) }, include: { store: { select: { id: true, name: true } }, author: { select: { id: true, fullName: true } } }, orderBy: { createdAt: 'desc' }, take: 15 }),
   ]);
   const items = [
     ...actionLog.map((log: any) => ({
@@ -1150,6 +1150,19 @@ export const adminRouter = router({
     .mutation(async ({ ctx, input }) => {
       const scope = await resolveAdminScope(ctx as any, input.scope);
       const { source, linkType } = await assertSource(ctx, scope, input.type, input.sourceId);
+      if (linkType === TaskLinkType.LOGBOOK) {
+        const existing = await ctx.db.task.findFirst({
+          where: {
+            storeId: source.storeId,
+            status: { in: activeTaskStatuses },
+            links: { some: { type: TaskLinkType.LOGBOOK, entityId: input.sourceId } },
+          },
+          select: { id: true, title: true },
+        });
+        if (existing) {
+          throw new TRPCError({ code: 'CONFLICT', message: `A follow-up task already exists: ${existing.title}` });
+        }
+      }
       if (input.assignedToId) {
         await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: source.storeId, isActive: true } });
       }
@@ -1165,6 +1178,18 @@ export const adminRouter = router({
           links: { create: [{ type: linkType, entityId: input.sourceId, label: input.type.replaceAll('_', ' ').toLowerCase() }] },
         },
       });
+      if (linkType === TaskLinkType.LOGBOOK) {
+        await ctx.db.logEntryLink.upsert({
+          where: { logEntryId_type_entityId: { logEntryId: input.sourceId, type: TaskLinkType.TASK, entityId: task.id } },
+          create: {
+            logEntryId: input.sourceId,
+            type: TaskLinkType.TASK,
+            entityId: task.id,
+            label: task.title,
+          },
+          update: { label: task.title },
+        });
+      }
       await ctx.db.taskUpdate.create({
         data: {
           taskId: task.id,

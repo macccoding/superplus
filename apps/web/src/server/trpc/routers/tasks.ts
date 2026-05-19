@@ -647,6 +647,19 @@ export const tasksRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const source = await assertSourceInStore(ctx.db, ctx.storeId, input.sourceType, input.sourceId);
+      if (input.sourceType === TaskLinkType.LOGBOOK) {
+        const existing = await ctx.db.task.findFirst({
+          where: {
+            storeId: ctx.storeId,
+            status: { in: activeTaskStatuses },
+            links: { some: { type: TaskLinkType.LOGBOOK, entityId: input.sourceId } },
+          },
+          select: { id: true, title: true },
+        });
+        if (existing) {
+          throw new TRPCError({ code: 'CONFLICT', message: `A follow-up task already exists: ${existing.title}` });
+        }
+      }
       if (input.assignedToId) {
         await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: ctx.storeId } });
       }
@@ -676,6 +689,20 @@ export const tasksRouter = router({
         },
         include: taskInclude,
       });
+      if (input.sourceType === TaskLinkType.LOGBOOK) {
+        try {
+          await ctx.db.logEntryLink.upsert({
+            where: { logEntryId_type_entityId: { logEntryId: input.sourceId, type: TaskLinkType.TASK, entityId: task.id } },
+            create: {
+              logEntryId: input.sourceId,
+              type: TaskLinkType.TASK,
+              entityId: task.id,
+              label: task.title,
+            },
+            update: { label: task.title },
+          });
+        } catch {}
+      }
       await addTaskUpdate(ctx.db, task.id, ctx.user.id, TaskUpdateType.CREATED, `Created from ${sourceLabel(input.sourceType, source, input.sourceLabel)}`, null, task.status);
       if (task.assignedToId) {
         try {

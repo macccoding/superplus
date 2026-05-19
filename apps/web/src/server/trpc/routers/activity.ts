@@ -19,7 +19,7 @@ export const activityRouter = router({
           take: 20,
         }),
         ctx.db.logEntry.findMany({
-          where: { ...storeFilter, isFlagged: true },
+          where: { ...storeFilter, isFlagged: true, resolvedAt: null },
           include: { author: { select: { id: true, fullName: true, role: true } }, store: true },
           orderBy: { createdAt: 'desc' },
           take: 10,

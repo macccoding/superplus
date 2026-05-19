@@ -6,6 +6,7 @@ import { PageTransition, Sidebar } from '@superplus/ui';
 const adminNav = [
   { section: 'Operations', label: 'Dashboard', icon: 'dashboard', href: '/admin' },
   { section: 'Operations', label: 'Activity', icon: 'timeline', href: '/admin/activity' },
+  { section: 'Operations', label: 'Logbook', icon: 'history', href: '/admin/logbook' },
   { section: 'Operations', label: 'Reports', icon: 'analytics', href: '/admin/reports' },
   { section: 'Store Ops', label: 'People', icon: 'group', href: '/admin/people' },
   { section: 'Store Ops', label: 'Tasks', icon: 'assignment', href: '/admin/tasks' },

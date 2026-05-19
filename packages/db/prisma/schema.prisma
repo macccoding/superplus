@@ -98,6 +98,12 @@ enum TaskAttachmentType {
   LINK
 }
 
+enum LogEntryAttachmentType {
+  IMAGE
+  DOCUMENT
+  VIDEO
+}
+
 enum TaskLinkType {
   TASK
   INCIDENT
@@ -195,6 +201,10 @@ model User {
   taskAttachments      TaskAttachment[]
   taskTemplates        TaskTemplate[]      @relation("TaskTemplateCreator")
   logEntries           LogEntry[]
+  resolvedLogEntries   LogEntry[]          @relation("LogEntryResolver")
+  logEntryReads        LogEntryRead[]
+  logEntryComments     LogEntryComment[]
+  logEntryAttachments  LogEntryAttachment[]
   announcements        Announcement[]
   checklistSubmissions ChecklistSubmission[]
   expiryAlerts         ExpiryAlert[]    @relation("ExpiryReporter")
@@ -537,19 +547,83 @@ model TaskTemplateItem {
 }
 
 model LogEntry {
-  id        String      @id @default(cuid())
-  storeId   String
-  authorId  String
-  date      DateTime    @db.Date
-  body      String
-  category  LogCategory @default(GENERAL)
-  isFlagged Boolean     @default(false)
-  createdAt DateTime    @default(now())
+  id           String      @id @default(cuid())
+  storeId      String
+  authorId     String
+  date         DateTime    @db.Date
+  body         String
+  category     LogCategory @default(GENERAL)
+  isFlagged    Boolean     @default(false)
+  resolvedAt   DateTime?
+  resolvedById String?
+  createdAt    DateTime    @default(now())
 
-  store  Store @relation(fields: [storeId], references: [id])
-  author User  @relation(fields: [authorId], references: [id])
+  store      Store          @relation(fields: [storeId], references: [id])
+  author     User           @relation(fields: [authorId], references: [id])
+  resolvedBy User?          @relation("LogEntryResolver", fields: [resolvedById], references: [id])
+  reads      LogEntryRead[]
+  comments   LogEntryComment[]
+  attachments LogEntryAttachment[]
+  links      LogEntryLink[]
 
   @@index([storeId, date])
+  @@index([storeId, isFlagged, resolvedAt])
+}
+
+model LogEntryRead {
+  id         String   @id @default(cuid())
+  logEntryId String
+  userId     String
+  readAt     DateTime @default(now())
+
+  logEntry LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([logEntryId, userId])
+  @@index([userId, readAt])
+}
+
+model LogEntryComment {
+  id         String   @id @default(cuid())
+  logEntryId String
+  authorId   String
+  body       String
+  createdAt  DateTime @default(now())
+
+  logEntry LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+
+  @@index([logEntryId, createdAt])
+}
+
+model LogEntryAttachment {
+  id           String                 @id @default(cuid())
+  logEntryId   String
+  uploadedById String
+  type         LogEntryAttachmentType @default(IMAGE)
+  url          String
+  label        String?
+  createdAt    DateTime               @default(now())
+
+  logEntry   LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([logEntryId, createdAt])
+}
+
+model LogEntryLink {
+  id         String       @id @default(cuid())
+  logEntryId String
+  type       TaskLinkType
+  entityId   String
+  label      String?
+  createdAt  DateTime     @default(now())
+
+  logEntry LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([logEntryId, type, entityId])
+  @@index([logEntryId])
+  @@index([type, entityId])
 }
 
 model Announcement {
