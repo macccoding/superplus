@@ -24,7 +24,7 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
   return (
     <aside
       aria-label="Admin navigation"
-      className={`${collapsed ? 'w-20' : 'w-[min(88vw,22rem)] lg:w-64'} fixed left-0 top-0 flex h-dvh flex-col overflow-hidden overscroll-contain bg-navy text-on-navy transition-[width] duration-200`}
+      className={`${collapsed ? 'w-20' : 'w-[min(88vw,22rem)] lg:w-64'} pointer-events-auto relative z-10 flex h-dvh flex-col overflow-hidden overscroll-contain bg-navy text-on-navy touch-manipulation transition-[width] duration-200`}
     >
       <div className={`${collapsed ? 'p-3' : 'p-5'} border-b border-white/10`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
