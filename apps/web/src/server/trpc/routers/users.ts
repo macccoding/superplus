@@ -13,7 +13,12 @@ export const usersRouter = router({
   loginList: publicProcedure.query(async ({ ctx }) => {
     const users = await ctx.db.user.findMany({
       where: { isActive: true },
-      include: { store: { select: { name: true } } },
+      select: {
+        id: true,
+        fullName: true,
+        role: true,
+        store: { select: { name: true } },
+      },
       orderBy: { fullName: 'asc' },
     });
     return users.map(u => ({

@@ -42,7 +42,14 @@ export const authConfig: NextAuthConfig = {
             OR: [{ id: identifier }, { phone: identifier }],
             isActive: true,
           },
-          include: { store: true },
+          select: {
+            id: true,
+            fullName: true,
+            pinHash: true,
+            role: true,
+            storeId: true,
+            store: { select: { name: true } },
+          },
         });
 
         if (!user || !user.store) return null;
