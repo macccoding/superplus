@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AccountSwitchButton } from '@/app/account-switch-button';
 import { PageTransition, Sidebar } from '@superplus/ui';
 
 const adminNav = [
@@ -37,7 +38,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <Sidebar items={adminNav} title="SuperPlus" onNavigate={() => setSidebarOpen(false)} />
+        <Sidebar
+          items={adminNav}
+          title="SuperPlus"
+          onNavigate={() => setSidebarOpen(false)}
+          footerSlot={<AccountSwitchButton variant="navy" className="w-full justify-start px-4 text-sm" />}
+        />
       </div>
 
       {/* Main content */}
@@ -51,6 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="material-symbols-outlined">menu</span>
           </button>
           <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
+          <AccountSwitchButton variant="light" />
           <a href="/hub" className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream">
             <span className="material-symbols-outlined text-on-surface-secondary">home</span>
           </a>

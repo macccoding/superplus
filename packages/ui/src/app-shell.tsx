@@ -6,9 +6,10 @@ interface AppShellProps {
   navItems: NavItem[];
   storeName?: string;
   notificationSlot?: React.ReactNode;
+  accountSlot?: React.ReactNode;
 }
 
-export function AppShell({ children, navItems, storeName, notificationSlot }: AppShellProps) {
+export function AppShell({ children, navItems, storeName, notificationSlot, accountSlot }: AppShellProps) {
   return (
     <div className="min-h-dvh bg-surface">
       <header className="sticky top-0 z-40 bg-brand h-16 flex items-center justify-between px-5 shadow-md">
@@ -23,6 +24,7 @@ export function AppShell({ children, navItems, storeName, notificationSlot }: Ap
               {storeName}
             </span>
           )}
+          {accountSlot}
         </div>
       </header>
       <main className="pb-24">

@@ -22,7 +22,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
             key={item.href}
             href={item.href}
             aria-label={item.label}
-            className={`relative flex min-h-12 w-[72px] flex-col items-center justify-center rounded-2xl py-1.5 transition-colors duration-150 active:scale-[0.98] ${
+            className={`relative flex min-h-12 min-w-0 flex-1 max-w-[72px] flex-col items-center justify-center rounded-2xl py-1.5 transition-colors duration-150 active:scale-[0.98] ${
               active
                 ? 'bg-brand text-on-brand shadow-sm'
                 : 'text-on-surface-secondary'

@@ -10,7 +10,7 @@ export interface SidebarItem {
   section?: string;
 }
 
-export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; title: string; onNavigate?: () => void }) {
+export function Sidebar({ items, title, onNavigate, footerSlot }: { items: SidebarItem[]; title: string; onNavigate?: () => void; footerSlot?: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
@@ -48,6 +48,7 @@ export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; ti
         })}
       </nav>
       <div className="p-3 border-t border-white/10">
+        {footerSlot && <div className="mb-2">{footerSlot}</div>}
         <Link href="/hub" onClick={() => onNavigate?.()} className="flex items-center gap-2 text-sm text-white/70 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-2.5 rounded-[--radius-md] transition-all">
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Back to Hub
