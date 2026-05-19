@@ -34,6 +34,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
+      {sidebarOpen && (
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed right-4 top-4 z-[60] flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-lg active:scale-[0.98] lg:hidden"
+        >
+          <span className="material-symbols-outlined text-[20px]">close</span>
+          Close
+        </button>
+      )}
 
       {/* Sidebar — hidden on mobile, fixed on desktop */}
       <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:translate-x-0 ${
@@ -57,6 +67,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main content */}
       <main className={`flex-1 min-h-dvh bg-surface p-4 transition-[margin] duration-200 lg:p-8 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+        <div className="mb-4 hidden items-center justify-start lg:flex">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            className="flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-surface-cream px-4 text-sm font-extrabold text-on-surface-secondary active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-[20px]">{sidebarCollapsed ? 'menu_open' : 'keyboard_double_arrow_left'}</span>
+            {sidebarCollapsed ? 'Show Menu' : 'Hide Menu'}
+          </button>
+        </div>
         {/* Mobile header with hamburger */}
         <div className="flex items-center gap-3 mb-6 lg:hidden">
           <button
