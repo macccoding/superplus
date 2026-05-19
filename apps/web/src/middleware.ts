@@ -28,6 +28,13 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (pathname.startsWith('/admin')) {
+    const role = req.auth.user?.role;
+    if (role !== 'OWNER' && role !== 'MANAGER') {
+      return new NextResponse('Access denied', { status: 403 });
+    }
+  }
+
   const host = req.headers.get('host') || '';
   const subdomain = host.split('.')[0];
 

@@ -23,6 +23,9 @@ interface NotificationBellProps {
 const typeIcons: Record<string, string> = {
   TASK_ASSIGNED: 'assignment_ind',
   TASK_UPDATED: 'assignment',
+  THREAD_MENTION: 'alternate_email',
+  THREAD_REPLY: 'forum',
+  THREAD_URGENT: 'priority_high',
   ANNOUNCEMENT: 'campaign',
   SCHEDULE_PUBLISHED: 'calendar_month',
   STOCK_OUT: 'remove_shopping_cart',

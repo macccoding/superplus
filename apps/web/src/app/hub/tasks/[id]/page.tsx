@@ -77,6 +77,7 @@ function formatDue(dueDate?: Date | string | null) {
 
 function sourceHref(type: string, entityId: string) {
   const hrefs: Record<string, string> = {
+    TASK: `/hub/tasks/${entityId}`,
     INCIDENT: `/tools/incidents/${entityId}`,
     LOGBOOK: '/hub/logbook',
     CHECKLIST: '/tools/closing-checklist',

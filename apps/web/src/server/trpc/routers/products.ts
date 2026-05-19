@@ -4,6 +4,8 @@ import { router, protectedProcedure, supervisorProcedure, managerProcedure } fro
 import { StockStatus } from '@superplus/db';
 import { hasMinRole } from '@superplus/config';
 import type { Role } from '@superplus/config';
+import { adminStoreWhere, resolveAdminScope, requireSingleAdminStore } from './admin-scope';
+import { logAdminAction } from './admin-audit';
 
 export const productsRouter = router({
   search: protectedProcedure
@@ -11,11 +13,13 @@ export const productsRouter = router({
       query: z.string().optional(),
       categoryId: z.string().optional(),
       stockStatus: z.nativeEnum(StockStatus).optional(),
+      scope: z.string().optional(),
       cursor: z.string().optional(),
       limit: z.number().min(1).max(50).default(20),
     }))
     .query(async ({ ctx, input }) => {
-      const where: any = { storeId: ctx.storeId, isActive: true };
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const where: any = { ...adminStoreWhere(scope), isActive: true };
 
       if (input.categoryId) where.categoryId = input.categoryId;
       if (input.stockStatus) where.stockStatus = input.stockStatus;
@@ -47,10 +51,11 @@ export const productsRouter = router({
     }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string(), scope: z.string().optional() }))
     .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
       const product = await ctx.db.product.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: { ...adminStoreWhere(scope), id: input.id },
         include: { category: true },
       });
 
@@ -82,11 +87,26 @@ export const productsRouter = router({
       location: z.string().max(100).optional(),
       supplier: z.string().max(100).optional(),
       stockStatus: z.nativeEnum(StockStatus).default(StockStatus.IN_STOCK),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.product.create({
-        data: { ...input, storeId: ctx.storeId },
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const storeId = requireSingleAdminStore(scope);
+      const { scope: _scope, ...data } = input;
+      if (data.categoryId) {
+        await ctx.db.category.findFirstOrThrow({ where: { id: data.categoryId, storeId } });
+      }
+      const product = await ctx.db.product.create({
+        data: { ...data, storeId },
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'PRODUCT_CREATED',
+        storeId,
+        sourceType: 'PRODUCT',
+        sourceId: product.id,
+        note: product.name,
+      });
+      return product;
     }),
 
   update: supervisorProcedure
@@ -104,13 +124,24 @@ export const productsRouter = router({
       supplier: z.string().max(100).nullable().optional(),
       stockStatus: z.nativeEnum(StockStatus).optional(),
       isActive: z.boolean().optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
-      return ctx.db.product.update({
-        where: { id, storeId: ctx.storeId },
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const { id, scope: _scope, ...data } = input;
+      const current = await ctx.db.product.findFirstOrThrow({ where: { ...adminStoreWhere(scope), id } });
+      const product = await ctx.db.product.update({
+        where: { id },
         data,
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'PRODUCT_UPDATED',
+        storeId: current.storeId,
+        sourceType: 'PRODUCT',
+        sourceId: product.id,
+        note: product.name,
+      });
+      return product;
     }),
 
   importBatch: managerProcedure
@@ -126,8 +157,11 @@ export const productsRouter = router({
         location: z.string().optional(),
         supplier: z.string().optional(),
       })).max(500),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const storeId = requireSingleAdminStore(scope);
       let imported = 0;
       const errors: { row: number; reason: string }[] = [];
 
@@ -137,11 +171,11 @@ export const productsRouter = router({
         if (p.categoryName && !categoryMap.has(p.categoryName)) {
           try {
             let cat = await ctx.db.category.findUnique({
-              where: { storeId_name: { storeId: ctx.storeId, name: p.categoryName } },
+              where: { storeId_name: { storeId, name: p.categoryName } },
             });
             if (!cat) {
               cat = await ctx.db.category.create({
-                data: { storeId: ctx.storeId, name: p.categoryName, defaultMarkupPercent: 0 },
+                data: { storeId, name: p.categoryName, defaultMarkupPercent: 0 },
               });
             }
             categoryMap.set(p.categoryName, cat.id);
@@ -159,7 +193,7 @@ export const productsRouter = router({
           const markupPercent = p.markupPercent ?? (p.costPrice > 0 ? ((p.retailPrice - p.costPrice) / p.costPrice) * 100 : 0);
           await ctx.db.product.create({
             data: {
-              storeId: ctx.storeId,
+              storeId,
               name: p.name,
               barcode: p.barcode || null,
               sku: p.sku || null,
@@ -175,6 +209,16 @@ export const productsRouter = router({
         } catch (err: any) {
           errors.push({ row: i + 1, reason: err.message?.includes('Unique') ? 'Duplicate barcode' : err.message || 'Unknown error' });
         }
+      }
+
+      if (imported) {
+        await logAdminAction(ctx.db, ctx.user.id, scope, {
+          action: 'PRODUCTS_IMPORTED',
+          storeId,
+          sourceType: 'PRODUCT',
+          note: `Imported ${imported} product${imported === 1 ? '' : 's'}`,
+          metadata: { imported, errors: errors.length },
+        });
       }
 
       return { imported, errors };

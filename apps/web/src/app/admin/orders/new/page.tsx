@@ -1,12 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 
 export default function NewOrderPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span></div>}>
+      <NewOrderContent />
+    </Suspense>
+  );
+}
+
+function NewOrderContent() {
   const router = useRouter();
-  const { data: suppliers } = trpc.suppliers.list.useQuery();
+  const searchParams = useSearchParams();
+  const { data: stores } = trpc.stores.list.useQuery();
+  const storeOptions = (stores ?? []).filter((store: any) => store.isActive !== false);
+  const [scope, setScope] = useState(searchParams.get('scope') || storeOptions[0]?.id || '');
+  const selectedScope = scope || storeOptions[0]?.id;
+  const { data: suppliers } = trpc.suppliers.list.useQuery({ scope: selectedScope }, { enabled: Boolean(selectedScope) });
   const [supplierId, setSupplierId] = useState('');
   const [items, setItems] = useState([{ productName: '', quantity: '', unitCost: '' }]);
   const [notes, setNotes] = useState('');
@@ -26,6 +39,15 @@ export default function NewOrderPage() {
       <h1 className="text-3xl font-extrabold text-on-surface mb-8">New Purchase Order</h1>
 
       <div className="bg-surface-white rounded-[--radius-lg] p-6 shadow-sm max-w-2xl space-y-5">
+        {storeOptions.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-on-surface mb-2">Store *</label>
+            <select value={selectedScope ?? ''} onChange={(e) => { setScope(e.target.value); setSupplierId(''); }} className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface">
+              <option value="">Select store...</option>
+              {storeOptions.map((store: any) => <option key={store.id} value={store.id}>{store.name}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-on-surface mb-2">Supplier *</label>
           <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface">
@@ -59,8 +81,8 @@ export default function NewOrderPage() {
         </div>
 
         <button
-          onClick={() => create.mutate({ supplierId, items: items.filter(i => i.productName).map(i => ({ productName: i.productName, quantity: parseInt(i.quantity) || 1, unitCost: parseFloat(i.unitCost) || 0 })), notes: notes || undefined })}
-          disabled={!supplierId || !items.some(i => i.productName) || create.isPending}
+          onClick={() => create.mutate({ scope: selectedScope, supplierId, items: items.filter(i => i.productName).map(i => ({ productName: i.productName, quantity: parseInt(i.quantity) || 1, unitCost: parseFloat(i.unitCost) || 0 })), notes: notes || undefined })}
+          disabled={!selectedScope || !supplierId || !items.some(i => i.productName) || create.isPending}
           className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md"
         >
           {create.isPending ? <><span className="material-symbols-outlined animate-spin">progress_activity</span>Creating...</> : <><span className="material-symbols-outlined">receipt_long</span>Create Purchase Order</>}

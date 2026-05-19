@@ -1,19 +1,109 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { trpc } from '@/lib/trpc-client';
 
 export default function ReportsPage() {
-  const { data: tasks, isError: tasksError } = trpc.reports.taskPerformance.useQuery({ days: 30 });
-  const { data: checklists, isError: checklistsError } = trpc.reports.checklistCompliance.useQuery();
-  const { data: stock, isError: stockError } = trpc.reports.stockAndExpiry.useQuery();
-  const { data: incidents, isError: incidentsError } = trpc.reports.incidents.useQuery();
+  const [scope, setScope] = useState('ALL');
+  const { data: stores } = trpc.stores.list.useQuery();
+  const activeStores = stores ?? [];
+
+  useEffect(() => {
+    if (scope !== 'ALL' || activeStores.length !== 1) return;
+    setScope(activeStores[0].id);
+  }, [activeStores, scope]);
+
+  const queryInput = { scope };
+  const { data: tasks, isError: tasksError } = trpc.reports.taskPerformance.useQuery({ days: 30, scope });
+  const { data: checklists, isError: checklistsError } = trpc.reports.checklistCompliance.useQuery(queryInput);
+  const { data: stock, isError: stockError } = trpc.reports.stockAndExpiry.useQuery(queryInput);
+  const { data: incidents, isError: incidentsError } = trpc.reports.incidents.useQuery(queryInput);
+  const { data: threadAnalytics } = trpc.threads.analyticsSummary.useQuery({ days: 30, storeId: scope });
+  const scoped = scope === 'ALL' ? '' : `scope=${encodeURIComponent(scope)}`;
+  const recommendationCards = [
+    ...(tasks?.recommendations ?? []),
+    ...(checklists?.recommendations ?? []),
+    ...(stock?.recommendations ?? []),
+    ...(incidents?.recommendations ?? []),
+  ].slice(0, 6);
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-on-surface">Reports</h1>
-        <p className="text-on-surface-secondary mt-1">Last 30 days overview</p>
+      <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold text-on-surface">Reports</h1>
+          <p className="text-on-surface-secondary mt-1">Last 30 days overview</p>
+        </div>
+        <label className="block md:w-72">
+          <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-on-surface-secondary">Store Scope</span>
+          <select value={scope} onChange={(event) => setScope(event.target.value)} className="h-12 w-full rounded-[--radius-lg] border-2 border-outline bg-surface px-4 font-bold text-on-surface focus:border-primary focus:outline-none">
+            {activeStores.length !== 1 && <option value="ALL">All Stores</option>}
+            {activeStores.map((store: any) => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
+        </label>
       </div>
+
+      {recommendationCards.length > 0 && (
+        <div className="mb-6 rounded-[--radius-lg] bg-surface-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-warning">tips_and_updates</span>
+            <h2 className="font-bold text-on-surface text-lg">Recommended Actions</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {recommendationCards.map((item: any, index: number) => {
+              const separator = item.href.includes('?') ? '&' : '?';
+              const href = scoped ? `${item.href}${separator}${scoped}` : item.href;
+              return (
+                <Link key={`${item.type}-${index}`} href={href} className="rounded-[--radius-lg] bg-surface p-4 active:scale-[0.99]">
+                  <p className="text-sm font-extrabold text-on-surface">{item.title}</p>
+                  <p className="mt-2 text-xs font-bold text-navy">Open matching work</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {threadAnalytics && (
+        <div className="mb-6 rounded-[--radius-lg] bg-surface-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-navy">forum</span>
+            <h2 className="font-bold text-on-surface text-lg">Thread Operations</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="rounded-[--radius-lg] bg-surface p-3 text-center">
+              <p className="text-2xl font-bold text-on-surface">{threadAnalytics.totalThreads}</p>
+              <p className="text-xs text-on-surface-secondary">Threads</p>
+            </div>
+            <div className="rounded-[--radius-lg] bg-error/5 p-3 text-center">
+              <p className="text-2xl font-bold text-error">{threadAnalytics.unacknowledgedUrgentCount}</p>
+              <p className="text-xs text-on-surface-secondary">Urgent not acked</p>
+            </div>
+            <div className="rounded-[--radius-lg] bg-warning/10 p-3 text-center">
+              <p className="text-2xl font-bold text-warning">{threadAnalytics.noReplyCount}</p>
+              <p className="text-xs text-on-surface-secondary">No reply</p>
+            </div>
+            <div className="rounded-[--radius-lg] bg-navy/10 p-3 text-center">
+              <p className="text-2xl font-bold text-navy">{threadAnalytics.averageFirstResponseMinutes != null ? `${threadAnalytics.averageFirstResponseMinutes}m` : '-'}</p>
+              <p className="text-xs text-on-surface-secondary">Avg reply</p>
+            </div>
+            <div className="rounded-[--radius-lg] bg-success/10 p-3 text-center">
+              <p className="text-2xl font-bold text-success">{threadAnalytics.taskConversionRate}%</p>
+              <p className="text-xs text-on-surface-secondary">Made tasks</p>
+            </div>
+          </div>
+          {threadAnalytics.recurringIssueKeywords.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {threadAnalytics.recurringIssueKeywords.map((item: any) => (
+                <span key={item.label} className="rounded-full bg-surface px-3 py-1 text-xs font-bold text-on-surface-secondary">
+                  {item.label}: {item.count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Task Performance */}
@@ -139,7 +229,7 @@ export default function ReportsPage() {
           ) : stock ? (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-warning/20/10 rounded-[--radius-lg] p-4 text-center">
+                <div className="bg-warning/10 rounded-[--radius-lg] p-4 text-center">
                   <p className="text-2xl font-bold text-warning">{stock.activeAlerts}</p>
                   <p className="text-xs text-on-surface-secondary">Expiry Alerts</p>
                 </div>

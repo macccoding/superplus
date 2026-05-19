@@ -1,33 +1,40 @@
 import { router, managerProcedure } from '../init';
 import { z } from 'zod';
 import { TaskStatus, ChecklistItemStatus, ExpiryStatus, IncidentStatus } from '@superplus/db';
+import { adminStoreWhere, resolveAdminScope } from './admin-scope';
 
 export const reportsRouter = router({
   taskPerformance: managerProcedure
-    .input(z.object({ days: z.number().min(1).max(365).default(30) }))
+    .input(z.object({ days: z.number().min(1).max(365).default(30), scope: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const since = new Date();
-      since.setDate(since.getDate() - input.days);
+      since.setDate(since.getDate() - (input?.days ?? 30));
+      const previousSince = new Date(since);
+      previousSince.setDate(previousSince.getDate() - (input?.days ?? 30));
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
+      const whereScope = adminStoreWhere(scope);
 
       const now = new Date();
-      const [created, completed, needsHelp, overdue] = await Promise.all([
-        ctx.db.task.count({ where: { storeId: ctx.storeId, createdAt: { gte: since } } }),
-        ctx.db.task.count({ where: { storeId: ctx.storeId, status: TaskStatus.DONE, completedAt: { gte: since } } }),
-        ctx.db.task.count({ where: { storeId: ctx.storeId, status: TaskStatus.NEEDS_HELP } }),
+      const [created, completed, needsHelp, overdue, previousCreated, previousCompleted] = await Promise.all([
+        ctx.db.task.count({ where: { ...whereScope, createdAt: { gte: since } } }),
+        ctx.db.task.count({ where: { ...whereScope, status: TaskStatus.DONE, completedAt: { gte: since } } }),
+        ctx.db.task.count({ where: { ...whereScope, status: TaskStatus.NEEDS_HELP } }),
         ctx.db.task.count({
           where: {
-            storeId: ctx.storeId,
+            ...whereScope,
             dueDate: { lt: now },
             status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] },
           },
         }),
+        ctx.db.task.count({ where: { ...whereScope, createdAt: { gte: previousSince, lt: since } } }),
+        ctx.db.task.count({ where: { ...whereScope, status: TaskStatus.DONE, completedAt: { gte: previousSince, lt: since } } }),
       ]);
 
       const rate = created > 0 ? Math.round((completed / created) * 100) : 0;
 
       const topStaffRaw = await ctx.db.task.groupBy({
         by: ['assignedToId'],
-        where: { storeId: ctx.storeId, status: TaskStatus.DONE, completedAt: { gte: since }, assignedToId: { not: null } },
+        where: { ...whereScope, status: TaskStatus.DONE, completedAt: { gte: since }, assignedToId: { not: null } },
         _count: true,
         orderBy: { _count: { assignedToId: 'desc' } },
         take: 5,
@@ -40,7 +47,7 @@ export const reportsRouter = router({
       }));
 
       const completedTasks = await ctx.db.task.findMany({
-        where: { storeId: ctx.storeId, status: TaskStatus.DONE, completedAt: { gte: since } },
+        where: { ...whereScope, status: TaskStatus.DONE, completedAt: { gte: since } },
         select: { createdAt: true, completedAt: true },
         take: 200,
       });
@@ -51,7 +58,7 @@ export const reportsRouter = router({
       const bottlenecksRaw = await ctx.db.task.groupBy({
         by: ['workArea'],
         where: {
-          storeId: ctx.storeId,
+          ...whereScope,
           status: { in: [TaskStatus.OPEN, TaskStatus.IN_PROGRESS, TaskStatus.NEEDS_HELP, TaskStatus.IN_REVIEW] },
           workArea: { not: null },
         },
@@ -61,15 +68,52 @@ export const reportsRouter = router({
       });
       const bottlenecks = bottlenecksRaw.map(item => ({ workArea: item.workArea || 'Unknown', count: item._count }));
 
-      return { created, completed, rate, topStaff, needsHelp, overdue, avgCompletionHours, bottlenecks };
+      const coachingRaw = await ctx.db.task.groupBy({
+        by: ['assignedToId'],
+        where: {
+          ...whereScope,
+          assignedToId: { not: null },
+          OR: [
+            { status: TaskStatus.NEEDS_HELP },
+            { dueDate: { lt: now }, status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] } },
+          ],
+        },
+        _count: true,
+        orderBy: { _count: { assignedToId: 'desc' } },
+        take: 5,
+      });
+      const coachingUsers = await ctx.db.user.findMany({ where: { id: { in: coachingRaw.map((item) => item.assignedToId!) } }, select: { id: true, fullName: true, storeId: true } });
+      const coaching = coachingRaw.map((item) => {
+        const user = coachingUsers.find((u) => u.id === item.assignedToId);
+        return { userId: item.assignedToId, name: user?.fullName ?? 'Unknown', storeId: user?.storeId, count: item._count };
+      });
+
+      return {
+        created,
+        completed,
+        rate,
+        topStaff,
+        needsHelp,
+        overdue,
+        avgCompletionHours,
+        bottlenecks,
+        delta: { created: created - previousCreated, completed: completed - previousCompleted },
+        recommendations: [
+          ...bottlenecks.slice(0, 2).map((item) => ({ type: 'WORK_AREA', title: `${item.workArea} has ${item.count} open tasks`, href: `/admin/tasks?search=${encodeURIComponent(item.workArea)}` })),
+          ...coaching.slice(0, 2).map((item) => ({ type: 'COACHING', title: `${item.name} needs manager attention`, href: `/admin/tasks?search=${encodeURIComponent(item.name)}` })),
+        ],
+        coaching,
+      };
     }),
 
-  checklistCompliance: managerProcedure.query(async ({ ctx }) => {
+  checklistCompliance: managerProcedure.input(z.object({ scope: z.string().optional() }).optional()).query(async ({ ctx, input }) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const scope = await resolveAdminScope(ctx as any, input?.scope);
+    const whereScope = adminStoreWhere(scope);
 
     const submissions = await ctx.db.checklistSubmission.findMany({
-      where: { storeId: ctx.storeId, date: { gte: thirtyDaysAgo } },
+      where: { ...whereScope, date: { gte: thirtyDaysAgo } },
       include: { items: { include: { templateItem: true } } },
       take: 100,
     });
@@ -97,19 +141,31 @@ export const reportsRouter = router({
       : null;
     const avgTime = avgHour !== null ? `${avgHour > 12 ? avgHour - 12 : avgHour}:00 ${avgHour >= 12 ? 'PM' : 'AM'}` : null;
 
-    return { submissionRate, totalSubmissions: submissions.length, mostSkipped, avgTime };
+    return {
+      submissionRate,
+      totalSubmissions: submissions.length,
+      mostSkipped,
+      avgTime,
+      recommendations: mostSkipped.slice(0, 3).map((item) => ({
+        type: 'CHECKLIST',
+        title: `${item.label} skipped ${item.count} time${item.count === 1 ? '' : 's'}`,
+        href: '/admin/checklists/submissions',
+      })),
+    };
   }),
 
-  stockAndExpiry: managerProcedure.query(async ({ ctx }) => {
+  stockAndExpiry: managerProcedure.input(z.object({ scope: z.string().optional() }).optional()).query(async ({ ctx, input }) => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
+    const scope = await resolveAdminScope(ctx as any, input?.scope);
+    const whereScope = adminStoreWhere(scope);
 
     const [activeAlerts, stockOutsThisWeek, topStockOuts] = await Promise.all([
-      ctx.db.expiryAlert.count({ where: { storeId: ctx.storeId, status: ExpiryStatus.ACTIVE } }),
-      ctx.db.stockOutReport.count({ where: { storeId: ctx.storeId, createdAt: { gte: weekAgo } } }),
+      ctx.db.expiryAlert.count({ where: { ...whereScope, status: ExpiryStatus.ACTIVE } }),
+      ctx.db.stockOutReport.count({ where: { ...whereScope, createdAt: { gte: weekAgo } } }),
       ctx.db.stockOutReport.groupBy({
         by: ['productName'],
-        where: { storeId: ctx.storeId, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+        where: { ...whereScope, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
         _count: true,
         orderBy: { _count: { productName: 'desc' } },
         take: 5,
@@ -117,7 +173,7 @@ export const reportsRouter = router({
     ]);
 
     const restocked = await ctx.db.stockOutReport.findMany({
-      where: { storeId: ctx.storeId, status: 'RESTOCKED', resolvedAt: { not: null }, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+      where: { ...whereScope, status: 'RESTOCKED', resolvedAt: { not: null }, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
       select: { createdAt: true, resolvedAt: true },
     });
     const avgRestockHours = restocked.length > 0
@@ -129,27 +185,34 @@ export const reportsRouter = router({
       stockOutsThisWeek,
       topStockOuts: topStockOuts.map(t => ({ productName: t.productName, count: t._count })),
       avgRestockHours,
+      recommendations: topStockOuts.slice(0, 3).map((item) => ({
+        type: 'STOCK_OUT',
+        title: `${item.productName} has ${item._count} stock-out report${item._count === 1 ? '' : 's'}`,
+        href: `/admin/tasks?search=${encodeURIComponent(item.productName)}`,
+      })),
     };
   }),
 
-  incidents: managerProcedure.query(async ({ ctx }) => {
+  incidents: managerProcedure.input(z.object({ scope: z.string().optional() }).optional()).query(async ({ ctx, input }) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    const scope = await resolveAdminScope(ctx as any, input?.scope);
+    const whereScope = adminStoreWhere(scope);
 
     const [openByCategory, thisMonth, lastMonth] = await Promise.all([
       ctx.db.incident.groupBy({
         by: ['category'],
-        where: { storeId: ctx.storeId, status: { in: [IncidentStatus.OPEN, IncidentStatus.IN_PROGRESS] } },
+        where: { ...whereScope, status: { in: [IncidentStatus.OPEN, IncidentStatus.IN_PROGRESS] } },
         _count: true,
       }),
-      ctx.db.incident.count({ where: { storeId: ctx.storeId, createdAt: { gte: thirtyDaysAgo } } }),
-      ctx.db.incident.count({ where: { storeId: ctx.storeId, createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
+      ctx.db.incident.count({ where: { ...whereScope, createdAt: { gte: thirtyDaysAgo } } }),
+      ctx.db.incident.count({ where: { ...whereScope, createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
     ]);
 
     const resolved = await ctx.db.incident.findMany({
-      where: { storeId: ctx.storeId, status: { in: ['RESOLVED', 'CLOSED'] }, resolvedAt: { not: null }, createdAt: { gte: thirtyDaysAgo } },
+      where: { ...whereScope, status: { in: ['RESOLVED', 'CLOSED'] }, resolvedAt: { not: null }, createdAt: { gte: thirtyDaysAgo } },
       select: { createdAt: true, resolvedAt: true },
     });
     const avgResolutionHours = resolved.length > 0
@@ -161,6 +224,12 @@ export const reportsRouter = router({
       thisMonth,
       lastMonth,
       avgResolutionHours,
+      delta: thisMonth - lastMonth,
+      recommendations: openByCategory.map((item) => ({
+        type: 'INCIDENT',
+        title: `${item.category} has ${item._count} open incident${item._count === 1 ? '' : 's'}`,
+        href: `/admin/tasks?search=${encodeURIComponent(item.category)}`,
+      })).slice(0, 3),
     };
   }),
 });

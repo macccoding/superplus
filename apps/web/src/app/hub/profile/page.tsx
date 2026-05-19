@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
+import { subscribeToStoreAlerts } from '@/lib/push-notifications';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,6 +15,14 @@ export default function ProfilePage() {
   const [confirmPin, setConfirmPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinSuccess, setPinSuccess] = useState(false);
+  const [alertStatus, setAlertStatus] = useState('');
+  const { data: vapidKey } = trpc.notifications.publicVapidKey.useQuery();
+  const { data: notificationPrefs } = trpc.notifications.preferences.useQuery();
+  const registerPush = trpc.notifications.registerPushSubscription.useMutation({
+    onSuccess: () => setAlertStatus('Store alerts are on.'),
+    onError: (error) => setAlertStatus(error.message),
+  });
+  const updatePrefs = trpc.notifications.updatePreferences.useMutation();
 
   const changePin = trpc.users.changeMyPin.useMutation({
     onSuccess: () => {
@@ -104,6 +113,59 @@ export default function ProfilePage() {
           </div>
           <span className="material-symbols-outlined text-on-surface-secondary text-[20px]">chevron_right</span>
         </button>
+
+        <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-brand">notifications_active</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-on-surface">Store Alerts</p>
+              <p className="text-xs font-bold text-on-surface-secondary">Get urgent store alerts.</p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (!vapidKey) {
+                setAlertStatus('Alerts are not set up yet.');
+                return;
+              }
+              try {
+                setAlertStatus('Turning on alerts...');
+                const subscription = await subscribeToStoreAlerts(vapidKey);
+                registerPush.mutate({
+                  endpoint: subscription.endpoint!,
+                  keys: {
+                    p256dh: subscription.keys!.p256dh!,
+                    auth: subscription.keys!.auth!,
+                  },
+                  userAgent: navigator.userAgent,
+                });
+              } catch (error) {
+                setAlertStatus(error instanceof Error ? error.message : 'Could not turn on alerts.');
+              }
+            }}
+            disabled={registerPush.isPending}
+            className="w-full min-h-12 rounded-[--radius-lg] bg-brand text-on-brand font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined ${registerPush.isPending ? 'animate-spin' : ''}`}>{registerPush.isPending ? 'progress_activity' : 'notifications'}</span>
+            Turn On Alerts
+          </button>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ['threadMentions', '@Me'],
+              ['threadReplies', 'Replies'],
+              ['urgentThreads', 'Urgent'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => updatePrefs.mutate({ [key]: !(notificationPrefs as any)?.[key] } as any)}
+                className={`min-h-10 rounded-[--radius-lg] text-xs font-bold ${(notificationPrefs as any)?.[key] ?? true ? 'bg-success/10 text-success' : 'bg-surface text-on-surface-secondary'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {alertStatus && <p className="text-xs font-bold text-on-surface-secondary">{alertStatus}</p>}
+        </div>
 
         <button
           onClick={() => setShowPinChange(!showPinChange)}

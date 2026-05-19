@@ -5,6 +5,9 @@ import { hasMinRole } from '@superplus/config';
 import type { Role as ConfigRole } from '@superplus/config';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'bcryptjs';
+import { adminStoreIdWhere, adminStoreWhere, resolveAdminScope } from './admin-scope';
+import { activeTaskStatuses } from './tasks-policy';
+import { logAdminAction } from './admin-audit';
 
 export const usersRouter = router({
   loginList: publicProcedure.query(async ({ ctx }) => {
@@ -36,19 +39,90 @@ export const usersRouter = router({
     }),
 
   list: managerProcedure
-    .input(z.object({ storeId: z.string().optional() }).optional())
+    .input(z.object({
+      storeId: z.string().optional(),
+      scope: z.string().optional(),
+      role: z.nativeEnum(Role).optional(),
+      isActive: z.boolean().optional(),
+      search: z.string().max(100).optional(),
+    }).optional())
     .query(async ({ ctx, input }) => {
-      const storeId = ctx.user.role === 'OWNER'
-        ? (input?.storeId ?? ctx.storeId)
-        : ctx.storeId;
+      const scope = await resolveAdminScope(ctx as any, input?.scope ?? input?.storeId);
+      const where: any = adminStoreWhere(scope);
+      if (input?.role) where.role = input.role;
+      if (typeof input?.isActive === 'boolean') where.isActive = input.isActive;
+      if (input?.search?.trim()) {
+        const search = input.search.trim();
+        where.OR = [
+          { fullName: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+        ];
+      }
       return ctx.db.user.findMany({
-        where: { storeId },
+        where,
         select: {
           id: true, fullName: true, phone: true, role: true,
           storeId: true, isActive: true, createdAt: true,
+          store: { select: { name: true } },
         },
         orderBy: { fullName: 'asc' },
       });
+    }),
+
+  staffOperations: managerProcedure
+    .input(z.object({ scope: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
+      const storeIdWhere = adminStoreIdWhere(scope);
+      const [users, activeTasks, recentActions] = await Promise.all([
+        ctx.db.user.findMany({
+          where: { storeId: storeIdWhere },
+          select: { id: true, fullName: true, phone: true, role: true, storeId: true, isActive: true, createdAt: true, store: { select: { id: true, name: true } } },
+          orderBy: { fullName: 'asc' },
+        }),
+        ctx.db.task.findMany({
+          where: { storeId: storeIdWhere, status: { in: activeTaskStatuses } },
+          select: { id: true, title: true, assignedToId: true, status: true, dueDate: true, updatedAt: true },
+          take: 1000,
+        }),
+        ctx.db.adminActionLog?.findMany ? ctx.db.adminActionLog.findMany({
+          where: scope.isAllStores ? { OR: [{ storeId: { in: scope.storeIds } }, { storeId: null }] } : { storeId: scope.storeIds[0] },
+          include: { actor: { select: { id: true, fullName: true } }, store: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        }) : [],
+      ]);
+      const now = new Date();
+      const taskCounts = new Map<string, { active: number; overdue: number; help: number; lastActivity?: Date }>();
+      let unassigned = 0;
+      for (const task of activeTasks as any[]) {
+        if (!task.assignedToId) {
+          unassigned++;
+          continue;
+        }
+        const current = taskCounts.get(task.assignedToId) ?? { active: 0, overdue: 0, help: 0 };
+        current.active++;
+        if (task.dueDate && task.dueDate < now) current.overdue++;
+        if (task.status === 'NEEDS_HELP') current.help++;
+        if (!current.lastActivity || task.updatedAt > current.lastActivity) current.lastActivity = task.updatedAt;
+        taskCounts.set(task.assignedToId, current);
+      }
+      const staff = users.map((user: any) => ({
+        ...user,
+        workload: taskCounts.get(user.id) ?? { active: 0, overdue: 0, help: 0, lastActivity: null },
+      }));
+      return {
+        summary: {
+          active: users.filter((user: any) => user.isActive).length,
+          inactive: users.filter((user: any) => !user.isActive).length,
+          managers: users.filter((user: any) => user.role === Role.MANAGER || user.role === Role.OWNER).length,
+          supervisors: users.filter((user: any) => user.role === Role.SUPERVISOR).length,
+          unassigned,
+          overloaded: staff.filter((user: any) => user.workload.active >= 6 || user.workload.overdue > 0 || user.workload.help > 0).length,
+        },
+        staff,
+        recentActions,
+      };
     }),
 
   create: managerProcedure
@@ -57,15 +131,20 @@ export const usersRouter = router({
       phone: z.string().min(10).max(15),
       pin: z.string().length(4).regex(/^\d{4}$/),
       role: z.nativeEnum(Role),
+      storeId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       if (!hasMinRole(ctx.user.role as ConfigRole, input.role as ConfigRole)) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot create user with higher role' });
       }
+      const storeId = ctx.user.role === 'OWNER' && input.storeId ? input.storeId : ctx.storeId;
+      if (ctx.user.role === 'OWNER' && input.storeId) {
+        await ctx.db.store.findFirstOrThrow({ where: { id: input.storeId, isActive: true } });
+      }
       const pinHash = await hash(input.pin, 10);
-      return ctx.db.user.create({
+      const created = await ctx.db.user.create({
         data: {
-          storeId: ctx.storeId,
+          storeId,
           fullName: input.fullName,
           phone: input.phone,
           pinHash,
@@ -76,15 +155,28 @@ export const usersRouter = router({
           storeId: true, isActive: true, createdAt: true,
         },
       });
+      await logAdminAction(ctx.db, ctx.user.id, storeId, {
+        action: 'USER_CREATED',
+        storeId,
+        sourceType: 'USER',
+        sourceId: created.id,
+        note: created.fullName,
+        metadata: { role: created.role },
+      });
+      return created;
     }),
 
   toggleActive: managerProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: ctx.user.role === 'OWNER' ? { id: input.id } : { id: input.id, storeId: ctx.storeId },
       });
-      return ctx.db.user.update({
+      if (user.id === ctx.user.id && user.isActive) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'You cannot deactivate your own account' });
+      }
+      const activeTasks = await ctx.db.task.count({ where: { assignedToId: user.id, status: { in: activeTaskStatuses } } });
+      const updated = await ctx.db.user.update({
         where: { id: input.id },
         data: { isActive: !user.isActive },
         select: {
@@ -92,6 +184,15 @@ export const usersRouter = router({
           storeId: true, isActive: true, createdAt: true,
         },
       });
+      await logAdminAction(ctx.db, ctx.user.id, user.storeId, {
+        action: updated.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+        storeId: user.storeId,
+        sourceType: 'USER',
+        sourceId: user.id,
+        note: user.fullName,
+        metadata: { activeTasks },
+      });
+      return updated;
     }),
 
   resetPin: managerProcedure
@@ -101,17 +202,25 @@ export const usersRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const target = await ctx.db.user.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: ctx.user.role === 'OWNER' ? { id: input.id } : { id: input.id, storeId: ctx.storeId },
       });
       if (!hasMinRole(ctx.user.role as ConfigRole, target.role as ConfigRole)) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot reset PIN for user with equal or higher role' });
       }
       const pinHash = await hash(input.newPin, 10);
-      return ctx.db.user.update({
-        where: { id: input.id, storeId: ctx.storeId },
+      const updated = await ctx.db.user.update({
+        where: { id: input.id },
         data: { pinHash },
         select: { id: true, fullName: true },
       });
+      await logAdminAction(ctx.db, ctx.user.id, target.storeId, {
+        action: 'USER_PIN_RESET',
+        storeId: target.storeId,
+        sourceType: 'USER',
+        sourceId: target.id,
+        note: target.fullName,
+      });
+      return updated;
     }),
 
   changeMyPin: protectedProcedure

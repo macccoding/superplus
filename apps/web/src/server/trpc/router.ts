@@ -21,8 +21,10 @@ import { promotionsRouter } from './routers/promotions';
 import { trainingRouter } from './routers/training';
 import { suggestionsRouter } from './routers/suggestions';
 import { notificationsRouter } from './routers/notifications';
+import { adminRouter } from './routers/admin';
 
 export const appRouter = router({
+  admin: adminRouter,
   tasks: tasksRouter,
   threads: threadsRouter,
   logbook: logbookRouter,

@@ -23,6 +23,35 @@ enum ThreadCategory {
   OTHER
 }
 
+enum ThreadAttachmentType {
+  IMAGE
+  DOCUMENT
+  LINK
+}
+
+enum ThreadReactionType {
+  ACK
+  THANKS
+}
+
+enum ThreadModerationAction {
+  MESSAGE_EDITED
+  MESSAGE_DELETED
+  MESSAGE_PINNED
+  MESSAGE_UNPINNED
+  THREAD_PINNED
+  THREAD_UNPINNED
+  THREAD_RESOLVED
+  TASK_CREATED
+}
+
+enum ThreadLifecycleEventType {
+  URGENT_UNACKED_REMINDER
+  NO_REPLY_FLAGGED
+  STALE_RESOLVE_SUGGESTED
+  OPS_SUGGESTION_DISMISSED
+}
+
 enum Priority {
   LOW
   NORMAL
@@ -62,6 +91,7 @@ enum TaskAttachmentType {
 }
 
 enum TaskLinkType {
+  TASK
   INCIDENT
   LOGBOOK
   CHECKLIST
@@ -118,6 +148,7 @@ model Store {
   promotions           Promotion[]
   sopGuides            SOPGuide[]
   suggestions          Suggestion[]
+  adminActionLogs      AdminActionLog[]
 }
 
 model User {
@@ -134,7 +165,18 @@ model User {
 
   store                Store               @relation(fields: [storeId], references: [id])
   createdThreads       Thread[]            @relation("ThreadAuthor")
+  resolvedThreads      Thread[]            @relation("ThreadResolver")
+  lastThreadMessages   Thread[]            @relation("ThreadLastMessage")
   threadMessages       ThreadMessage[]
+  deletedThreadMessages ThreadMessage[]     @relation("ThreadMessageDeleter")
+  threadParticipants   ThreadParticipant[]
+  threadMentions       ThreadMention[]
+  threadAttachments    ThreadMessageAttachment[]
+  threadReactions      ThreadMessageReaction[]
+  threadModerationEvents ThreadModerationEvent[]
+  pushSubscriptions    PushSubscription[]
+  notificationPreference NotificationPreference?
+  threadLifecycleEvents ThreadLifecycleEvent[]
   createdTasks         Task[]              @relation("TaskCreator")
   assignedTasks        Task[]              @relation("TaskAssignee")
   reviewedTasks        Task[]              @relation("TaskReviewer")
@@ -159,40 +201,184 @@ model User {
   suggestions          Suggestion[]     @relation("SuggestionAuthor")
   suggestionResponses  Suggestion[]     @relation("SuggestionResponder")
   notifications        Notification[]
+  adminActionLogs      AdminActionLog[] @relation("AdminActionActor")
 
   @@index([storeId])
   @@index([phone])
 }
 
 model Thread {
-  id         String         @id @default(cuid())
-  storeId    String
-  authorId   String
-  title      String
-  category   ThreadCategory @default(GENERAL)
-  isPinned   Boolean        @default(false)
-  isResolved Boolean        @default(false)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id              String         @id @default(cuid())
+  storeId         String
+  authorId        String
+  title           String
+  category        ThreadCategory @default(GENERAL)
+  isPinned        Boolean        @default(false)
+  isResolved      Boolean        @default(false)
+  resolvedAt      DateTime?
+  resolvedById    String?
+  lastMessageAt   DateTime?
+  lastMessageById String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  store    Store           @relation(fields: [storeId], references: [id])
-  author   User            @relation("ThreadAuthor", fields: [authorId], references: [id])
-  messages ThreadMessage[]
+  store         Store               @relation(fields: [storeId], references: [id])
+  author        User                @relation("ThreadAuthor", fields: [authorId], references: [id])
+  resolvedBy    User?               @relation("ThreadResolver", fields: [resolvedById], references: [id])
+  lastMessageBy User?               @relation("ThreadLastMessage", fields: [lastMessageById], references: [id])
+  messages      ThreadMessage[]
+  participants  ThreadParticipant[]
+  mentions      ThreadMention[]
+  links         ThreadLink[]
+  moderationEvents ThreadModerationEvent[]
+  lifecycleEvents ThreadLifecycleEvent[]
 
   @@index([storeId, createdAt])
+  @@index([storeId, isResolved, updatedAt])
+  @@index([storeId, lastMessageAt])
 }
 
 model ThreadMessage {
-  id        String   @id @default(cuid())
-  threadId  String
-  authorId  String
-  body      String
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  threadId    String
+  authorId    String
+  body        String
+  isPinned    Boolean  @default(false)
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime @default(now())
 
-  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  author User   @relation(fields: [authorId], references: [id])
+  thread      Thread                    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author      User                      @relation(fields: [authorId], references: [id])
+  deletedBy   User?                     @relation("ThreadMessageDeleter", fields: [deletedById], references: [id])
+  mentions    ThreadMention[]
+  attachments ThreadMessageAttachment[]
+  reactions   ThreadMessageReaction[]
+  links       ThreadLink[]
+  moderationEvents ThreadModerationEvent[]
 
   @@index([threadId, createdAt])
+  @@index([threadId, isPinned])
+  @@index([authorId, createdAt])
+}
+
+model ThreadParticipant {
+  id          String    @id @default(cuid())
+  threadId    String
+  userId      String
+  lastReadAt  DateTime?
+  isFollowing Boolean   @default(true)
+  isSaved     Boolean   @default(false)
+  mutedAt     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId, isSaved])
+  @@index([userId, lastReadAt])
+}
+
+model ThreadMention {
+  id        String   @id @default(cuid())
+  threadId  String
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  thread  Thread        @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message ThreadMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([threadId, userId])
+}
+
+model ThreadMessageAttachment {
+  id           String               @id @default(cuid())
+  messageId    String
+  uploadedById String
+  type         ThreadAttachmentType
+  url          String
+  label        String?
+  mimeType     String?
+  sizeBytes    Int?
+  storageKey   String?
+  createdAt    DateTime             @default(now())
+
+  message    ThreadMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy User          @relation(fields: [uploadedById], references: [id])
+
+  @@index([messageId, createdAt])
+}
+
+model ThreadModerationEvent {
+  id        String                 @id @default(cuid())
+  threadId  String
+  messageId String?
+  actorId   String
+  action    ThreadModerationAction
+  note      String?
+  metadata  Json?
+  createdAt DateTime               @default(now())
+
+  thread Thread         @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message ThreadMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  actor  User           @relation(fields: [actorId], references: [id])
+
+  @@index([threadId, createdAt])
+  @@index([messageId])
+  @@index([actorId, createdAt])
+}
+
+model ThreadLifecycleEvent {
+  id        String                   @id @default(cuid())
+  threadId  String
+  actorId   String?
+  type      ThreadLifecycleEventType
+  messageId String?
+  metadata  Json?
+  createdAt DateTime                 @default(now())
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, type, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model ThreadMessageReaction {
+  id        String             @id @default(cuid())
+  messageId String
+  userId    String
+  type      ThreadReactionType
+  createdAt DateTime           @default(now())
+
+  message ThreadMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, type])
+  @@index([messageId, type])
+}
+
+model ThreadLink {
+  id        String       @id @default(cuid())
+  threadId  String
+  messageId String?
+  type      TaskLinkType
+  entityId  String
+  label     String?
+  createdAt DateTime     @default(now())
+
+  thread  Thread         @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message ThreadMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([messageId])
+  @@index([type, entityId])
 }
 
 model Task {
@@ -678,6 +864,9 @@ enum SuggestionStatus {
 enum NotificationType {
   TASK_ASSIGNED
   TASK_UPDATED
+  THREAD_MENTION
+  THREAD_REPLY
+  THREAD_URGENT
   ANNOUNCEMENT
   SCHEDULE_PUBLISHED
   STOCK_OUT
@@ -840,4 +1029,55 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, isRead, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  threadMentions        Boolean  @default(true)
+  threadReplies         Boolean  @default(true)
+  urgentThreads         Boolean  @default(true)
+  urgentOverrideQuiet   Boolean  @default(true)
+  quietHoursStart       String?
+  quietHoursEnd         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AdminActionLog {
+  id         String   @id @default(cuid())
+  storeId    String?
+  actorId    String
+  action     String
+  sourceType String?
+  sourceId   String?
+  scope      String
+  note       String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  store Store? @relation(fields: [storeId], references: [id])
+  actor User   @relation("AdminActionActor", fields: [actorId], references: [id])
+
+  @@index([storeId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([sourceType, sourceId])
 }

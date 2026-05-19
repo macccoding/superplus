@@ -6,24 +6,40 @@ import { trpc } from '@/lib/trpc-client';
 
 export default function ProductsAdminPage() {
   const router = useRouter();
+  const { data: stores } = trpc.stores.list.useQuery();
+  const storeOptions = (stores ?? []).filter((store: any) => store.isActive !== false);
+  const canUseAllStores = storeOptions.length > 1;
+  const [scope, setScope] = useState('ALL');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const activeScope = canUseAllStores ? scope : storeOptions[0]?.id;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data, isLoading } = trpc.products.search.useQuery({ query: debouncedSearch || undefined, limit: 200 });
+  const { data, isLoading } = trpc.products.search.useQuery({ scope: activeScope, query: debouncedSearch || undefined, limit: 50 });
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-on-surface">Products</h1>
           <p className="text-on-surface-secondary mt-1">{data?.items.length ?? 0} products</p>
         </div>
         <div className="flex gap-2">
+          <select value={activeScope ?? ''} onChange={(e) => setScope(e.target.value)} className="h-12 px-3 bg-surface-white border-2 border-outline rounded-[--radius-lg] text-sm font-bold text-on-surface" aria-label="Store scope">
+            {canUseAllStores && <option value="ALL">All Stores</option>}
+            {storeOptions.map((store: any) => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
+          <button
+            onClick={() => router.push('/admin/supply')}
+            className="h-12 px-5 bg-surface-cream text-on-surface-secondary font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[20px]">hub</span>
+            Supply
+          </button>
           <button
             onClick={() => router.push('/admin/products/import')}
             className="h-12 px-5 bg-surface-cream text-on-surface-secondary font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all"

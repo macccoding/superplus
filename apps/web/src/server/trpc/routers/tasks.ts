@@ -16,8 +16,11 @@ import {
   canUserAccessTask,
   isClosedTaskStatus,
 } from './tasks-policy';
+import { adminStoreIdWhere, adminStoreWhere, requireSingleAdminStore, resolveAdminScope } from './admin-scope';
+import { logAdminAction } from './admin-audit';
 
 const taskInclude = {
+  store: { select: { id: true, name: true, parish: true } },
   createdBy: { select: { id: true, fullName: true, role: true } },
   assignedTo: { select: { id: true, fullName: true, role: true } },
   reviewedBy: { select: { id: true, fullName: true, role: true } },
@@ -35,6 +38,7 @@ const taskInclude = {
 };
 
 const taskListInclude = {
+  store: { select: { id: true, name: true, parish: true } },
   createdBy: { select: { id: true, fullName: true, role: true } },
   assignedTo: { select: { id: true, fullName: true, role: true } },
   _count: { select: { updates: true, checklistItems: true, attachments: true } },
@@ -67,6 +71,8 @@ function csvEscape(value: unknown) {
 
 async function assertSourceInStore(db: any, storeId: string, type: TaskLinkType, entityId: string) {
   switch (type) {
+    case TaskLinkType.TASK:
+      return db.task.findFirstOrThrow({ where: { id: entityId, storeId }, select: { id: true, title: true } });
     case TaskLinkType.INCIDENT:
       return db.incident.findFirstOrThrow({ where: { id: entityId, storeId }, select: { id: true, title: true } });
     case TaskLinkType.LOGBOOK:
@@ -123,13 +129,16 @@ async function addTaskUpdate(
 }
 
 export const tasksRouter = router({
-  assignableUsers: supervisorProcedure.query(async ({ ctx }) => {
-    return ctx.db.user.findMany({
-      where: { storeId: ctx.storeId, isActive: true },
-      select: { id: true, fullName: true, role: true },
-      orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
-    });
-  }),
+  assignableUsers: supervisorProcedure
+    .input(z.object({ scope: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
+      return ctx.db.user.findMany({
+        where: { storeId: adminStoreIdWhere(scope), isActive: true },
+        select: { id: true, fullName: true, role: true, storeId: true, store: { select: { id: true, name: true } } },
+        orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
+      });
+    }),
 
   list: protectedProcedure
     .input(z.object({
@@ -146,9 +155,11 @@ export const tasksRouter = router({
       search: z.string().max(100).optional(),
       includeClosed: z.boolean().optional(),
       take: z.number().min(1).max(200).optional(),
+      scope: z.string().optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
-      const where: any = { storeId: ctx.storeId };
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
+      const where: any = adminStoreWhere(scope);
 
       if (input?.view === 'MINE') {
         where.assignedToId = ctx.user.id;
@@ -182,6 +193,8 @@ export const tasksRouter = router({
           { category: { contains: search, mode: 'insensitive' } },
           { workArea: { contains: search, mode: 'insensitive' } },
           { assetLabel: { contains: search, mode: 'insensitive' } },
+          { assignedTo: { fullName: { contains: search, mode: 'insensitive' } } },
+          { createdBy: { fullName: { contains: search, mode: 'insensitive' } } },
         ];
       }
 
@@ -299,12 +312,21 @@ export const tasksRouter = router({
       reviewRequired: z.boolean().optional(),
       requireCompletionNote: z.boolean().optional(),
       requireCompletionPhoto: z.boolean().optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
-      await ctx.db.task.findFirstOrThrow({ where: { id, storeId: ctx.storeId } });
+      const { id, scope: requestedScope, ...data } = input;
+      const scope = await resolveAdminScope(ctx as any, requestedScope);
+      const existing = await ctx.db.task.findFirstOrThrow({ where: { id, ...adminStoreWhere(scope) } });
       const task = await ctx.db.task.update({ where: { id }, data, include: taskInclude });
       await addTaskUpdate(ctx.db, id, ctx.user.id, TaskUpdateType.NOTE, 'Task details updated');
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASK_DETAILS_UPDATED',
+        storeId: existing.storeId,
+        sourceType: 'TASK',
+        sourceId: id,
+        note: task.title,
+      });
       return task;
     }),
 
@@ -324,18 +346,19 @@ export const tasksRouter = router({
     }),
 
   reassign: supervisorProcedure
-    .input(z.object({ id: z.string(), assignedToId: z.string().nullable() }))
+    .input(z.object({ id: z.string(), assignedToId: z.string().nullable(), scope: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
       const existing = await ctx.db.task.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: { id: input.id, ...adminStoreWhere(scope) },
         include: { assignedTo: { select: { fullName: true } } },
       });
       if (existing.assignedToId === input.assignedToId) {
-        return ctx.db.task.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, include: taskInclude });
+        return ctx.db.task.findFirstOrThrow({ where: { id: input.id, ...adminStoreWhere(scope) }, include: taskInclude });
       }
       let assignedName = 'Unassigned';
       if (input.assignedToId) {
-        const user = await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: ctx.storeId } });
+        const user = await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: existing.storeId, isActive: true } });
         assignedName = user.fullName;
       }
       const task = await ctx.db.task.update({
@@ -349,6 +372,14 @@ export const tasksRouter = router({
           await createNotification(ctx.db, input.assignedToId, 'TASK_ASSIGNED', `Task assigned: ${task.title}`, `Assigned by ${ctx.user.name}`, `/hub/tasks/${task.id}`);
         } catch {}
       }
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASK_REASSIGNED',
+        storeId: existing.storeId,
+        sourceType: 'TASK',
+        sourceId: input.id,
+        note: `Reassigned to ${assignedName}`,
+        metadata: { assignedToId: input.assignedToId },
+      });
       return task;
     }),
 
@@ -676,10 +707,13 @@ export const tasksRouter = router({
       dueDate: z.date().optional(),
       reviewRequired: z.boolean().optional(),
       checklistItems: z.array(checklistInput).max(30).optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const storeId = requireSingleAdminStore(scope);
       const users = await ctx.db.user.findMany({
-        where: { id: { in: input.assignedToIds }, storeId: ctx.storeId, isActive: true },
+        where: { id: { in: input.assignedToIds }, storeId, isActive: true },
         select: { id: true },
       });
       if (users.length !== input.assignedToIds.length) {
@@ -697,7 +731,7 @@ export const tasksRouter = router({
             priority: input.priority,
             dueDate: input.dueDate,
             reviewRequired: input.reviewRequired,
-            storeId: ctx.storeId,
+            storeId,
             createdById: ctx.user.id,
             checklistItems: input.checklistItems?.length
               ? { create: input.checklistItems.map((item, index) => ({ ...item, sortOrder: index })) }
@@ -708,25 +742,48 @@ export const tasksRouter = router({
       await Promise.all(tasks.map((task: any) =>
         addTaskUpdate(ctx.db, task.id, ctx.user.id, TaskUpdateType.CREATED, 'Bulk task created', null, task.status)
       ));
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASKS_BULK_CREATED',
+        storeId,
+        sourceType: 'TASK',
+        note: `Created ${tasks.length} task${tasks.length === 1 ? '' : 's'}`,
+        metadata: { count: tasks.length, taskIds: tasks.map((task: any) => task.id) },
+      });
       return { count: tasks.length };
     }),
 
   bulkReassign: managerProcedure
-    .input(z.object({ ids: z.array(z.string()).min(1).max(100), assignedToId: z.string().nullable() }))
+    .input(z.object({ ids: z.array(z.string()).min(1).max(100), assignedToId: z.string().nullable(), scope: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      let assigneeStoreId: string | null = null;
       if (input.assignedToId) {
-        await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: ctx.storeId } });
+        const user = await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: adminStoreIdWhere(scope), isActive: true } });
+        assigneeStoreId = user.storeId;
       }
       const tasks = await ctx.db.task.findMany({
-        where: { id: { in: input.ids }, storeId: ctx.storeId },
-        select: { id: true },
+        where: { id: { in: input.ids }, ...adminStoreWhere(scope) },
+        select: { id: true, storeId: true },
       });
+      if (tasks.length !== input.ids.length) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'One or more tasks are outside your admin scope' });
+      }
+      if (assigneeStoreId && tasks.some((task: { storeId: string }) => task.storeId !== assigneeStoreId)) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selected tasks must belong to the assignee store' });
+      }
       const taskIds = tasks.map((task: { id: string }) => task.id);
       const result = await ctx.db.task.updateMany({
-        where: { id: { in: taskIds }, storeId: ctx.storeId },
+        where: { id: { in: taskIds }, ...adminStoreWhere(scope) },
         data: { assignedToId: input.assignedToId },
       });
       await Promise.all(taskIds.map((id: string) => addTaskUpdate(ctx.db, id, ctx.user.id, TaskUpdateType.REASSIGNED, 'Bulk reassigned')));
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASKS_BULK_REASSIGNED',
+        storeId: assigneeStoreId ?? (scope.isAllStores ? null : scope.storeIds[0]),
+        sourceType: 'TASK',
+        note: `Reassigned ${taskIds.length} task${taskIds.length === 1 ? '' : 's'}`,
+        metadata: { count: taskIds.length, taskIds, assignedToId: input.assignedToId },
+      });
       return result;
     }),
 
@@ -737,15 +794,25 @@ export const tasksRouter = router({
       dueDate: z.date().nullable().optional(),
       priority: z.nativeEnum(Priority).optional(),
       status: z.nativeEnum(TaskStatus).optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      let assigneeStoreId: string | null = null;
       if (input.assignedToId) {
-        await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: ctx.storeId } });
+        const user = await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: adminStoreIdWhere(scope), isActive: true } });
+        assigneeStoreId = user.storeId;
       }
       const tasks = await ctx.db.task.findMany({
-        where: { id: { in: input.ids }, storeId: ctx.storeId },
-        select: { id: true, status: true },
+        where: { id: { in: input.ids }, ...adminStoreWhere(scope) },
+        select: { id: true, status: true, storeId: true },
       });
+      if (tasks.length !== input.ids.length) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'One or more tasks are outside your admin scope' });
+      }
+      if (assigneeStoreId && tasks.some((task: { storeId: string }) => task.storeId !== assigneeStoreId)) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selected tasks must belong to the assignee store' });
+      }
       const taskIds = tasks.map((task: { id: string }) => task.id);
       const data: any = {};
       if ('assignedToId' in input) data.assignedToId = input.assignedToId;
@@ -759,7 +826,7 @@ export const tasksRouter = router({
         if (input.status === TaskStatus.CANCELLED) data.cancelledAt = new Date();
       }
       const result = await ctx.db.task.updateMany({
-        where: { id: { in: taskIds }, storeId: ctx.storeId },
+        where: { id: { in: taskIds }, ...adminStoreWhere(scope) },
         data,
       });
       await Promise.all(tasks.map((task: { id: string; status: TaskStatus }) =>
@@ -773,6 +840,13 @@ export const tasksRouter = router({
           input.status ?? task.status
         )
       ));
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASKS_BULK_UPDATED',
+        storeId: assigneeStoreId ?? (scope.isAllStores ? null : scope.storeIds[0]),
+        sourceType: 'TASK',
+        note: `Updated ${taskIds.length} task${taskIds.length === 1 ? '' : 's'}`,
+        metadata: { count: taskIds.length, taskIds, fields: Object.keys(data) },
+      });
       return result;
     }),
 
@@ -781,16 +855,20 @@ export const tasksRouter = router({
       status: z.nativeEnum(TaskStatus).optional(),
       due: z.enum(['OVERDUE', 'TODAY', 'UPCOMING']).optional(),
       search: z.string().max(100).optional(),
+      scope: z.string().optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
       const where: any = {
-        storeId: ctx.storeId,
+        ...adminStoreWhere(scope),
         ...(input?.status ? { status: input.status } : {}),
         ...(input?.search ? {
           OR: [
             { title: { contains: input.search, mode: 'insensitive' } },
             { category: { contains: input.search, mode: 'insensitive' } },
             { workArea: { contains: input.search, mode: 'insensitive' } },
+            { assignedTo: { fullName: { contains: input.search, mode: 'insensitive' } } },
+            { createdBy: { fullName: { contains: input.search, mode: 'insensitive' } } },
           ],
         } : {}),
       };
@@ -806,12 +884,13 @@ export const tasksRouter = router({
       }
       const tasks = await ctx.db.task.findMany({
         where,
-        include: { assignedTo: true, createdBy: true },
+        include: { assignedTo: true, createdBy: true, store: { select: { name: true } } },
         orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
         take: 1000,
       });
-      const header = ['Title', 'Status', 'Priority', 'Category', 'Work Area', 'Asset', 'Assigned To', 'Created By', 'Due Date', 'Completed At'];
+      const header = ['Store', 'Title', 'Status', 'Priority', 'Category', 'Work Area', 'Asset', 'Assigned To', 'Created By', 'Due Date', 'Completed At'];
       const rows = tasks.map((task: any) => [
+        task.store.name,
         task.title,
         statusLabel(task.status),
         task.priority,
@@ -826,21 +905,24 @@ export const tasksRouter = router({
       return [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
     }),
 
-  sendDueReminders: managerProcedure.mutation(async ({ ctx }) => {
+  sendDueReminders: managerProcedure
+    .input(z.object({ scope: z.string().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
     const now = new Date();
     const reminderCutoff = new Date(now);
     reminderCutoff.setHours(reminderCutoff.getHours() - 12);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const scope = await resolveAdminScope(ctx as any, input?.scope);
     const due = await ctx.db.task.findMany({
       where: {
-        storeId: ctx.storeId,
+        ...adminStoreWhere(scope),
         status: { in: activeTaskStatuses },
         assignedToId: { not: null },
         dueDate: { lte: tomorrow },
         OR: [{ dueReminderAt: null }, { dueReminderAt: { lte: reminderCutoff } }],
       },
-      select: { id: true, title: true, assignedToId: true, dueDate: true },
+      select: { id: true, title: true, assignedToId: true, dueDate: true, storeId: true },
       take: 100,
     });
     await Promise.all(due.map((task: any) =>
@@ -855,20 +937,30 @@ export const tasksRouter = router({
     ));
     if (due.length) {
       await ctx.db.task.updateMany({
-        where: { id: { in: due.map((task: any) => task.id) }, storeId: ctx.storeId },
+        where: { id: { in: due.map((task: any) => task.id) }, ...adminStoreWhere(scope) },
         data: { dueReminderAt: now },
+      });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'DUE_REMINDERS_SENT',
+        storeId: scope.isAllStores ? null : scope.storeIds[0],
+        sourceType: 'TASK',
+        note: `Sent ${due.length} due reminder${due.length === 1 ? '' : 's'}`,
+        metadata: { count: due.length, taskIds: due.map((task: any) => task.id) },
       });
     }
     return { count: due.length };
   }),
 
-  listTemplates: supervisorProcedure.query(async ({ ctx }) => {
-    return ctx.db.taskTemplate.findMany({
-      where: { storeId: ctx.storeId, isActive: true },
-      include: { items: { orderBy: { sortOrder: 'asc' } }, createdBy: { select: { id: true, fullName: true } } },
-      orderBy: [{ category: 'asc' }, { title: 'asc' }],
-    });
-  }),
+  listTemplates: supervisorProcedure
+    .input(z.object({ scope: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
+      return ctx.db.taskTemplate.findMany({
+        where: { storeId: adminStoreIdWhere(scope), isActive: true },
+        include: { store: { select: { id: true, name: true } }, items: { orderBy: { sortOrder: 'asc' } }, createdBy: { select: { id: true, fullName: true } } },
+        orderBy: [{ category: 'asc' }, { title: 'asc' }],
+      });
+    }),
 
   createTemplate: managerProcedure
     .input(z.object({
@@ -883,13 +975,16 @@ export const tasksRouter = router({
       requireCompletionPhoto: z.boolean().optional(),
       recurrenceRule: z.string().max(120).optional(),
       checklistItems: z.array(checklistInput).max(30).optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { checklistItems, ...data } = input;
-      return ctx.db.taskTemplate.create({
+      const { checklistItems, scope: requestedScope, ...data } = input;
+      const scope = await resolveAdminScope(ctx as any, requestedScope);
+      const storeId = requireSingleAdminStore(scope);
+      const template = await ctx.db.taskTemplate.create({
         data: {
           ...data,
-          storeId: ctx.storeId,
+          storeId,
           createdById: ctx.user.id,
           items: checklistItems?.length
             ? { create: checklistItems.map((item, index) => ({ ...item, sortOrder: index })) }
@@ -897,6 +992,14 @@ export const tasksRouter = router({
         },
         include: { items: true },
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASK_TEMPLATE_CREATED',
+        storeId,
+        sourceType: 'TASK_TEMPLATE',
+        sourceId: template.id,
+        note: template.title,
+      });
+      return template;
     }),
 
   updateTemplate: managerProcedure
@@ -914,13 +1017,15 @@ export const tasksRouter = router({
       recurrenceRule: z.string().max(120).nullable().optional(),
       isActive: z.boolean().optional(),
       checklistItems: z.array(checklistInput).max(30).optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, checklistItems, ...data } = input;
-      await ctx.db.taskTemplate.findFirstOrThrow({ where: { id, storeId: ctx.storeId } });
-      return ctx.db.$transaction(async (tx: any) => {
+      const { id, checklistItems, scope: requestedScope, ...data } = input;
+      const scope = await resolveAdminScope(ctx as any, requestedScope);
+      const existing = await ctx.db.taskTemplate.findFirstOrThrow({ where: { id, storeId: adminStoreIdWhere(scope) } });
+      const template = await ctx.db.$transaction(async (tx: any) => {
         if (checklistItems) {
-          await tx.taskTemplateItem.deleteMany({ where: { templateId: id, template: { storeId: ctx.storeId } } });
+          await tx.taskTemplateItem.deleteMany({ where: { templateId: id, template: { storeId: existing.storeId } } });
         }
         return tx.taskTemplate.update({
           where: { id },
@@ -933,6 +1038,14 @@ export const tasksRouter = router({
           include: { items: { orderBy: { sortOrder: 'asc' } } },
         });
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: data.isActive === false ? 'TASK_TEMPLATE_ARCHIVED' : 'TASK_TEMPLATE_UPDATED',
+        storeId: existing.storeId,
+        sourceType: 'TASK_TEMPLATE',
+        sourceId: id,
+        note: template.title,
+      });
+      return template;
     }),
 
   createFromTemplate: supervisorProcedure
@@ -941,18 +1054,21 @@ export const tasksRouter = router({
       assignedToId: z.string().optional(),
       dueDate: z.date().optional(),
       title: z.string().max(200).optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const storeId = requireSingleAdminStore(scope);
       const template = await ctx.db.taskTemplate.findFirstOrThrow({
-        where: { id: input.templateId, storeId: ctx.storeId, isActive: true },
+        where: { id: input.templateId, storeId, isActive: true },
         include: { items: { orderBy: { sortOrder: 'asc' } } },
       });
       if (input.assignedToId) {
-        await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId: ctx.storeId } });
+        await ctx.db.user.findFirstOrThrow({ where: { id: input.assignedToId, storeId, isActive: true } });
       }
       const task = await ctx.db.task.create({
         data: {
-          storeId: ctx.storeId,
+          storeId,
           createdById: ctx.user.id,
           assignedToId: input.assignedToId,
           title: input.title || template.title,
@@ -972,6 +1088,14 @@ export const tasksRouter = router({
         include: taskInclude,
       });
       await addTaskUpdate(ctx.db, task.id, ctx.user.id, TaskUpdateType.CREATED, `Created from template: ${template.title}`, null, task.status);
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'TASK_CREATED_FROM_TEMPLATE',
+        storeId,
+        sourceType: 'TASK_TEMPLATE',
+        sourceId: template.id,
+        note: task.title,
+        metadata: { taskId: task.id },
+      });
       return task;
     }),
 });

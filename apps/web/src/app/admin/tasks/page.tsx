@@ -63,6 +63,7 @@ export default function AdminTasksPage() {
   const [due, setDue] = useState(searchParams.get('due') || '');
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [chip, setChip] = useState(searchParams.get('chip') || '');
+  const [scope, setScope] = useState(searchParams.get('scope') || 'ALL');
   const [selected, setSelected] = useState<string[]>(() => csvToIds(searchParams.get('selected')));
   const [bulkAssignee, setBulkAssignee] = useState('');
   const [bulkDueDate, setBulkDueDate] = useState('');
@@ -83,6 +84,7 @@ export default function AdminTasksPage() {
     reviewRequired: false,
     requireCompletionNote: false,
     requireCompletionPhoto: false,
+    storeId: '',
   });
   const [templateTitle, setTemplateTitle] = useState('');
   const [templateCategory, setTemplateCategory] = useState('Cleaning');
@@ -99,14 +101,16 @@ export default function AdminTasksPage() {
     priority: priority || undefined,
     due: due || undefined,
     search: search.trim() || undefined,
+    scope,
     includeClosed: status === 'DONE' || status === 'CANCELLED',
     take: 150,
-  }) as any, [status, priority, due, search]);
+  }) as any, [status, priority, due, search, scope]);
 
+  const { data: stores } = trpc.stores.list.useQuery();
   const { data: tasks, isLoading } = trpc.tasks.list.useQuery(listInput);
-  const { data: users } = trpc.tasks.assignableUsers.useQuery();
-  const { data: templates } = trpc.tasks.listTemplates.useQuery();
-  const exportCsv = trpc.tasks.exportCsv.useQuery({ status: status || undefined, search: search || undefined } as any, { enabled: false });
+  const { data: users } = trpc.tasks.assignableUsers.useQuery({ scope });
+  const { data: templates } = trpc.tasks.listTemplates.useQuery({ scope });
+  const exportCsv = trpc.tasks.exportCsv.useQuery({ status: status || undefined, due: due || undefined, search: search || undefined, scope } as any, { enabled: false });
   const bulkUpdate = trpc.tasks.bulkUpdate.useMutation({
     onSuccess: () => {
       setNotice(`Updated ${selected.length} selected task${selected.length === 1 ? '' : 's'}`);
@@ -148,12 +152,16 @@ export default function AdminTasksPage() {
   const helpCount = tasks?.filter((task) => task.status === 'NEEDS_HELP').length ?? 0;
   const overdueCount = tasks?.filter((task) => task.dueDate && new Date(task.dueDate) < new Date() && !['DONE', 'CANCELLED'].includes(task.status)).length ?? 0;
   const hasBulkChange = !!(bulkAssignee || bulkDueDate || bulkPriority || bulkStatus);
+  const activeStores = stores ?? [];
+  const selectedStoreId = scope === 'ALL' ? '' : scope;
+  const isAllStores = scope === 'ALL';
   const activeFilterSummary = [
     status && `Status: ${toStatusLabel(status)}`,
     priority && `Priority: ${priorityOptions.find((option) => option.value === priority)?.label}`,
     due && `Due: ${due.toLowerCase()}`,
     search && `Search: ${search}`,
     chip && `Chip: ${chip}`,
+    scope && scope !== 'ALL' && `Store: ${activeStores.find((store: any) => store.id === scope)?.name ?? 'Selected store'}`,
   ].filter(Boolean).join(' · ') || 'All active work';
   const adminReturnTo = `${pathname}${currentQuery ? `?${currentQuery}` : ''}`;
 
@@ -164,6 +172,7 @@ export default function AdminTasksPage() {
     if (due) params.set('due', due);
     if (search.trim()) params.set('search', search.trim());
     if (chip) params.set('chip', chip);
+    if (scope && scope !== 'ALL') params.set('scope', scope);
     if (selected.length) params.set('selected', selected.join(','));
     const nextQuery = params.toString();
     if (nextQuery !== currentQuery) {
@@ -171,7 +180,7 @@ export default function AdminTasksPage() {
       isUpdatingUrlRef.current = true;
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
     }
-  }, [status, priority, due, search, chip, selected, currentQuery, pathname, router]);
+  }, [status, priority, due, search, chip, scope, selected, currentQuery, pathname, router]);
 
   useEffect(() => {
     if (isUpdatingUrlRef.current) {
@@ -185,8 +194,18 @@ export default function AdminTasksPage() {
     setDue(searchParams.get('due') || '');
     setSearch(searchParams.get('search') || '');
     setChip(searchParams.get('chip') || '');
+    setScope(searchParams.get('scope') || 'ALL');
     setSelected(csvToIds(searchParams.get('selected')));
   }, [currentQuery, searchParams]);
+
+  useEffect(() => {
+    if (scope !== 'ALL' || activeStores.length !== 1) return;
+    setScope(activeStores[0].id);
+  }, [activeStores, scope]);
+
+  useEffect(() => {
+    setTemplateAssignee('');
+  }, [scope]);
 
   useEffect(() => {
     if (!tasks) return;
@@ -227,6 +246,7 @@ export default function AdminTasksPage() {
       reviewRequired: task.reviewRequired,
       requireCompletionNote: task.requireCompletionNote,
       requireCompletionPhoto: task.requireCompletionPhoto,
+      storeId: task.storeId,
     });
   };
 
@@ -244,9 +264,10 @@ export default function AdminTasksPage() {
       reviewRequired: editForm.reviewRequired,
       requireCompletionNote: editForm.requireCompletionNote,
       requireCompletionPhoto: editForm.requireCompletionPhoto,
+      scope,
     });
     if (editForm.assignedToId !== editOriginalAssigneeId) {
-      await reassignTask.mutateAsync({ id: editingId, assignedToId: editForm.assignedToId || null });
+      await reassignTask.mutateAsync({ id: editingId, assignedToId: editForm.assignedToId || null, scope });
     }
     setNotice('Task saved');
     setEditingId('');
@@ -261,6 +282,7 @@ export default function AdminTasksPage() {
       dueDate: bulkDueDate ? toDate(bulkDueDate) : undefined,
       priority: bulkPriority || undefined,
       status: bulkStatus || undefined,
+      scope,
     };
     if (bulkAssignee) payload.assignedToId = bulkAssignee === '__UNASSIGN__' ? null : bulkAssignee;
     bulkUpdate.mutate(payload);
@@ -318,7 +340,11 @@ export default function AdminTasksPage() {
       </div>
 
       <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <select value={scope} onChange={(e) => { clearSelectionForFilterChange(); setScope(e.target.value); }} className="h-12 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none">
+            {activeStores.length !== 1 && <option value="ALL">All Stores</option>}
+            {activeStores.map((store: any) => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
           <input value={search} onChange={(e) => { clearSelectionForFilterChange(); setChip(''); setSearch(e.target.value); }} placeholder="Search tasks..." className="h-12 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none md:col-span-2" />
           <select value={status} onChange={(e) => { clearSelectionForFilterChange(); setChip(''); setStatus(e.target.value); }} className="h-12 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none">
             {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -372,7 +398,7 @@ export default function AdminTasksPage() {
               <span className="material-symbols-outlined text-[18px]">download</span>
               Export
             </button>
-            <button onClick={() => sendDueReminders.mutate()} className="h-11 px-4 rounded-[--radius-lg] bg-warning/15 text-warning font-bold flex items-center gap-2">
+            <button onClick={() => sendDueReminders.mutate({ scope })} className="h-11 px-4 rounded-[--radius-lg] bg-warning/15 text-warning font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px]">notifications_active</span>
               Remind Due
             </button>
@@ -392,7 +418,7 @@ export default function AdminTasksPage() {
             <select value={bulkAssignee} onChange={(e) => setBulkAssignee(e.target.value)} className="h-11 min-w-0 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] text-sm">
               <option value="">Keep assignee</option>
               <option value="__UNASSIGN__">Unassign selected</option>
-              {users?.map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
+              {users?.map((user: any) => <option key={user.id} value={user.id}>{user.fullName}{isAllStores ? ` · ${user.store?.name ?? 'Store'}` : ''}</option>)}
             </select>
             <input type="date" value={bulkDueDate} onChange={(e) => setBulkDueDate(e.target.value)} className="h-11 min-w-0 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] text-sm" />
             <select value={bulkPriority} onChange={(e) => setBulkPriority(e.target.value)} className="h-11 min-w-0 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] text-sm">
@@ -440,7 +466,7 @@ export default function AdminTasksPage() {
                     </div>
                     <p className="font-bold text-on-surface truncate">{task.title}</p>
                     <p className="text-xs text-on-surface-secondary mt-1">
-                      {task.assignedTo?.fullName || 'Unassigned'} · {task.category || 'No category'}{task.workArea ? ` · ${task.workArea}` : ''}
+                      {task.store?.name ? `${task.store.name} · ` : ''}{task.assignedTo?.fullName || 'Unassigned'} · {task.category || 'No category'}{task.workArea ? ` · ${task.workArea}` : ''}
                     </p>
                   </Link>
                   <div className="hidden sm:flex items-center gap-3 text-xs text-on-surface-secondary">
@@ -471,7 +497,7 @@ export default function AdminTasksPage() {
                 <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} placeholder="Details" rows={3} className="w-full px-4 py-3 bg-surface border-2 border-outline rounded-[--radius-lg] resize-none" />
                 <select value={editForm.assignedToId} onChange={(e) => setEditForm({ ...editForm, assignedToId: e.target.value })} className="w-full h-12 px-4 bg-surface border-2 border-outline rounded-[--radius-lg]">
                   <option value="">Unassigned</option>
-                  {users?.map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
+                  {users?.filter((user: any) => !editForm.storeId || user.storeId === editForm.storeId).map((user: any) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
                 </select>
                 <div className="grid grid-cols-2 gap-2">
                   <select value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} className="h-12 px-3 bg-surface border-2 border-outline rounded-[--radius-lg]">
@@ -502,6 +528,7 @@ export default function AdminTasksPage() {
 
           <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm">
             <h2 className="font-bold text-on-surface mb-3">New Template</h2>
+            {isAllStores && <p className="mb-3 rounded-[--radius-lg] bg-warning/10 p-3 text-sm font-bold text-warning">Choose one store to create or use templates.</p>}
             <div className="space-y-3">
               <input value={templateTitle} onChange={(e) => setTemplateTitle(e.target.value)} placeholder="Template name" className="w-full h-12 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none" />
               <input value={templateCategory} onChange={(e) => setTemplateCategory(e.target.value)} placeholder="Category" className="w-full h-12 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none" />
@@ -523,9 +550,10 @@ export default function AdminTasksPage() {
                 </button>
               ))}
               <button
-                disabled={!templateTitle.trim() || createTemplate.isPending}
+                disabled={!templateTitle.trim() || createTemplate.isPending || isAllStores}
                 onClick={() => createTemplate.mutate({
                   title: templateTitle,
+                  scope,
                   category: templateCategory || undefined,
                   recurrenceRule: templateRecurrence || undefined,
                   reviewRequired: templateReview,
@@ -545,7 +573,7 @@ export default function AdminTasksPage() {
             <div className="grid grid-cols-1 gap-2 mb-3">
               <select value={templateAssignee} onChange={(e) => setTemplateAssignee(e.target.value)} className="w-full h-11 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] text-sm">
                 <option value="">Create unassigned</option>
-                {users?.map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
+                {users?.filter((user: any) => !selectedStoreId || user.storeId === selectedStoreId).map((user: any) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
               </select>
               <input type="date" value={templateDueDate} onChange={(e) => setTemplateDueDate(e.target.value)} className="w-full h-11 px-3 bg-surface border-2 border-outline rounded-[--radius-lg] text-sm" />
             </div>
@@ -554,18 +582,20 @@ export default function AdminTasksPage() {
                 <div key={template.id} className="p-3 rounded-[--radius-lg] bg-surface">
                   <p className="text-sm font-bold text-on-surface">{template.title}</p>
                   <p className="text-xs text-on-surface-secondary mt-0.5">
-                    {template.category || 'General'}{template.recurrenceRule ? ` · ${template.recurrenceRule}` : ''}{template.items.length ? ` · ${template.items.length} steps` : ''}
+                    {isAllStores && template.store?.name ? `${template.store.name} · ` : ''}{template.category || 'General'}{template.recurrenceRule ? ` · ${template.recurrenceRule}` : ''}{template.items.length ? ` · ${template.items.length} steps` : ''}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => createFromTemplate.mutate({ templateId: template.id, assignedToId: templateAssignee || undefined, dueDate: toDate(templateDueDate) })}
-                      className="h-10 rounded-[--radius-lg] bg-navy text-on-navy text-sm font-bold"
+                      onClick={() => createFromTemplate.mutate({ templateId: template.id, assignedToId: templateAssignee || undefined, dueDate: toDate(templateDueDate), scope })}
+                      disabled={isAllStores}
+                      className="h-10 rounded-[--radius-lg] bg-navy text-on-navy text-sm font-bold disabled:opacity-40"
                     >
                       Use
                     </button>
                     <button
-                      onClick={() => updateTemplate.mutate({ id: template.id, isActive: false })}
-                      className="h-10 rounded-[--radius-lg] bg-surface-cream text-on-surface text-sm font-bold"
+                      onClick={() => updateTemplate.mutate({ id: template.id, isActive: false, scope })}
+                      disabled={isAllStores}
+                      className="h-10 rounded-[--radius-lg] bg-surface-cream text-on-surface text-sm font-bold disabled:opacity-40"
                     >
                       Archive
                     </button>

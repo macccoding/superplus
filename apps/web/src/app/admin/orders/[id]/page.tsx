@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 
 const statusLabels: Record<string, string> = { DRAFT: 'Draft', ORDERED: 'Ordered', PARTIALLY_RECEIVED: 'Partial', RECEIVED: 'Received', CANCELLED: 'Cancelled' };
-const statusColors: Record<string, string> = { DRAFT: 'bg-surface-cream text-on-surface-secondary', ORDERED: 'bg-navy/10 text-navy', PARTIALLY_RECEIVED: 'bg-warning/20/30 text-warning', RECEIVED: 'bg-success/10 text-success', CANCELLED: 'bg-outline/10 text-on-surface-secondary' };
+const statusColors: Record<string, string> = { DRAFT: 'bg-surface-cream text-on-surface-secondary', ORDERED: 'bg-navy/10 text-navy', PARTIALLY_RECEIVED: 'bg-warning/15 text-warning', RECEIVED: 'bg-success/10 text-success', CANCELLED: 'bg-outline/10 text-on-surface-secondary' };
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -14,9 +14,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { data: order, isLoading } = trpc.orders.getById.useQuery({ id });
   const [receiving, setReceiving] = useState(false);
   const [receivedQtys, setReceivedQtys] = useState<Record<string, string>>({});
+  const [cancelNote, setCancelNote] = useState('');
 
   const updateStatus = trpc.orders.updateStatus.useMutation({ onSuccess: () => utils.orders.invalidate() });
   const receiveItems = trpc.orders.receiveItems.useMutation({ onSuccess: () => { utils.orders.invalidate(); setReceiving(false); } });
+  const createTask = trpc.admin.createTaskFromAttention.useMutation({ onSuccess: () => { utils.admin.invalidate(); utils.tasks.invalidate(); } });
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span></div>;
   if (!order) return null;
@@ -41,16 +43,26 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {/* Actions */}
       {order.status === 'DRAFT' && (
         <div className="flex gap-3 mb-6">
-          <button onClick={() => updateStatus.mutate({ id, status: 'ORDERED' })} className="h-12 px-5 bg-navy text-on-navy font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all">
+          <button onClick={() => updateStatus.mutate({ id, status: 'ORDERED', scope: order.storeId })} className="h-12 px-5 bg-navy text-on-navy font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all">
             <span className="material-symbols-outlined text-[20px]">send</span>Mark as Ordered
           </button>
-          <button onClick={() => updateStatus.mutate({ id, status: 'CANCELLED' })} className="h-12 px-5 bg-surface-cream text-on-surface-secondary font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all">Cancel</button>
+          <button onClick={() => updateStatus.mutate({ id, status: 'CANCELLED', notes: cancelNote || undefined, scope: order.storeId })} className="h-12 px-5 bg-surface-cream text-on-surface-secondary font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all">Cancel</button>
         </div>
       )}
       {(order.status === 'ORDERED' || order.status === 'PARTIALLY_RECEIVED') && !receiving && (
-        <button onClick={() => { setReceiving(true); const qtys: Record<string, string> = {}; order.items.forEach((i: any) => { qtys[i.id] = String(i.receivedQty ?? ''); }); setReceivedQtys(qtys); }} className="h-12 px-5 bg-success text-white font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all mb-6">
-          <span className="material-symbols-outlined text-[20px]">inventory</span>Receive Goods
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row mb-6">
+          <button onClick={() => { setReceiving(true); const qtys: Record<string, string> = {}; order.items.forEach((i: any) => { qtys[i.id] = String(i.receivedQty ?? ''); }); setReceivedQtys(qtys); }} className="h-12 px-5 bg-success text-white font-bold rounded-[--radius-lg] flex items-center justify-center gap-2 active:scale-95 transition-all">
+            <span className="material-symbols-outlined text-[20px]">inventory</span>Receive Goods
+          </button>
+          {order.status === 'PARTIALLY_RECEIVED' && (
+            <button onClick={() => createTask.mutate({ scope: order.storeId, type: 'PURCHASE_ORDER', sourceId: id, title: `Follow up remaining items: ${order.orderNumber}` })} className="h-12 px-5 bg-brand text-on-brand font-bold rounded-[--radius-lg] flex items-center justify-center gap-2 active:scale-95 transition-all">
+              <span className="material-symbols-outlined text-[20px]">assignment_add</span>Create Follow-up
+            </button>
+          )}
+        </div>
+      )}
+      {order.status !== 'RECEIVED' && order.status !== 'CANCELLED' && (
+        <input value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} placeholder="Cancellation note (optional)" className="w-full max-w-md h-12 px-4 bg-surface-white border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-sm text-on-surface placeholder:text-on-surface-secondary mb-6" />
       )}
 
       {/* Items table */}
@@ -88,7 +100,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {receiving && (
         <div className="flex gap-3 mt-4">
           <button onClick={() => setReceiving(false)} className="flex-1 h-14 border-2 border-outline rounded-[--radius-lg] text-on-surface-secondary font-bold active:scale-95 transition-all">Cancel</button>
-          <button onClick={() => receiveItems.mutate({ orderId: id, items: Object.entries(receivedQtys).map(([itemId, qty]) => ({ itemId, receivedQty: parseInt(qty) || 0 })) })} className="flex-1 h-14 bg-success text-white font-bold rounded-[--radius-lg] active:scale-95 transition-all flex items-center justify-center gap-2">
+          <button onClick={() => receiveItems.mutate({ orderId: id, scope: order.storeId, items: Object.entries(receivedQtys).map(([itemId, qty]) => ({ itemId, receivedQty: parseInt(qty) || 0 })) })} className="flex-1 h-14 bg-success text-white font-bold rounded-[--radius-lg] active:scale-95 transition-all flex items-center justify-center gap-2">
             <span className="material-symbols-outlined">check</span>Confirm Receipt
           </button>
         </div>

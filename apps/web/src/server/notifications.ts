@@ -1,4 +1,5 @@
 import { db as _db } from '@superplus/db';
+import { sendWebPushToUser } from './push';
 
 type DB = typeof _db;
 
@@ -10,9 +11,11 @@ export async function createNotification(
   body?: string,
   link?: string
 ) {
-  return db.notification.create({
+  const notification = await db.notification.create({
     data: { userId, type: type as any, title, body, link },
   });
+  await sendWebPushToUser(db, userId, { title, body, link, type }).catch(() => null);
+  return notification;
 }
 
 export async function notifyStoreStaff(
@@ -28,9 +31,7 @@ export async function notifyStoreStaff(
     select: { id: true },
   });
   if (users.length === 0) return;
-  await db.notification.createMany({
-    data: users.map((u: { id: string }) => ({ userId: u.id, type: type as any, title, body, link })),
-  });
+  await Promise.all(users.map((u: { id: string }) => createNotification(db, u.id, type, title, body, link)));
 }
 
 export async function notifyByRole(
@@ -47,7 +48,5 @@ export async function notifyByRole(
     select: { id: true },
   });
   if (users.length === 0) return;
-  await db.notification.createMany({
-    data: users.map((u: { id: string }) => ({ userId: u.id, type: type as any, title, body, link })),
-  });
+  await Promise.all(users.map((u: { id: string }) => createNotification(db, u.id, type, title, body, link)));
 }

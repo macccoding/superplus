@@ -4,21 +4,22 @@ import { useState } from 'react';
 import { PageTransition, Sidebar } from '@superplus/ui';
 
 const adminNav = [
-  { label: 'Dashboard', icon: 'dashboard', href: '/admin' },
-  { label: 'People', icon: 'group', href: '/admin/people' },
-  { label: 'Tasks', icon: 'assignment', href: '/admin/tasks' },
-  { label: 'Products', icon: 'inventory_2', href: '/admin/products' },
-  { label: 'Categories', icon: 'category', href: '/admin/categories' },
-  { label: 'Checklists', icon: 'checklist', href: '/admin/checklists' },
-  { label: 'Reports', icon: 'analytics', href: '/admin/reports' },
-  { label: 'Schedules', icon: 'calendar_month', href: '/admin/schedules' },
-  { label: 'Suppliers', icon: 'local_shipping', href: '/admin/suppliers' },
-  { label: 'Orders', icon: 'receipt_long', href: '/admin/orders' },
-  { label: 'Promotions', icon: 'sell', href: '/admin/promotions' },
-  { label: 'Training', icon: 'school', href: '/admin/training' },
-  { label: 'Suggestions', icon: 'lightbulb', href: '/admin/suggestions' },
-  { label: 'Activity', icon: 'timeline', href: '/admin/activity' },
-  { label: 'Stores', icon: 'store', href: '/admin/stores' },
+  { section: 'Operations', label: 'Dashboard', icon: 'dashboard', href: '/admin' },
+  { section: 'Operations', label: 'Activity', icon: 'timeline', href: '/admin/activity' },
+  { section: 'Operations', label: 'Reports', icon: 'analytics', href: '/admin/reports' },
+  { section: 'Store Ops', label: 'People', icon: 'group', href: '/admin/people' },
+  { section: 'Store Ops', label: 'Tasks', icon: 'assignment', href: '/admin/tasks' },
+  { section: 'Store Ops', label: 'Checklists', icon: 'checklist', href: '/admin/checklists' },
+  { section: 'Store Ops', label: 'Schedules', icon: 'calendar_month', href: '/admin/schedules' },
+  { section: 'Supply', label: 'Supply Ops', icon: 'hub', href: '/admin/supply' },
+  { section: 'Supply', label: 'Products', icon: 'inventory_2', href: '/admin/products' },
+  { section: 'Supply', label: 'Categories', icon: 'category', href: '/admin/categories' },
+  { section: 'Supply', label: 'Suppliers', icon: 'local_shipping', href: '/admin/suppliers' },
+  { section: 'Supply', label: 'Orders', icon: 'receipt_long', href: '/admin/orders' },
+  { section: 'Knowledge', label: 'Promotions', icon: 'sell', href: '/admin/promotions' },
+  { section: 'Knowledge', label: 'Training', icon: 'school', href: '/admin/training' },
+  { section: 'Knowledge', label: 'Suggestions', icon: 'lightbulb', href: '/admin/suggestions' },
+  { section: 'System', label: 'Stores', icon: 'store', href: '/admin/stores' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

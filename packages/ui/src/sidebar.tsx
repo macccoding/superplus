@@ -7,6 +7,7 @@ export interface SidebarItem {
   label: string;
   icon: string;
   href: string;
+  section?: string;
 }
 
 export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; title: string; onNavigate?: () => void }) {
@@ -22,20 +23,27 @@ export function Sidebar({ items, title, onNavigate }: { items: SidebarItem[]; ti
         </div>
       </div>
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const active = item.href === '/admin' ? pathname === '/admin' : pathname.startsWith(item.href);
+          const showSection = item.section && item.section !== items[index - 1]?.section;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => onNavigate?.()}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-[--radius-md] text-sm font-medium transition-all duration-200 ${
-                active ? 'bg-white/10 text-white border-l-3 border-brand' : 'text-white/70 hover:bg-white/5'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[20px]" style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}>{item.icon}</span>
-              {item.label}
-            </Link>
+            <div key={item.href}>
+              {showSection && (
+                <p className="px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wide text-white/40 first:pt-1">
+                  {item.section}
+                </p>
+              )}
+              <Link
+                href={item.href}
+                onClick={() => onNavigate?.()}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-[--radius-md] text-sm font-medium transition-all duration-200 ${
+                  active ? 'bg-white/10 text-white border-l-4 border-brand' : 'text-white/70 hover:bg-white/5'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}>{item.icon}</span>
+                {item.label}
+              </Link>
+            </div>
           );
         })}
       </nav>

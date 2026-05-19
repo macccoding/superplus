@@ -60,7 +60,7 @@ export default function SchedulesAdminPage() {
 
   const roleColors: Record<string, string> = {
     OWNER: 'bg-brand/10 text-brand',
-    MANAGER: 'bg-warning/20/30 text-warning',
+    MANAGER: 'bg-warning/15 text-warning',
     SUPERVISOR: 'bg-navy/10 text-navy',
     STAFF: 'bg-surface-cream text-on-surface-secondary',
   };
@@ -85,7 +85,7 @@ export default function SchedulesAdminPage() {
           {weekOffset === 0 && <span className="text-xs text-brand font-medium">This Week</span>}
           {schedule && (
             <span className={`text-xs font-bold ml-2 px-2 py-0.5 rounded-full ${
-              schedule.status === 'PUBLISHED' ? 'bg-success/10 text-success' : 'bg-warning/20/30 text-warning'
+              schedule.status === 'PUBLISHED' ? 'bg-success/10 text-success' : 'bg-warning/15 text-warning'
             }`}>{schedule.status}</span>
           )}
         </div>

@@ -30,8 +30,14 @@ export default function HubHomePage() {
   const { data: session } = useSession();
   const { data: myTasks } = trpc.tasks.list.useQuery({ view: 'MINE' });
   const { data: availableTasks } = trpc.tasks.list.useQuery({ view: 'AVAILABLE' });
+  const { data: threadCounts } = trpc.threads.counts.useQuery();
 
   const totalTasks = (myTasks?.length || 0) + (availableTasks?.length || 0);
+  const hubItemsWithBadges = hubItems.map((item) => (
+    item.href === '/hub/threads'
+      ? { ...item, badge: threadCounts?.unread || undefined }
+      : item
+  ));
 
   return (
     <div>
@@ -42,7 +48,7 @@ export default function HubHomePage() {
       </section>
 
       {/* Icon grid */}
-      <IconGrid items={hubItems} />
+      <IconGrid items={hubItemsWithBadges} />
 
       {/* More section */}
       <section className="px-5 mt-2 mb-2">

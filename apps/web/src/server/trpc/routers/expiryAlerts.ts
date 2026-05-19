@@ -1,17 +1,20 @@
 import { z } from 'zod';
 import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { ExpiryStatus } from '@superplus/db';
+import { adminStoreWhere, resolveAdminScope } from './admin-scope';
+import { logAdminAction } from './admin-audit';
 
 export const expiryAlertsRouter = router({
   list: protectedProcedure
-    .input(z.object({ status: z.nativeEnum(ExpiryStatus).optional() }).optional())
+    .input(z.object({ status: z.nativeEnum(ExpiryStatus).optional(), scope: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
       return ctx.db.expiryAlert.findMany({
         where: {
-          storeId: ctx.storeId,
+          ...adminStoreWhere(scope),
           status: input?.status ?? ExpiryStatus.ACTIVE,
         },
-        include: { reportedBy: { select: { id: true, fullName: true, role: true } }, product: true },
+        include: { store: { select: { id: true, name: true } }, reportedBy: { select: { id: true, fullName: true, role: true } }, product: true },
         orderBy: { expiryDate: 'asc' },
         take: 100,
       });
@@ -48,14 +51,26 @@ export const expiryAlertsRouter = router({
     .input(z.object({
       id: z.string(),
       status: z.nativeEnum(ExpiryStatus),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.expiryAlert.update({
-        where: { id: input.id, storeId: ctx.storeId },
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const current = await ctx.db.expiryAlert.findFirstOrThrow({ where: { ...adminStoreWhere(scope), id: input.id } });
+      const updated = await ctx.db.expiryAlert.update({
+        where: { id: input.id },
         data: {
           status: input.status,
           resolvedAt: input.status === ExpiryStatus.RESOLVED ? new Date() : input.status === ExpiryStatus.ACTIVE ? null : undefined,
         },
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'EXPIRY_STATUS_UPDATED',
+        storeId: current.storeId,
+        sourceType: 'EXPIRY_ALERT',
+        sourceId: updated.id,
+        note: updated.productName,
+        metadata: { status: updated.status },
+      });
+      return updated;
     }),
 });

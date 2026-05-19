@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, supervisorProcedure, managerProcedure } from '../init';
 import { ChecklistItemStatus } from '@superplus/db';
+import { adminStoreWhere, resolveAdminScope, requireSingleAdminStore } from './admin-scope';
+import { logAdminAction } from './admin-audit';
 
 function getJamaicaDate(d?: Date): Date {
   const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Jamaica' }).format(d ?? new Date());
@@ -10,19 +12,23 @@ function getJamaicaDate(d?: Date): Date {
 }
 
 export const checklistsRouter = router({
-  listTemplates: protectedProcedure.query(async ({ ctx }) => {
+  listTemplates: protectedProcedure
+  .input(z.object({ scope: z.string().optional(), includeInactive: z.boolean().optional() }).optional())
+  .query(async ({ ctx, input }) => {
+    const scope = await resolveAdminScope(ctx as any, input?.scope);
     return ctx.db.checklistTemplate.findMany({
-      where: { storeId: ctx.storeId, isActive: true },
-      include: { _count: { select: { items: true } } },
+      where: { ...adminStoreWhere(scope), ...(input?.includeInactive ? {} : { isActive: true }) },
+      include: { store: { select: { id: true, name: true } }, _count: { select: { items: true, submissions: true } } },
       orderBy: { name: 'asc' },
     });
   }),
 
   getTemplate: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string(), scope: z.string().optional() }))
     .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
       return ctx.db.checklistTemplate.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: { ...adminStoreWhere(scope), id: input.id },
         include: { items: { orderBy: { sortOrder: 'asc' } } },
       });
     }),
@@ -34,11 +40,14 @@ export const checklistsRouter = router({
         label: z.string().min(1).max(200),
         isRequired: z.boolean().default(true),
       })),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.checklistTemplate.create({
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const storeId = requireSingleAdminStore(scope);
+      const template = await ctx.db.checklistTemplate.create({
         data: {
-          storeId: ctx.storeId,
+          storeId,
           name: input.name,
           items: {
             create: input.items.map((item, i) => ({
@@ -50,6 +59,15 @@ export const checklistsRouter = router({
         },
         include: { items: true },
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: 'CHECKLIST_TEMPLATE_CREATED',
+        storeId,
+        sourceType: 'CHECKLIST',
+        sourceId: template.id,
+        note: template.name,
+        metadata: { itemCount: input.items.length },
+      });
+      return template;
     }),
 
   updateTemplate: managerProcedure
@@ -62,29 +80,40 @@ export const checklistsRouter = router({
         isRequired: z.boolean().default(true),
       })).optional(),
       isActive: z.boolean().optional(),
+      scope: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, items, ...data } = input;
+      const scope = await resolveAdminScope(ctx as any, input.scope);
+      const { id, items, scope: _scope, ...data } = input;
 
       // Verify ownership first
-      await ctx.db.checklistTemplate.findFirstOrThrow({
-        where: { id, storeId: ctx.storeId },
+      const current = await ctx.db.checklistTemplate.findFirstOrThrow({
+        where: { ...adminStoreWhere(scope), id },
       });
 
       if (items) {
         await ctx.db.$transaction([
-          ctx.db.checklistTemplateItem.deleteMany({ where: { templateId: id, template: { storeId: ctx.storeId } } }),
+          ctx.db.checklistTemplateItem.deleteMany({ where: { templateId: id, template: { storeId: current.storeId } } }),
           ctx.db.checklistTemplateItem.createMany({
             data: items.map((item, i) => ({ templateId: id, label: item.label, sortOrder: i, isRequired: item.isRequired })),
           }),
         ]);
       }
 
-      return ctx.db.checklistTemplate.update({
-        where: { id, storeId: ctx.storeId },
+      const template = await ctx.db.checklistTemplate.update({
+        where: { id },
         data,
         include: { items: { orderBy: { sortOrder: 'asc' } } },
       });
+      await logAdminAction(ctx.db, ctx.user.id, scope, {
+        action: data.isActive === false ? 'CHECKLIST_TEMPLATE_ARCHIVED' : 'CHECKLIST_TEMPLATE_UPDATED',
+        storeId: current.storeId,
+        sourceType: 'CHECKLIST',
+        sourceId: template.id,
+        note: template.name,
+        metadata: { itemCount: items?.length },
+      });
+      return template;
     }),
 
   todayStatus: protectedProcedure
@@ -182,12 +211,15 @@ export const checklistsRouter = router({
 
   listSubmissions: managerProcedure
     .input(z.object({
+      scope: z.string().optional(),
       templateId: z.string().optional(),
       dateFrom: z.date().optional(),
       dateTo: z.date().optional(),
+      status: z.enum(['COMPLETE', 'ISSUES']).optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
-      const where: any = { storeId: ctx.storeId };
+      const scope = await resolveAdminScope(ctx as any, input?.scope);
+      const where: any = adminStoreWhere(scope);
       if (input?.templateId) where.templateId = input.templateId;
       if (input?.dateFrom || input?.dateTo) {
         where.date = {};
@@ -198,21 +230,28 @@ export const checklistsRouter = router({
       return ctx.db.checklistSubmission.findMany({
         where,
         include: {
+          store: { select: { id: true, name: true } },
           template: true,
-          submittedBy: true,
+          submittedBy: { select: { id: true, fullName: true, role: true } },
           items: { include: { templateItem: true } },
         },
         orderBy: { date: 'desc' },
         take: 50,
-      });
+      }).then((submissions: any[]) => submissions.filter((submission) => {
+        if (!input?.status) return true;
+        const hasIssues = submission.items.some((item: any) => item.status !== ChecklistItemStatus.DONE);
+        return input.status === 'ISSUES' ? hasIssues : !hasIssues;
+      }));
     }),
 
   getSubmission: managerProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string(), scope: z.string().optional() }))
     .query(async ({ ctx, input }) => {
+      const scope = await resolveAdminScope(ctx as any, input.scope);
       return ctx.db.checklistSubmission.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: { ...adminStoreWhere(scope), id: input.id },
         include: {
+          store: { select: { id: true, name: true } },
           template: true,
           submittedBy: true,
           items: { include: { templateItem: true }, orderBy: { templateItem: { sortOrder: 'asc' } } },
