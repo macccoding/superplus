@@ -34,6 +34,16 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
             </div>
           )}
         </div>
+        {onNavigate && !collapsed && (
+          <button
+            type="button"
+            onClick={onNavigate}
+            className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-[--radius-md] bg-white/10 text-sm font-bold text-white lg:hidden"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+            Close Menu
+          </button>
+        )}
         {onToggleCollapsed && (
           <button
             type="button"
