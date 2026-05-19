@@ -19,6 +19,8 @@ const moreItems = [
   { label: 'Suggest', icon: 'lightbulb', href: '/hub/suggestions', color: '#5c1f5c' },
 ];
 
+const adminItem = { label: 'Admin', icon: 'admin_panel_settings', href: '/admin', color: '#1B3A5C' };
+
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good Morning';
@@ -33,11 +35,13 @@ export default function HubHomePage() {
   const { data: threadCounts } = trpc.threads.counts.useQuery();
 
   const totalTasks = (myTasks?.length || 0) + (availableTasks?.length || 0);
+  const canOpenAdmin = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
   const hubItemsWithBadges = hubItems.map((item) => (
     item.href === '/hub/threads'
       ? { ...item, badge: threadCounts?.unread || undefined }
       : item
   ));
+  const moreItemsForUser = canOpenAdmin ? [adminItem, ...moreItems] : moreItems;
 
   return (
     <div>
@@ -54,7 +58,7 @@ export default function HubHomePage() {
       <section className="px-5 mt-2 mb-2">
         <h3 className="text-xs font-bold text-on-surface-secondary uppercase tracking-wide mb-2">More</h3>
       </section>
-      <IconGrid items={moreItems} />
+      <IconGrid items={moreItemsForUser} />
 
       {/* Quick info card — only shown when there are tasks */}
       {totalTasks > 0 && (
