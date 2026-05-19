@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SuperPlus">
   <rect width="512" height="512" rx="96" fill="#E31837"/>
-  <path d="M146 148h220v62H208v58h128v60H208v126h-62V148Z" fill="#FFFFFF"/>
-  <path d="M333 250h54v54h62v54h-62v62h-54v-62h-62v-54h62v-54Z" fill="#FFFFFF"/>
+  <image href="/logo-white.png" x="28" y="116" width="456" height="280" preserveAspectRatio="xMidYMid meet"/>
 </svg>

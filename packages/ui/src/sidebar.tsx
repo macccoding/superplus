@@ -49,7 +49,7 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
               onNavigate();
             }}
             onClick={onNavigate}
-            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-[--radius-md] bg-white/10 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white lg:hidden"
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-[--radius-md] bg-brand text-sm font-extrabold text-on-brand shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.98] lg:hidden"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
             Close Menu
