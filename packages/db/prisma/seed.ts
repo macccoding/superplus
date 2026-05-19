@@ -1,4 +1,4 @@
-import { PrismaClient, Priority, Role, TaskStatus, TaskUpdateType } from '@prisma/client';
+import { AbsenceType, JobLane, PrismaClient, Priority, Role, TaskStatus, TaskUpdateType } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -22,6 +22,7 @@ async function main() {
       phone: '+18760000001',
       pinHash,
       role: Role.OWNER,
+      jobLane: JobLane.SUPERVISOR,
     },
   });
 
@@ -32,6 +33,7 @@ async function main() {
       phone: '+18760000002',
       pinHash,
       role: Role.MANAGER,
+      jobLane: JobLane.SUPERVISOR,
     },
   });
 
@@ -42,6 +44,7 @@ async function main() {
       phone: '+18760000003',
       pinHash,
       role: Role.SUPERVISOR,
+      jobLane: JobLane.SUPERVISOR,
     },
   });
 
@@ -52,6 +55,7 @@ async function main() {
       phone: '+18760000004',
       pinHash,
       role: Role.STAFF,
+      jobLane: JobLane.CASHIER,
     },
   });
 
@@ -62,6 +66,7 @@ async function main() {
       phone: '+18760000005',
       pinHash,
       role: Role.STAFF,
+      jobLane: JobLane.MERCHANDISER,
     },
   });
 
@@ -72,6 +77,7 @@ async function main() {
       phone: '+18760000006',
       pinHash,
       role: Role.SUPERVISOR,
+      jobLane: JobLane.SUPERVISOR,
     },
   });
 
@@ -124,7 +130,7 @@ async function main() {
   // Phase 4: Store config
   await prisma.store.update({
     where: { id: store.id },
-    data: { openTime: '07:00', closeTime: '21:00', openDays: 'Mon,Tue,Wed,Thu,Fri,Sat' },
+    data: { openTime: '06:00', closeTime: '21:00', openDays: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat' },
   });
 
   // Phase 4: Staff availability (sample)
@@ -135,12 +141,29 @@ async function main() {
         data: {
           userId: u.id,
           dayOfWeek: day,
-          available: day !== 0, // Everyone unavailable Sunday
-          note: day === 0 ? 'Day off' : null,
+          available: true,
+          note: null,
         },
       });
     }
   }
+
+  const absenceStart = new Date();
+  absenceStart.setDate(absenceStart.getDate() + 10);
+  absenceStart.setHours(0, 0, 0, 0);
+  const absenceEnd = new Date(absenceStart);
+  absenceEnd.setDate(absenceEnd.getDate() + 2);
+  await prisma.staffAbsence.create({
+    data: {
+      storeId: store.id,
+      userId: stockClerk.id,
+      startDate: absenceStart,
+      endDate: absenceEnd,
+      type: AbsenceType.VACATION_LEAVE,
+      note: 'Sample vacation block for schedule testing',
+      createdById: manager.id,
+    },
+  });
 
   const today = new Date();
   today.setHours(17, 0, 0, 0);

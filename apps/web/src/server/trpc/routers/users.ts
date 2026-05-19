@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure, managerProcedure } from '../init';
-import { Role } from '@superplus/db';
+import { JobLane, Role } from '@superplus/db';
 import { hasMinRole } from '@superplus/config';
 import type { Role as ConfigRole } from '@superplus/config';
 import { TRPCError } from '@trpc/server';
@@ -31,7 +31,7 @@ export const usersRouter = router({
       return ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.user.id },
         select: {
-          id: true, fullName: true, phone: true, role: true,
+          id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
           store: { select: { id: true, name: true, parish: true, address: true } },
         },
@@ -43,6 +43,7 @@ export const usersRouter = router({
       storeId: z.string().optional(),
       scope: z.string().optional(),
       role: z.nativeEnum(Role).optional(),
+      jobLane: z.nativeEnum(JobLane).optional(),
       isActive: z.boolean().optional(),
       search: z.string().max(100).optional(),
     }).optional())
@@ -50,6 +51,7 @@ export const usersRouter = router({
       const scope = await resolveAdminScope(ctx as any, input?.scope ?? input?.storeId);
       const where: any = adminStoreWhere(scope);
       if (input?.role) where.role = input.role;
+      if (input?.jobLane) where.jobLane = input.jobLane;
       if (typeof input?.isActive === 'boolean') where.isActive = input.isActive;
       if (input?.search?.trim()) {
         const search = input.search.trim();
@@ -61,7 +63,7 @@ export const usersRouter = router({
       return ctx.db.user.findMany({
         where,
         select: {
-          id: true, fullName: true, phone: true, role: true,
+          id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
           store: { select: { name: true } },
         },
@@ -77,7 +79,7 @@ export const usersRouter = router({
       const [users, activeTasks, recentActions] = await Promise.all([
         ctx.db.user.findMany({
           where: { storeId: storeIdWhere },
-          select: { id: true, fullName: true, phone: true, role: true, storeId: true, isActive: true, createdAt: true, store: { select: { id: true, name: true } } },
+          select: { id: true, fullName: true, phone: true, role: true, jobLane: true, storeId: true, isActive: true, createdAt: true, store: { select: { id: true, name: true } } },
           orderBy: { fullName: 'asc' },
         }),
         ctx.db.task.findMany({
@@ -131,6 +133,7 @@ export const usersRouter = router({
       phone: z.string().min(10).max(15),
       pin: z.string().length(4).regex(/^\d{4}$/),
       role: z.nativeEnum(Role),
+      jobLane: z.nativeEnum(JobLane).optional(),
       storeId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -149,9 +152,10 @@ export const usersRouter = router({
           phone: input.phone,
           pinHash,
           role: input.role,
+          jobLane: input.jobLane ?? defaultJobLaneForRole(input.role),
         },
         select: {
-          id: true, fullName: true, phone: true, role: true,
+          id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
         },
       });
@@ -161,9 +165,37 @@ export const usersRouter = router({
         sourceType: 'USER',
         sourceId: created.id,
         note: created.fullName,
-        metadata: { role: created.role },
+        metadata: { role: created.role, jobLane: created.jobLane },
       });
       return created;
+    }),
+
+  updateJobLane: managerProcedure
+    .input(z.object({
+      id: z.string(),
+      jobLane: z.nativeEnum(JobLane),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findFirstOrThrow({
+        where: ctx.user.role === 'OWNER' ? { id: input.id } : { id: input.id, storeId: ctx.storeId },
+      });
+      if (!hasMinRole(ctx.user.role as ConfigRole, target.role as ConfigRole)) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot update staff with equal or higher role' });
+      }
+      const updated = await ctx.db.user.update({
+        where: { id: input.id },
+        data: { jobLane: input.jobLane },
+        select: { id: true, fullName: true, jobLane: true },
+      });
+      await logAdminAction(ctx.db, ctx.user.id, target.storeId, {
+        action: 'USER_JOB_LANE_UPDATED',
+        storeId: target.storeId,
+        sourceType: 'USER',
+        sourceId: target.id,
+        note: target.fullName,
+        metadata: { from: target.jobLane, to: input.jobLane },
+      });
+      return updated;
     }),
 
   toggleActive: managerProcedure
@@ -244,3 +276,7 @@ export const usersRouter = router({
       });
     }),
 });
+
+function defaultJobLaneForRole(role: Role): JobLane {
+  return role === Role.STAFF ? JobLane.CASHIER : JobLane.SUPERVISOR;
+}

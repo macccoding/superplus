@@ -7,24 +7,23 @@ import { EmptyState } from '@superplus/ui';
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function getMonday(d: Date): Date {
+function getRosterWeekStart(d: Date): Date {
   const date = new Date(d);
   const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
+  date.setDate(date.getDate() - day);
   date.setHours(0, 0, 0, 0);
   return date;
 }
 
 export default function MySchedulePage() {
   const [weekOffset, setWeekOffset] = useState(0);
-  const monday = getMonday(new Date());
-  monday.setDate(monday.getDate() + weekOffset * 7);
+  const weekStart = getRosterWeekStart(new Date());
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7);
 
-  const weekEnd = new Date(monday);
+  const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
-  const { data: slots, isLoading } = trpc.schedules.mySchedule.useQuery({ weekStart: monday });
+  const { data: slots, isLoading } = trpc.schedules.mySchedule.useQuery({ weekStart });
 
   return (
     <div>
@@ -36,7 +35,7 @@ export default function MySchedulePage() {
           </button>
           <div className="text-center">
             <p className="text-sm font-bold text-on-surface">
-              {monday.toLocaleDateString('en-JM', { month: 'short', day: 'numeric' })} — {weekEnd.toLocaleDateString('en-JM', { month: 'short', day: 'numeric' })}
+              {weekStart.toLocaleDateString('en-JM', { month: 'short', day: 'numeric' })} — {weekEnd.toLocaleDateString('en-JM', { month: 'short', day: 'numeric' })}
             </p>
             {weekOffset === 0 && <span className="text-xs text-brand font-medium">This Week</span>}
           </div>

@@ -10,6 +10,16 @@ const roleColors: Record<string, string> = {
   STAFF: 'bg-surface-cream text-on-surface-secondary',
 };
 
+const jobLaneLabels: Record<string, string> = {
+  SUPERVISOR: 'Supervisor',
+  PRICING_CLERK: 'Pricing Clerk',
+  CASHIER: 'Cashier',
+  PRODUCE_MEAT: 'Produce/Meat',
+  MERCHANDISER: 'Merchandiser',
+};
+
+const jobLaneOptions = Object.entries(jobLaneLabels);
+
 function initials(name: string) {
   return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 }
@@ -29,7 +39,7 @@ export default function PeoplePage() {
   const [toggleTarget, setToggleTarget] = useState<any | null>(null);
   const [newPin, setNewPin] = useState('');
   const [resetDone, setResetDone] = useState(false);
-  const [newUser, setNewUser] = useState({ fullName: '', phone: '', pin: '', role: 'STAFF', storeId: '' });
+  const [newUser, setNewUser] = useState({ fullName: '', phone: '', pin: '', role: 'STAFF', jobLane: 'CASHIER', storeId: '' });
 
   const listInput = {
     scope: activeScope,
@@ -47,7 +57,14 @@ export default function PeoplePage() {
       utils.users.invalidate();
       utils.admin.invalidate();
       setShowAdd(false);
-      setNewUser({ fullName: '', phone: '', pin: '', role: 'STAFF', storeId: '' });
+      setNewUser({ fullName: '', phone: '', pin: '', role: 'STAFF', jobLane: 'CASHIER', storeId: '' });
+    },
+  });
+
+  const updateJobLane = trpc.users.updateJobLane.useMutation({
+    onSuccess: () => {
+      utils.users.invalidate();
+      utils.admin.invalidate();
     },
   });
 
@@ -170,6 +187,7 @@ export default function PeoplePage() {
                         <div>
                           <h2 className="font-extrabold text-on-surface">{user.fullName}</h2>
                           <p className="text-xs text-on-surface-secondary">{user.store?.name} · {user.phone}</p>
+                          <p className="text-xs font-bold text-navy mt-1">{jobLaneLabels[user.jobLane] ?? user.jobLane}</p>
                         </div>
                         <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${roleColors[user.role] || roleColors.STAFF}`}>{user.role}</span>
                       </div>
@@ -198,6 +216,7 @@ export default function PeoplePage() {
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Name</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Store</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Role</th>
+                  <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Job Lane</th>
                   <th className="text-center px-5 py-4 text-sm font-medium text-on-surface-secondary">Workload</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Status</th>
                   <th className="px-5 py-4"></th>
@@ -221,6 +240,16 @@ export default function PeoplePage() {
                       </td>
                       <td className="px-5 py-4 text-sm text-on-surface-secondary">{user.store?.name}</td>
                       <td className="px-5 py-4"><span className={`text-xs font-bold px-3 py-1 rounded-full ${roleColors[user.role] || roleColors.STAFF}`}>{user.role}</span></td>
+                      <td className="px-5 py-4">
+                        <select
+                          value={user.jobLane}
+                          onChange={(e) => updateJobLane.mutate({ id: user.id, jobLane: e.target.value as any })}
+                          className="h-10 px-3 bg-surface border-2 border-outline rounded-[--radius-md] text-xs font-bold text-on-surface"
+                          aria-label={`Job lane for ${user.fullName}`}
+                        >
+                          {jobLaneOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        </select>
+                      </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-center gap-2">
                           <Badge label={`${workload.active} active`} />
@@ -274,10 +303,13 @@ export default function PeoplePage() {
               <option value="SUPERVISOR">Supervisor</option>
               <option value="MANAGER">Manager</option>
             </select>
+            <select value={newUser.jobLane} onChange={(e) => setNewUser({ ...newUser, jobLane: e.target.value })} className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] text-on-surface">
+              {jobLaneOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
             {createUser.error && <p className="text-sm font-bold text-error">{createUser.error.message}</p>}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowAdd(false)} className="flex-1 h-14 border-2 border-outline rounded-[--radius-lg] text-on-surface-secondary font-bold">Cancel</button>
-              <button onClick={() => createUser.mutate({ ...newUser, role: newUser.role as any, storeId: selectedStoreId || undefined })} disabled={!canCreate || createUser.isPending} className="flex-1 h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40">Add</button>
+              <button onClick={() => createUser.mutate({ ...newUser, role: newUser.role as any, jobLane: newUser.jobLane as any, storeId: selectedStoreId || undefined })} disabled={!canCreate || createUser.isPending} className="flex-1 h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40">Add</button>
             </div>
           </div>
         </div>

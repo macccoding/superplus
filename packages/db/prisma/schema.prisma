@@ -15,6 +15,14 @@ enum Role {
   STAFF
 }
 
+enum JobLane {
+  SUPERVISOR
+  PRICING_CLERK
+  CASHIER
+  PRODUCE_MEAT
+  MERCHANDISER
+}
+
 enum ThreadCategory {
   GENERAL
   URGENT
@@ -143,6 +151,7 @@ model Store {
   stockOutReports      StockOutReport[]
   incidents            Incident[]
   shiftSchedules       ShiftSchedule[]
+  staffAbsences        StaffAbsence[]
   suppliers            Supplier[]
   orders               PurchaseOrder[]
   promotions           Promotion[]
@@ -158,6 +167,7 @@ model User {
   phone     String   @unique
   pinHash   String
   role      Role     @default(STAFF)
+  jobLane   JobLane  @default(CASHIER)
   email     String?  @unique
   avatarUrl String?
   isActive  Boolean  @default(true)
@@ -193,6 +203,8 @@ model User {
   incidentsReported    Incident[]       @relation("IncidentReporter")
   incidentsResolved    Incident[]       @relation("IncidentResolver")
   staffAvailability    StaffAvailability[]
+  staffAbsences        StaffAbsence[]     @relation("StaffAbsenceUser")
+  createdStaffAbsences StaffAbsence[]     @relation("StaffAbsenceCreator")
   shiftSlots           ShiftSlot[]
   publishedSchedules   ShiftSchedule[]  @relation("SchedulePublisher")
   createdOrders        PurchaseOrder[]  @relation("POCreator")
@@ -779,6 +791,14 @@ enum ScheduleStatus {
   ARCHIVED
 }
 
+enum AbsenceType {
+  VACATION_LEAVE
+  SICK_LEAVE
+  MATERNITY_LEAVE
+  PERSONAL_LEAVE
+  OTHER
+}
+
 model StaffAvailability {
   id        String  @id @default(cuid())
   userId    String
@@ -790,6 +810,25 @@ model StaffAvailability {
 
   @@unique([userId, dayOfWeek])
   @@index([userId])
+}
+
+model StaffAbsence {
+  id          String      @id @default(cuid())
+  storeId     String
+  userId      String
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  type        AbsenceType
+  note        String?
+  createdById String
+  createdAt   DateTime    @default(now())
+
+  store     Store @relation(fields: [storeId], references: [id])
+  user      User  @relation("StaffAbsenceUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("StaffAbsenceCreator", fields: [createdById], references: [id])
+
+  @@index([storeId, startDate, endDate])
+  @@index([userId, startDate, endDate])
 }
 
 model ShiftSchedule {

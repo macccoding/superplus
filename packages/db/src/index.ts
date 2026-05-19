@@ -44,9 +44,11 @@ export type {
   PushSubscription,
   NotificationPreference,
   AdminActionLog,
+  StaffAbsence,
 } from '@prisma/client';
 export {
   Role,
+  JobLane,
   ThreadCategory,
   ThreadAttachmentType,
   ThreadReactionType,
@@ -67,6 +69,7 @@ export {
   IncidentSeverity,
   IncidentStatus,
   ScheduleStatus,
+  AbsenceType,
   POStatus,
   PromotionType,
   SuggestionCategory,
