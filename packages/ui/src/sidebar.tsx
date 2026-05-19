@@ -85,25 +85,6 @@ export function Sidebar({ items, title, onNavigate, footerSlot, collapsed = fals
         })}
       </nav>
       <div className={`${collapsed ? 'p-2' : 'p-3'} border-t border-white/10`}>
-        {onNavigate && !collapsed && (
-          <button
-            type="button"
-            data-sidebar-close
-            onPointerDown={(event) => {
-              event.preventDefault();
-              onNavigate();
-            }}
-            onTouchStart={(event) => {
-              event.preventDefault();
-              onNavigate();
-            }}
-            onClick={onNavigate}
-            className="mb-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[--radius-md] bg-brand text-sm font-extrabold text-on-brand shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white lg:hidden"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span>
-            Close Admin Menu
-          </button>
-        )}
         {footerSlot && <div className="mb-2">{footerSlot}</div>}
         <Link
           href="/hub"

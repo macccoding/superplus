@@ -91,19 +91,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      {sidebarOpen && (
-        <button
-          type="button"
-          onPointerDown={() => setSidebarOpen(false)}
-          onTouchStart={() => setSidebarOpen(false)}
-          onClick={() => setSidebarOpen(false)}
-          className="fixed right-4 top-4 z-[60] flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-lg active:scale-[0.98] lg:hidden"
-        >
-          <span className="material-symbols-outlined text-[20px]">close</span>
-          Close
-        </button>
-      )}
-
       {/* Sidebar — hidden on mobile, fixed on desktop */}
       <div ref={sidebarRef} className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none lg:pointer-events-auto'
