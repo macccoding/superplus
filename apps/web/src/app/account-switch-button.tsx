@@ -5,6 +5,7 @@ import { signOut } from 'next-auth/react';
 interface AccountSwitchButtonProps {
   variant?: 'brand' | 'navy' | 'light';
   className?: string;
+  compact?: boolean;
 }
 
 const variantClasses = {
@@ -13,7 +14,7 @@ const variantClasses = {
   light: 'bg-surface-cream text-on-surface-secondary active:bg-surface',
 };
 
-export function AccountSwitchButton({ variant = 'brand', className = '' }: AccountSwitchButtonProps) {
+export function AccountSwitchButton({ variant = 'brand', className = '', compact = false }: AccountSwitchButtonProps) {
   return (
     <button
       type="button"
@@ -22,7 +23,7 @@ export function AccountSwitchButton({ variant = 'brand', className = '' }: Accou
       className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-[--radius-md] px-3 text-xs font-extrabold transition-all active:scale-[0.98] ${variantClasses[variant]} ${className}`}
     >
       <span className="material-symbols-outlined text-[20px]">logout</span>
-      <span>Switch</span>
+      <span className={compact ? 'sr-only' : undefined}>Switch</span>
     </button>
   );
 }

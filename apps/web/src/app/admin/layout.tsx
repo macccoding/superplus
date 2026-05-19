@@ -26,6 +26,7 @@ const adminNav = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
     <div className="flex">
@@ -42,16 +43,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           items={adminNav}
           title="SuperPlus"
           onNavigate={() => setSidebarOpen(false)}
-          footerSlot={<AccountSwitchButton variant="navy" className="w-full justify-start px-4 text-sm" />}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+          footerSlot={(
+            <AccountSwitchButton
+              variant="navy"
+              compact={sidebarCollapsed}
+              className={sidebarCollapsed ? 'w-full px-0' : 'w-full justify-start px-4 text-sm'}
+            />
+          )}
         />
       </div>
 
       {/* Main content */}
-      <main className="flex-1 min-h-dvh bg-surface p-4 lg:p-8 lg:ml-64">
+      <main className={`flex-1 min-h-dvh bg-surface p-4 transition-[margin] duration-200 lg:p-8 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         {/* Mobile header with hamburger */}
         <div className="flex items-center gap-3 mb-6 lg:hidden">
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => {
+              setSidebarCollapsed(false);
+              setSidebarOpen(true);
+            }}
             className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream"
           >
             <span className="material-symbols-outlined">menu</span>
