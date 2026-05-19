@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar — hidden on mobile, fixed on desktop */}
       <div className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:translate-x-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        sidebarOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none lg:pointer-events-auto'
       }`}>
         <Sidebar
           items={adminNav}
