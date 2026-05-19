@@ -46,7 +46,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     sidebarRef.current?.querySelector<HTMLButtonElement>('[data-sidebar-close]')?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setSidebarOpen(false);
+      if (event.key === 'Escape') {
+        setSidebarOpen(false);
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+
+      const focusable = Array.from(
+        sidebarRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((element) => element.offsetParent !== null);
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown);
