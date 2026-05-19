@@ -127,15 +127,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             type="button"
             aria-expanded={sidebarOpen}
-            aria-label={sidebarOpen ? 'Close admin menu' : 'Open admin menu'}
+            aria-label="Open admin menu"
+            aria-hidden={sidebarOpen}
+            tabIndex={sidebarOpen ? -1 : undefined}
             onClick={() => {
               setSidebarCollapsed(false);
-              setSidebarOpen((current) => !current);
+              setSidebarOpen(true);
             }}
-            className="flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+            className={`flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98] ${
+              sidebarOpen ? 'pointer-events-none invisible' : ''
+            }`}
           >
-            <span className="material-symbols-outlined text-[20px]">{sidebarOpen ? 'close' : 'menu'}</span>
-            {sidebarOpen ? 'Close' : 'Menu'}
+            <span className="material-symbols-outlined text-[20px]">menu</span>
+            Menu
           </button>
           <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
           <AccountSwitchButton variant="light" />
