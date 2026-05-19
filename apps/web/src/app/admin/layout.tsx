@@ -124,23 +124,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         {/* Mobile admin bar */}
         <div className="sticky top-0 z-30 -mx-4 mb-6 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
-          <button
-            type="button"
-            aria-expanded={sidebarOpen}
-            aria-label="Open admin menu"
-            aria-hidden={sidebarOpen}
-            tabIndex={sidebarOpen ? -1 : undefined}
-            onClick={() => {
-              setSidebarCollapsed(false);
-              setSidebarOpen(true);
-            }}
-            className={`flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98] ${
-              sidebarOpen ? 'pointer-events-none invisible' : ''
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px]">menu</span>
-            Menu
-          </button>
+          {!sidebarOpen && (
+            <button
+              type="button"
+              aria-expanded={sidebarOpen}
+              aria-label="Open admin menu"
+              onClick={() => {
+                setSidebarCollapsed(false);
+                setSidebarOpen(true);
+              }}
+              className="flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-[20px]">menu</span>
+              Menu
+            </button>
+          )}
           <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
           <AccountSwitchButton variant="light" />
           <a href="/hub" className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream">
