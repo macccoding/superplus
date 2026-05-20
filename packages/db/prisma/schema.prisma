@@ -224,6 +224,7 @@ model User {
   suggestionResponses  Suggestion[]     @relation("SuggestionResponder")
   notifications        Notification[]
   adminActionLogs      AdminActionLog[] @relation("AdminActionActor")
+  updatedAppSettings   AppSetting[]     @relation("AppSettingUpdater")
 
   @@index([storeId])
   @@index([phone])
@@ -1173,6 +1174,19 @@ model NotificationPreference {
   updatedAt             DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("AppSettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
 }
 
 model AdminActionLog {

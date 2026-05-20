@@ -1,20 +1,23 @@
 'use client';
 
 import { AppShell } from '@superplus/ui';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { getBlockedStaffModule, getStaffBottomNavItems, normalizeReleaseMode } from '@superplus/config';
 import { AccountSwitchButton } from '@/app/account-switch-button';
 import { HubNotifications } from './hub-notifications';
 import { trpc } from '@/lib/trpc-client';
 
-const baseNavItems = [
-  { label: 'Home', icon: 'home', href: '/hub' },
-  { label: 'Tasks', icon: 'assignment', href: '/hub/tasks' },
-  { label: 'Threads', icon: 'forum', href: '/hub/threads' },
-  { label: 'Log', icon: 'history', href: '/hub/logbook' },
-  { label: 'Profile', icon: 'person', href: '/hub/profile' },
-];
-
 export default function HubLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { data: threadCounts } = trpc.threads.counts.useQuery();
+  const { data: releaseModeSetting } = trpc.settings.getReleaseMode.useQuery(undefined, { retry: false });
+  const releaseMode = normalizeReleaseMode(releaseModeSetting?.mode);
+  const blockedModule = getBlockedStaffModule(pathname, releaseMode);
+  const baseNavItems = [
+    { label: 'Home', icon: 'home', href: '/hub' },
+    ...getStaffBottomNavItems(releaseMode),
+  ];
   const navItems = baseNavItems.map((item) => (
     item.href === '/hub/threads'
       ? { ...item, badge: threadCounts?.unread || undefined }
@@ -23,7 +26,23 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell navItems={navItems} notificationSlot={<HubNotifications />} accountSlot={<AccountSwitchButton />}>
-      {children}
+      {blockedModule ? (
+        <div className="px-5 py-10 text-center">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-surface-cream">
+            <span className="material-symbols-outlined text-[40px] text-brand-light">visibility_off</span>
+          </div>
+          <h2 className="text-xl font-extrabold text-on-surface">Not available in this release</h2>
+          <p className="mx-auto mt-2 max-w-xs text-sm text-on-surface-secondary">
+            {blockedModule.label} is hidden while SuperPlus runs the simplified staff app.
+          </p>
+          <Link
+            href="/hub"
+            className="mt-6 inline-flex min-h-12 items-center justify-center rounded-[--radius-lg] bg-brand px-5 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+          >
+            Back to Hub
+          </Link>
+        </div>
+      ) : children}
     </AppShell>
   );
 }

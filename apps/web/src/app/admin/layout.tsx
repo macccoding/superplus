@@ -22,6 +22,7 @@ const adminNav = [
   { section: 'Knowledge', label: 'Training', icon: 'school', href: '/admin/training' },
   { section: 'Knowledge', label: 'Suggestions', icon: 'lightbulb', href: '/admin/suggestions' },
   { section: 'System', label: 'Stores', icon: 'store', href: '/admin/stores' },
+  { section: 'System', label: 'Settings', icon: 'settings', href: '/admin/settings' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

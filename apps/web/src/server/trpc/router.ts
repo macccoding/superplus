@@ -21,10 +21,12 @@ import { promotionsRouter } from './routers/promotions';
 import { trainingRouter } from './routers/training';
 import { suggestionsRouter } from './routers/suggestions';
 import { notificationsRouter } from './routers/notifications';
+import { settingsRouter } from './routers/settings';
 import { adminRouter } from './routers/admin';
 
 export const appRouter = router({
   admin: adminRouter,
+  settings: settingsRouter,
   tasks: tasksRouter,
   threads: threadsRouter,
   logbook: logbookRouter,

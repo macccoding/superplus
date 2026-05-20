@@ -47,6 +47,7 @@ export type {
   Notification,
   PushSubscription,
   NotificationPreference,
+  AppSetting,
   AdminActionLog,
   StaffAbsence,
 } from '@prisma/client';

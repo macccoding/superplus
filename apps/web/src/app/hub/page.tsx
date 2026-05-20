@@ -1,23 +1,9 @@
 'use client';
 
 import { IconGrid } from '@superplus/ui';
+import { getStaffModulesByPlacement, normalizeReleaseMode } from '@superplus/config';
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc-client';
-
-const hubItems = [
-  { label: 'Tasks', icon: 'assignment', href: '/hub/tasks', color: '#446185' },
-  { label: 'Threads', icon: 'forum', href: '/hub/threads', color: '#2e7d32' },
-  { label: 'Logbook', icon: 'history', href: '/hub/logbook', color: '#845500' },
-  { label: 'Schedule', icon: 'calendar_month', href: '/hub/schedule', color: '#1565c0' },
-  { label: 'Deals', icon: 'sell', href: '/hub/promotions', color: '#c00029' },
-  { label: 'Tools', icon: 'build', href: '/tools', color: '#673ab7' },
-];
-
-const moreItems = [
-  { label: 'Announce', icon: 'campaign', href: '/hub/announcements', color: '#a73b21' },
-  { label: 'Learn', icon: 'school', href: '/hub/training', color: '#845500' },
-  { label: 'Suggest', icon: 'lightbulb', href: '/hub/suggestions', color: '#5c1f5c' },
-];
 
 const adminItem = { label: 'Admin', icon: 'admin_panel_settings', href: '/admin', color: '#1B3A5C' };
 
@@ -33,9 +19,13 @@ export default function HubHomePage() {
   const { data: myTasks } = trpc.tasks.list.useQuery({ view: 'MINE' });
   const { data: availableTasks } = trpc.tasks.list.useQuery({ view: 'AVAILABLE' });
   const { data: threadCounts } = trpc.threads.counts.useQuery();
+  const { data: releaseModeSetting } = trpc.settings.getReleaseMode.useQuery(undefined, { retry: false });
 
+  const releaseMode = normalizeReleaseMode(releaseModeSetting?.mode);
   const totalTasks = (myTasks?.length || 0) + (availableTasks?.length || 0);
   const canOpenAdmin = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
+  const hubItems = getStaffModulesByPlacement(releaseMode, 'main');
+  const moreItems = getStaffModulesByPlacement(releaseMode, 'more');
   const hubItemsWithBadges = hubItems.map((item) => (
     item.href === '/hub/threads'
       ? { ...item, badge: threadCounts?.unread || undefined }
@@ -54,11 +44,14 @@ export default function HubHomePage() {
       {/* Icon grid */}
       <IconGrid items={hubItemsWithBadges} />
 
-      {/* More section */}
-      <section className="px-5 mt-2 mb-2">
-        <h3 className="text-xs font-bold text-on-surface-secondary uppercase tracking-wide mb-2">More</h3>
-      </section>
-      <IconGrid items={moreItemsForUser} />
+      {moreItemsForUser.length > 0 && (
+        <>
+          <section className="px-5 mt-2 mb-2">
+            <h3 className="text-xs font-bold text-on-surface-secondary uppercase tracking-wide mb-2">More</h3>
+          </section>
+          <IconGrid items={moreItemsForUser} />
+        </>
+      )}
 
       {/* Quick info card — only shown when there are tasks */}
       {totalTasks > 0 && (
