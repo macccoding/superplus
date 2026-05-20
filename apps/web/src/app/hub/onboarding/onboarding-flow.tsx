@@ -79,7 +79,7 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-[#FFF8F6] flex flex-col overflow-hidden"
+      className="fixed inset-0 z-[200] bg-[#FFF8F6] flex flex-col overflow-hidden h-dvh w-dvw"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
