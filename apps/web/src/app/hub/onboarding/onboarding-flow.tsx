@@ -79,7 +79,7 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-surface flex flex-col overflow-hidden"
+      className="fixed inset-0 z-[200] bg-[#FFF8F6] flex flex-col overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -87,7 +87,7 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
       {/* Skip / Close button */}
       <button
         onClick={handleSkip}
-        className="absolute top-4 right-4 z-[60] min-w-[48px] min-h-[48px] flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-sm active:scale-95 transition-transform"
+        className="absolute top-4 right-4 z-[210] min-w-[48px] min-h-[48px] flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-sm active:scale-95 transition-transform"
       >
         {type === 'whats-new' ? (
           <span className="material-symbols-outlined text-on-surface-secondary text-[24px]">close</span>
@@ -98,7 +98,7 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
 
       {/* Slide content */}
       <div
-        className="flex-1 transition-transform duration-300 ease-out"
+        className="flex-1 min-h-0 transition-transform duration-300 ease-out"
         style={{ transform: `translateX(${offset}%)` }}
       >
         <OnboardingSlide
