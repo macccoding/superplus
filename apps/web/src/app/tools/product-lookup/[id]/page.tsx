@@ -39,9 +39,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-on-surface">{product.name}</h2>
-            {product.category && (
-              <span className="text-sm text-on-surface-secondary">{product.category.name}</span>
-            )}
+            <span className="text-sm text-on-surface-secondary">
+              {[product.category?.name, (product as any).brand, (product as any).size && (product as any).unit ? `${(product as any).size}${(product as any).unit}` : (product as any).size || (product as any).unit].filter(Boolean).join(' · ') || 'Product'}
+            </span>
           </div>
           <div className={`flex items-center gap-1 ${stock.color}`}>
             <span className="material-symbols-outlined text-[18px]">{stock.icon}</span>
@@ -63,6 +63,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div>
                 <p className="text-xs text-on-surface-secondary">Barcode</p>
                 <p className="text-sm font-medium text-on-surface font-mono">{product.barcode}</p>
+              </div>
+            </div>
+          )}
+          {(product as any).sku && (
+            <div className="flex items-center gap-3 py-3 border-b border-outline/20">
+              <span className="material-symbols-outlined text-on-surface-secondary">tag</span>
+              <div>
+                <p className="text-xs text-on-surface-secondary">SKU</p>
+                <p className="text-sm font-medium text-on-surface font-mono">{(product as any).sku}</p>
+              </div>
+            </div>
+          )}
+          {(product as any).brand && (
+            <div className="flex items-center gap-3 py-3 border-b border-outline/20">
+              <span className="material-symbols-outlined text-on-surface-secondary">verified</span>
+              <div>
+                <p className="text-xs text-on-surface-secondary">Brand</p>
+                <p className="text-sm font-medium text-on-surface">{(product as any).brand}</p>
               </div>
             </div>
           )}

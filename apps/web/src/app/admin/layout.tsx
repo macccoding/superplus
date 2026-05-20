@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AccountSwitchButton } from '@/app/account-switch-button';
+import { NotificationsSlot } from '@/app/notifications-slot';
 import { PageTransition, Sidebar } from '@superplus/ui';
 
 const adminNav = [
@@ -15,10 +16,12 @@ const adminNav = [
   { section: 'Store Ops', label: 'Schedules', icon: 'calendar_month', href: '/admin/schedules' },
   { section: 'Supply', label: 'Supply Ops', icon: 'hub', href: '/admin/supply' },
   { section: 'Supply', label: 'Products', icon: 'inventory_2', href: '/admin/products' },
+  { section: 'Supply', label: 'Product QA', icon: 'rule_settings', href: '/admin/products/qa' },
   { section: 'Supply', label: 'Categories', icon: 'category', href: '/admin/categories' },
   { section: 'Supply', label: 'Suppliers', icon: 'local_shipping', href: '/admin/suppliers' },
   { section: 'Supply', label: 'Orders', icon: 'receipt_long', href: '/admin/orders' },
   { section: 'Knowledge', label: 'Promotions', icon: 'sell', href: '/admin/promotions' },
+  { section: 'Knowledge', label: 'Announcements', icon: 'campaign', href: '/admin/announcements' },
   { section: 'Knowledge', label: 'Training', icon: 'school', href: '/admin/training' },
   { section: 'Knowledge', label: 'Suggestions', icon: 'lightbulb', href: '/admin/suggestions' },
   { section: 'System', label: 'Stores', icon: 'store', href: '/admin/stores' },
@@ -122,6 +125,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="material-symbols-outlined text-[20px]">{sidebarCollapsed ? 'menu_open' : 'keyboard_double_arrow_left'}</span>
             {sidebarCollapsed ? 'Show Menu' : 'Hide Menu'}
           </button>
+          <NotificationsSlot variant="light" />
         </div>
         {/* Mobile admin bar */}
         <div className="sticky top-0 z-30 -mx-4 mb-6 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
@@ -141,6 +145,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
           )}
           <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
+          <NotificationsSlot variant="light" />
           <AccountSwitchButton variant="light" />
           <a href="/hub" className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream">
             <span className="material-symbols-outlined text-on-surface-secondary">home</span>

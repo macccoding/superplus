@@ -12,6 +12,12 @@ export const notificationsRouter = router({
       threadMentions: true,
       threadReplies: true,
       urgentThreads: true,
+      taskAlerts: true,
+      announcementAlerts: true,
+      scheduleAlerts: true,
+      stockAlerts: true,
+      incidentAlerts: true,
+      suggestionResponses: true,
       urgentOverrideQuiet: true,
       quietHoursStart: null,
       quietHoursEnd: null,
@@ -23,6 +29,12 @@ export const notificationsRouter = router({
       threadMentions: z.boolean().optional(),
       threadReplies: z.boolean().optional(),
       urgentThreads: z.boolean().optional(),
+      taskAlerts: z.boolean().optional(),
+      announcementAlerts: z.boolean().optional(),
+      scheduleAlerts: z.boolean().optional(),
+      stockAlerts: z.boolean().optional(),
+      incidentAlerts: z.boolean().optional(),
+      suggestionResponses: z.boolean().optional(),
       urgentOverrideQuiet: z.boolean().optional(),
       quietHoursStart: z.string().regex(/^([01]?\d|2[0-3]):[0-5]\d$/).nullable().optional(),
       quietHoursEnd: z.string().regex(/^([01]?\d|2[0-3]):[0-5]\d$/).nullable().optional(),
@@ -71,6 +83,18 @@ export const notificationsRouter = router({
       await ctx.db.pushSubscription.deleteMany({ where: { userId: ctx.user.id, endpoint: input.endpoint } });
       return { success: true };
     }),
+
+  pushStatus: protectedProcedure.query(async ({ ctx }) => {
+    const subscriptions = await ctx.db.pushSubscription.findMany({
+      where: { userId: ctx.user.id },
+      orderBy: { lastSeenAt: 'desc' },
+      select: { id: true, endpoint: true, userAgent: true, lastSeenAt: true, createdAt: true },
+    });
+    return {
+      configured: !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT),
+      subscriptions,
+    };
+  }),
 
   list: protectedProcedure
     .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())

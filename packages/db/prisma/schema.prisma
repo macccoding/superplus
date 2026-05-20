@@ -176,8 +176,10 @@ model User {
   jobLane   JobLane  @default(CASHIER)
   email     String?  @unique
   avatarUrl String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  onboardedAt       DateTime?
+  onboardingVersion Int      @default(0)
 
   store                Store               @relation(fields: [storeId], references: [id])
   createdThreads       Thread[]            @relation("ThreadAuthor")
@@ -206,6 +208,7 @@ model User {
   logEntryComments     LogEntryComment[]
   logEntryAttachments  LogEntryAttachment[]
   announcements        Announcement[]
+  announcementReceipts AnnouncementReceipt[]
   checklistSubmissions ChecklistSubmission[]
   expiryAlerts         ExpiryAlert[]    @relation("ExpiryReporter")
   stockOutsReported    StockOutReport[] @relation("StockOutReporter")
@@ -636,11 +639,29 @@ model Announcement {
   priority  AnnouncePriority @default(NORMAL)
   expiresAt DateTime?
   createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
-  store  Store? @relation(fields: [storeId], references: [id])
-  author User   @relation(fields: [authorId], references: [id])
+  store    Store?                @relation(fields: [storeId], references: [id])
+  author   User                  @relation(fields: [authorId], references: [id])
+  receipts AnnouncementReceipt[]
 
   @@index([storeId, createdAt])
+}
+
+model AnnouncementReceipt {
+  id             String    @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime?
+  acknowledgedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId, acknowledgedAt])
+  @@index([announcementId, acknowledgedAt])
 }
 
 enum StockStatus {
@@ -676,6 +697,9 @@ model Product {
   storeId         String
   categoryId      String?
   name            String
+  brand           String?
+  size            String?
+  unit            String?
   barcode         String?
   sku             String?
   costPrice       Decimal
@@ -685,6 +709,8 @@ model Product {
   location        String?
   supplier        String?
   stockStatus     StockStatus @default(IN_STOCK)
+  importSource    String?
+  lastImportedAt  DateTime?
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -697,6 +723,8 @@ model Product {
 
   @@unique([storeId, barcode])
   @@index([storeId, name])
+  @@index([storeId, sku])
+  @@index([storeId, brand])
   @@index([storeId, categoryId])
 }
 
@@ -1167,6 +1195,12 @@ model NotificationPreference {
   threadMentions        Boolean  @default(true)
   threadReplies         Boolean  @default(true)
   urgentThreads         Boolean  @default(true)
+  taskAlerts            Boolean  @default(true)
+  announcementAlerts    Boolean  @default(true)
+  scheduleAlerts        Boolean  @default(true)
+  stockAlerts           Boolean  @default(true)
+  incidentAlerts        Boolean  @default(true)
+  suggestionResponses   Boolean  @default(true)
   urgentOverrideQuiet   Boolean  @default(true)
   quietHoursStart       String?
   quietHoursEnd         String?

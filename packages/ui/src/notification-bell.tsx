@@ -18,6 +18,7 @@ interface NotificationBellProps {
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onNavigate: (link: string) => void;
+  variant?: 'brand' | 'light';
 }
 
 const typeIcons: Record<string, string> = {
@@ -34,16 +35,18 @@ const typeIcons: Record<string, string> = {
   GENERAL: 'notifications',
 };
 
-export function NotificationBell({ notifications, unreadCount, onMarkRead, onMarkAllRead, onNavigate }: NotificationBellProps) {
+export function NotificationBell({ notifications, unreadCount, onMarkRead, onMarkAllRead, onNavigate, variant = 'brand' }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
+  const iconClass = variant === 'brand' ? 'text-on-brand' : 'text-on-surface';
+  const buttonClass = variant === 'brand' ? 'hover:bg-on-brand/10' : 'bg-surface-white shadow-sm hover:bg-surface-cream';
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-on-brand/10 transition-colors relative"
+        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors relative ${buttonClass}`}
       >
-        <span className="material-symbols-outlined text-on-brand" style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}>notifications</span>
+        <span className={`material-symbols-outlined ${iconClass}`} style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}>notifications</span>
         {unreadCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-5 h-5 bg-brand-light text-on-brand text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {unreadCount > 99 ? '99+' : unreadCount}

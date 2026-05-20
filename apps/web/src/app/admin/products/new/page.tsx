@@ -3,18 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
+import { calculateMarkupPercent } from '@/lib/pricing';
 
 export default function NewProductPage() {
   const router = useRouter();
   const { data: categories } = trpc.categories.list.useQuery();
   const [form, setForm] = useState({
-    name: '', barcode: '', sku: '', categoryId: '', costPrice: '', retailPrice: '', location: '', supplier: '',
+    name: '', brand: '', size: '', unit: '', barcode: '', sku: '', categoryId: '', costPrice: '', retailPrice: '', location: '', supplier: '',
   });
 
   const selectedCategory = categories?.find(c => c.id === form.categoryId);
   const costNum = parseFloat(form.costPrice) || 0;
   const retailNum = parseFloat(form.retailPrice) || 0;
-  const markupPercent = costNum > 0 ? ((retailNum - costNum) / costNum) * 100 : 0;
+  const markupPercent = calculateMarkupPercent(costNum, retailNum);
 
   function handleCostChange(value: string) {
     const cost = parseFloat(value) || 0;
@@ -44,6 +45,20 @@ export default function NewProductPage() {
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-on-surface mb-2">Product Name *</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Grace Corned Beef 340g" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-on-surface mb-2">Brand</label>
+            <input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Grace" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-on-surface mb-2">Size</label>
+              <input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} placeholder="340" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-on-surface mb-2">Unit</label>
+              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="g" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-on-surface mb-2">Barcode</label>
@@ -87,6 +102,9 @@ export default function NewProductPage() {
         <button
           onClick={() => create.mutate({
             name: form.name,
+            brand: form.brand || undefined,
+            size: form.size || undefined,
+            unit: form.unit || undefined,
             barcode: form.barcode || undefined,
             sku: form.sku || undefined,
             categoryId: form.categoryId || undefined,

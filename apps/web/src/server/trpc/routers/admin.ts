@@ -614,6 +614,7 @@ async function buildSummary(ctx: any, scope: AdminScope, days: 1 | 7 | 30) {
       { href: '/admin/checklists', label: 'Checklists', icon: 'checklist', badge: missedChecklists },
       { href: '/admin/reports', label: 'Reports', icon: 'analytics', badge: riskCount },
       { href: '/admin/orders', label: 'Orders', icon: 'receipt_long', badge: partialOrders },
+      { href: '/admin/announcements', label: 'Announce', icon: 'campaign', badge: 0 },
       { href: '/admin/suggestions', label: 'Suggestions', icon: 'lightbulb', badge: newSuggestions },
     ],
   };

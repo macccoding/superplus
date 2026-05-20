@@ -15,15 +15,20 @@ export default function StockOutPage() {
   const [tab, setTab] = useState<'open' | 'mine'>('open');
   const [showForm, setShowForm] = useState(false);
   const [productName, setProductName] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [location, setLocation] = useState('');
   const [mutationError, setMutationError] = useState('');
 
   const canManage = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const create = trpc.stockOuts.create.useMutation({
-    onSuccess: () => { utils.stockOuts.invalidate(); setShowForm(false); setProductName(''); setLocation(''); },
+    onSuccess: () => { utils.stockOuts.invalidate(); setShowForm(false); setProductName(''); setSelectedProduct(null); setLocation(''); },
     onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
+  const { data: productResults } = trpc.products.search.useQuery(
+    { query: productName || undefined, limit: 5 },
+    { enabled: showForm && productName.trim().length >= 2 && !selectedProduct }
+  );
 
   const updateStatus = trpc.stockOuts.updateStatus.useMutation({
     onSuccess: () => utils.stockOuts.invalidate(),
@@ -116,10 +121,45 @@ export default function StockOutPage() {
           <div className="bg-surface-white w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
             <h3 className="text-xl font-bold text-on-surface">Report Stock-Out</h3>
-            <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Product name" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" autoFocus />
+            <input
+              value={productName}
+              onChange={(e) => { setProductName(e.target.value); setSelectedProduct(null); }}
+              placeholder="Search product or enter manually"
+              className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors"
+              autoFocus
+            />
+            {!selectedProduct && productResults && productResults.items.length > 0 && (
+              <div className="rounded-[--radius-lg] bg-surface overflow-hidden">
+                {productResults.items.map((product: any) => (
+                  <button
+                    key={product.id}
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setProductName(product.name);
+                      setLocation(product.location || location);
+                    }}
+                    className="w-full p-3 text-left border-b border-outline/10 last:border-b-0 active:bg-surface-cream"
+                  >
+                    <p className="text-sm font-bold text-on-surface">{product.name}</p>
+                    <p className="text-xs text-on-surface-secondary">{[product.brand, product.location, product.matchReason].filter(Boolean).join(' · ') || 'Catalog product'}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedProduct && (
+              <div className="rounded-[--radius-lg] bg-success/10 p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-success">Linked to catalog</p>
+                  <p className="text-xs text-on-surface-secondary">{selectedProduct.barcode || selectedProduct.sku || selectedProduct.category?.name || selectedProduct.name}</p>
+                </div>
+                <button onClick={() => setSelectedProduct(null)} className="w-10 h-10 rounded-lg bg-surface-white flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+            )}
             <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
             <button
-              onClick={() => create.mutate({ productName, location: location || undefined })}
+              onClick={() => create.mutate({ productName, productId: selectedProduct?.id, location: location || undefined })}
               disabled={!productName.trim() || create.isPending}
               className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"
             >

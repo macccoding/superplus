@@ -10,8 +10,9 @@ config({ path: path.resolve(__dirname, '../../../.env') });
 const prisma = new PrismaClient();
 
 const WEEK_START = dateOnly('2026-05-17');
-const STORE_NAME = 'SuperPlus Schedule Test';
+const STORE_NAME = process.env.SCHEDULE_SEED_STORE_NAME ?? 'SuperPlus Schedule Test';
 const TEST_PIN = '1234';
+const PHONE_PREFIX = process.env.SCHEDULE_SEED_PHONE_PREFIX ?? '+18769998';
 
 type RosterEmployee = {
   key: string;
@@ -29,27 +30,27 @@ type RosterShift = {
 };
 
 const employees: RosterEmployee[] = [
-  { key: 'aleer-supervisor', name: 'ALEER', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: '+18769998101' },
-  { key: 'annmarie-supervisor', name: 'ANNMARIE', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: '+18769998102' },
-  { key: 'stacy-supervisor', name: 'STACY', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: '+18769998103' },
-  { key: 'tamara-supervisor', name: 'TAMARA', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: '+18769998104' },
-  { key: 'tyrone-pricing', name: 'TYRONE', lane: JobLane.PRICING_CLERK, role: Role.STAFF, phone: '+18769998201' },
-  { key: 'antonette-cashier', name: 'ANTONETTE', lane: JobLane.CASHIER, role: Role.STAFF, phone: '+18769998301' },
-  { key: 'jhavene-cashier', name: 'JHAVENE', lane: JobLane.CASHIER, role: Role.STAFF, phone: '+18769998302' },
-  { key: 'kevoniesha-cashier', name: 'KEVONIESHA', lane: JobLane.CASHIER, role: Role.STAFF, phone: '+18769998303' },
-  { key: 'nathania-cashier', name: 'NATHANIA', lane: JobLane.CASHIER, role: Role.STAFF, phone: '+18769998304' },
-  { key: 'nicketh-cashier', name: 'NICKETH', lane: JobLane.CASHIER, role: Role.STAFF, phone: '+18769998305' },
-  { key: 'paula-cashier', name: 'PAULA', lane: JobLane.CASHIER, role: Role.STAFF, phone: '+18769998306' },
-  { key: 'soyan-produce', name: 'SOYAN', lane: JobLane.PRODUCE_MEAT, role: Role.STAFF, phone: '+18769998401' },
-  { key: 'karen-merch', name: 'KAREN', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998501' },
-  { key: 'nicola-merch', name: 'NICOLA', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998502' },
-  { key: 'sadie-merch', name: 'SADIE', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998503' },
-  { key: 'stacy-merch', name: 'STACY', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998504' },
-  { key: 'tellecia-merch', name: 'TELLECIA', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998505' },
-  { key: 'adrian-merch', name: 'ADRIAN', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998506' },
-  { key: 'devin-merch', name: 'DEVIN', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998507' },
-  { key: 'melton-merch', name: 'MELTON', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998508' },
-  { key: 'miguel-merch', name: 'MIGUEL', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: '+18769998509' },
+  { key: 'aleer-supervisor', name: 'ALEER', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: phone('101') },
+  { key: 'annmarie-supervisor', name: 'ANNMARIE', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: phone('102') },
+  { key: 'stacy-supervisor', name: 'STACY', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: phone('103') },
+  { key: 'tamara-supervisor', name: 'TAMARA', lane: JobLane.SUPERVISOR, role: Role.SUPERVISOR, phone: phone('104') },
+  { key: 'tyrone-pricing', name: 'TYRONE', lane: JobLane.PRICING_CLERK, role: Role.STAFF, phone: phone('201') },
+  { key: 'antonette-cashier', name: 'ANTONETTE', lane: JobLane.CASHIER, role: Role.STAFF, phone: phone('301') },
+  { key: 'jhavene-cashier', name: 'JHAVENE', lane: JobLane.CASHIER, role: Role.STAFF, phone: phone('302') },
+  { key: 'kevoniesha-cashier', name: 'KEVONIESHA', lane: JobLane.CASHIER, role: Role.STAFF, phone: phone('303') },
+  { key: 'nathania-cashier', name: 'NATHANIA', lane: JobLane.CASHIER, role: Role.STAFF, phone: phone('304') },
+  { key: 'nicketh-cashier', name: 'NICKETH', lane: JobLane.CASHIER, role: Role.STAFF, phone: phone('305') },
+  { key: 'paula-cashier', name: 'PAULA', lane: JobLane.CASHIER, role: Role.STAFF, phone: phone('306') },
+  { key: 'soyan-produce', name: 'SOYAN', lane: JobLane.PRODUCE_MEAT, role: Role.STAFF, phone: phone('401') },
+  { key: 'karen-merch', name: 'KAREN', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('501') },
+  { key: 'nicola-merch', name: 'NICOLA', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('502') },
+  { key: 'sadie-merch', name: 'SADIE', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('503') },
+  { key: 'stacy-merch', name: 'STACY', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('504') },
+  { key: 'tellecia-merch', name: 'TELLECIA', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('505') },
+  { key: 'adrian-merch', name: 'ADRIAN', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('506') },
+  { key: 'devin-merch', name: 'DEVIN', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('507') },
+  { key: 'melton-merch', name: 'MELTON', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('508') },
+  { key: 'miguel-merch', name: 'MIGUEL', lane: JobLane.MERCHANDISER, role: Role.STAFF, phone: phone('509') },
 ];
 
 const shifts: RosterShift[] = [
@@ -223,7 +224,7 @@ async function getOrCreateStore() {
       where: { id: existing.id },
       data: {
         parish: 'Manchester',
-        address: 'Schedule test roster seeded from SuperPlus screenshots',
+        address: existing.address || 'Schedule test roster seeded from SuperPlus screenshots',
         phone: '+18769998099',
         openTime: '06:00',
         closeTime: '21:00',
@@ -280,6 +281,10 @@ async function upsertAvailability(userId: string) {
 
 function shift(key: string, day: number, start: string, end: string): RosterShift {
   return { key, day, start, end };
+}
+
+function phone(suffix: string) {
+  return `${PHONE_PREFIX}${suffix}`;
 }
 
 function requiredUser(usersByKey: Map<string, string>, key: string) {

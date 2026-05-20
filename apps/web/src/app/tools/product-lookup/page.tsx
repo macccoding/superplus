@@ -114,10 +114,18 @@ export default function ProductLookupPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-on-surface truncate">{product.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
+                    {product.matchReason && (
+                      <span className="text-xs px-2 py-0.5 bg-brand/10 rounded text-brand font-bold">
+                        {product.matchReason}
+                      </span>
+                    )}
                     {product.category && (
                       <span className="text-xs px-2 py-0.5 bg-surface-cream rounded text-on-surface-secondary">
                         {product.category.name}
                       </span>
+                    )}
+                    {product.brand && (
+                      <span className="text-xs text-on-surface-secondary">{product.brand}</span>
                     )}
                     {product.location && (
                       <span className="text-xs text-on-surface-secondary">{product.location}</span>

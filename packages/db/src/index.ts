@@ -24,6 +24,7 @@ export type {
   LogEntryAttachment,
   LogEntryLink,
   Announcement,
+  AnnouncementReceipt,
   Category,
   Product,
   ChecklistTemplate,

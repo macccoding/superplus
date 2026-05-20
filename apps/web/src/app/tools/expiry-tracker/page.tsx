@@ -11,6 +11,7 @@ export default function ExpiryTrackerPage() {
   const { data: alerts, isLoading } = trpc.expiryAlerts.list.useQuery();
   const [showForm, setShowForm] = useState(false);
   const [productName, setProductName] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [expiryDate, setExpiryDate] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState('');
@@ -19,9 +20,13 @@ export default function ExpiryTrackerPage() {
   const canManage = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const create = trpc.expiryAlerts.create.useMutation({
-    onSuccess: () => { utils.expiryAlerts.invalidate(); setShowForm(false); setProductName(''); setExpiryDate(''); setQuantity('1'); setLocation(''); },
+    onSuccess: () => { utils.expiryAlerts.invalidate(); setShowForm(false); setProductName(''); setSelectedProduct(null); setExpiryDate(''); setQuantity('1'); setLocation(''); },
     onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
+  const { data: productResults } = trpc.products.search.useQuery(
+    { query: productName || undefined, limit: 5 },
+    { enabled: showForm && productName.trim().length >= 2 && !selectedProduct }
+  );
 
   const updateStatus = trpc.expiryAlerts.updateStatus.useMutation({
     onSuccess: () => utils.expiryAlerts.invalidate(),
@@ -129,7 +134,42 @@ export default function ExpiryTrackerPage() {
           <div className="bg-surface-white w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
             <h3 className="text-xl font-bold text-on-surface">Report Expiry</h3>
-            <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Product name" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" autoFocus />
+            <input
+              value={productName}
+              onChange={(e) => { setProductName(e.target.value); setSelectedProduct(null); }}
+              placeholder="Search product or enter manually"
+              className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors"
+              autoFocus
+            />
+            {!selectedProduct && productResults && productResults.items.length > 0 && (
+              <div className="rounded-[--radius-lg] bg-surface overflow-hidden">
+                {productResults.items.map((product: any) => (
+                  <button
+                    key={product.id}
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setProductName(product.name);
+                      setLocation(product.location || location);
+                    }}
+                    className="w-full p-3 text-left border-b border-outline/10 last:border-b-0 active:bg-surface-cream"
+                  >
+                    <p className="text-sm font-bold text-on-surface">{product.name}</p>
+                    <p className="text-xs text-on-surface-secondary">{[product.brand, product.location, product.matchReason].filter(Boolean).join(' · ') || 'Catalog product'}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedProduct && (
+              <div className="rounded-[--radius-lg] bg-success/10 p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-success">Linked to catalog</p>
+                  <p className="text-xs text-on-surface-secondary">{selectedProduct.barcode || selectedProduct.sku || selectedProduct.category?.name || selectedProduct.name}</p>
+                </div>
+                <button onClick={() => setSelectedProduct(null)} className="w-10 h-10 rounded-lg bg-surface-white flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-on-surface-secondary mb-1">Expiry Date</label>
@@ -145,7 +185,7 @@ export default function ExpiryTrackerPage() {
               onClick={() => {
                 const [y, m, d] = expiryDate.split('-').map(Number);
                 const parsedDate = new Date(y, m - 1, d);
-                create.mutate({ productName, expiryDate: parsedDate, quantity: parseInt(quantity) || 1, location: location || undefined });
+                create.mutate({ productName, productId: selectedProduct?.id, expiryDate: parsedDate, quantity: parseInt(quantity) || 1, location: location || undefined });
               }}
               disabled={!productName.trim() || !expiryDate || create.isPending}
               className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"

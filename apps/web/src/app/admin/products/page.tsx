@@ -48,6 +48,13 @@ export default function ProductsAdminPage() {
             Import CSV
           </button>
           <button
+            onClick={() => router.push('/admin/products/qa')}
+            className="h-12 px-5 bg-surface-cream text-on-surface-secondary font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[20px]">rule_settings</span>
+            QA
+          </button>
+          <button
             onClick={() => router.push('/admin/products/new')}
             className="h-12 px-5 bg-brand text-on-brand font-bold rounded-[--radius-lg] flex items-center gap-2 active:scale-95 transition-all"
           >
@@ -96,7 +103,10 @@ export default function ProductsAdminPage() {
                 >
                   <td className="px-5 py-4">
                     <p className="text-sm font-bold text-on-surface">{product.name}</p>
-                    {product.barcode && <p className="text-xs text-on-surface-secondary font-mono mt-0.5">{product.barcode}</p>}
+                    <p className="text-xs text-on-surface-secondary mt-0.5">
+                      {[product.brand, product.size && product.unit ? `${product.size}${product.unit}` : product.size || product.unit].filter(Boolean).join(' · ') || 'No brand/size'}
+                    </p>
+                    {(product.barcode || product.sku) && <p className="text-xs text-on-surface-secondary font-mono mt-0.5">{product.barcode || product.sku}</p>}
                   </td>
                   <td className="px-5 py-4 text-sm text-on-surface-secondary">{product.category?.name || '—'}</td>
                   <td className="px-5 py-4 text-sm text-on-surface-secondary text-right">${Number(product.costPrice).toFixed(2)}</td>

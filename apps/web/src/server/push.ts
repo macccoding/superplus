@@ -30,6 +30,12 @@ function allowsType(preference: any, type?: string) {
   if (type === 'THREAD_MENTION') return preference?.threadMentions ?? true;
   if (type === 'THREAD_REPLY') return preference?.threadReplies ?? true;
   if (type === 'THREAD_URGENT') return preference?.urgentThreads ?? true;
+  if (type === 'TASK_ASSIGNED' || type === 'TASK_UPDATED') return preference?.taskAlerts ?? true;
+  if (type === 'ANNOUNCEMENT') return preference?.announcementAlerts ?? true;
+  if (type === 'SCHEDULE_PUBLISHED') return preference?.scheduleAlerts ?? true;
+  if (type === 'STOCK_OUT') return preference?.stockAlerts ?? true;
+  if (type === 'INCIDENT') return preference?.incidentAlerts ?? true;
+  if (type === 'SUGGESTION_RESPONSE') return preference?.suggestionResponses ?? true;
   return true;
 }
 

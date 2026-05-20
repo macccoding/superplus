@@ -7,7 +7,7 @@ import { trpc } from '@/lib/trpc-client';
 
 type Step = 'upload' | 'preview' | 'mapping' | 'importing' | 'done';
 
-const FIELD_OPTIONS = ['name', 'barcode', 'sku', 'categoryName', 'costPrice', 'retailPrice', 'location', 'supplier', 'skip'] as const;
+const FIELD_OPTIONS = ['name', 'brand', 'size', 'unit', 'barcode', 'sku', 'categoryName', 'costPrice', 'retailPrice', 'location', 'supplier', 'skip'] as const;
 
 export default function ImportPage() {
   const router = useRouter();
@@ -16,7 +16,9 @@ export default function ImportPage() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{ imported: number; errors: { row: number; reason: string }[] } | null>(null);
+  const [result, setResult] = useState<{ imported: number; updated: number; errors: { row: number; reason: string }[] } | null>(null);
+  const [upsert, setUpsert] = useState(true);
+  const [importSource, setImportSource] = useState('POS export');
 
   const importBatch = trpc.products.importBatch.useMutation();
 
@@ -32,6 +34,9 @@ export default function ImportPage() {
         data[0].forEach((h, i) => {
           const lower = h.toLowerCase().trim();
           if (lower.includes('name') || lower.includes('product')) autoMap[i] = 'name';
+          else if (lower.includes('brand') || lower.includes('manufacturer')) autoMap[i] = 'brand';
+          else if (lower === 'size' || lower.includes('pack size')) autoMap[i] = 'size';
+          else if (lower === 'unit' || lower.includes('uom')) autoMap[i] = 'unit';
           else if (lower.includes('barcode') || lower.includes('upc') || lower.includes('ean')) autoMap[i] = 'barcode';
           else if (lower.includes('cost')) autoMap[i] = 'costPrice';
           else if (lower.includes('retail') || lower.includes('price') || lower.includes('sell')) autoMap[i] = 'retailPrice';
@@ -50,6 +55,7 @@ export default function ImportPage() {
     setStep('importing');
     const BATCH_SIZE = 200;
     let totalImported = 0;
+    let totalUpdated = 0;
     const allErrors: { row: number; reason: string }[] = [];
 
     const products = rawData.map((row) => {
@@ -70,8 +76,9 @@ export default function ImportPage() {
     for (let i = 0; i < products.length; i += BATCH_SIZE) {
       const batch = products.slice(i, i + BATCH_SIZE);
       try {
-        const res = await importBatch.mutateAsync({ products: batch });
+        const res = await importBatch.mutateAsync({ products: batch, upsert, importSource });
         totalImported += res.imported;
+        totalUpdated += res.updated;
         allErrors.push(...res.errors.map((e: { row: number; reason: string }) => ({ ...e, row: e.row + i })));
       } catch (err: any) {
         allErrors.push({ row: i, reason: err.message || 'Batch failed' });
@@ -79,9 +86,11 @@ export default function ImportPage() {
       setProgress(Math.min(100, Math.round(((i + batch.length) / products.length) * 100)));
     }
 
-    setResult({ imported: totalImported, errors: allErrors });
+    setResult({ imported: totalImported, updated: totalUpdated, errors: allErrors });
     setStep('done');
   }
+
+  const duplicatePreview = findDuplicateIdentifiers(rawData, mapping);
 
   return (
     <div>
@@ -159,11 +168,34 @@ export default function ImportPage() {
               </div>
             ))}
           </div>
+          <div className="grid gap-3 pt-2 md:grid-cols-2">
+            <label className="flex min-h-12 items-center gap-3 rounded-[--radius-lg] bg-surface-cream px-4 text-sm font-bold text-on-surface">
+              <input type="checkbox" checked={upsert} onChange={(e) => setUpsert(e.target.checked)} className="h-5 w-5 accent-primary" />
+              Update matching barcode/SKU
+            </label>
+            <input
+              value={importSource}
+              onChange={(e) => setImportSource(e.target.value)}
+              placeholder="Import source"
+              className="h-12 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors"
+            />
+          </div>
+          {duplicatePreview.length > 0 && (
+            <div className="bg-warning/10 rounded-[--radius-lg] p-4 text-sm text-on-surface">
+              <p className="font-bold text-warning">{duplicatePreview.length} duplicate barcode/SKU values found in this file</p>
+              <p className="text-xs text-on-surface-secondary mt-1">Duplicate rows will be skipped so one import cannot overwrite the same item twice.</p>
+              <div className="mt-2 max-h-24 overflow-y-auto text-xs text-on-surface-secondary space-y-1">
+                {duplicatePreview.slice(0, 6).map((item, i) => (
+                  <p key={i}>Row {item.row}: {item.field} {item.value} first appeared on row {item.firstRow}</p>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-3 pt-4">
             <button onClick={() => setStep('preview')} className="flex-1 h-14 border-2 border-outline rounded-[--radius-lg] text-on-surface-secondary font-bold active:scale-95 transition-all">Back</button>
             <button
               onClick={runImport}
-              disabled={!Object.values(mapping).includes('name') || !Object.values(mapping).includes('costPrice')}
+              disabled={!Object.values(mapping).includes('name') || !Object.values(mapping).includes('costPrice') || !Object.values(mapping).includes('retailPrice')}
               className="flex-1 h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"
             >
               Import {rawData.length} Products
@@ -192,6 +224,7 @@ export default function ImportPage() {
             <h2 className="text-lg font-bold text-on-surface">Import Complete</h2>
             <p className="text-3xl font-extrabold text-brand mt-2">{result.imported}</p>
             <p className="text-sm text-on-surface-secondary">products imported</p>
+            {result.updated > 0 && <p className="text-sm font-bold text-navy mt-1">{result.updated} products updated</p>}
           </div>
           {result.errors.length > 0 && (
             <div className="bg-error/5 rounded-[--radius-lg] p-4 mb-4">
@@ -211,4 +244,24 @@ export default function ImportPage() {
       )}
     </div>
   );
+}
+
+function findDuplicateIdentifiers(rawData: string[][], mapping: Record<number, string>) {
+  const seen = new Map<string, number>();
+  const duplicates: { row: number; firstRow: number; field: string; value: string }[] = [];
+  rawData.forEach((row, rowIndex) => {
+    Object.entries(mapping).forEach(([colIdx, field]) => {
+      if (field !== 'barcode' && field !== 'sku') return;
+      const value = row[parseInt(colIdx)]?.trim();
+      if (!value) return;
+      const key = `${field}:${field === 'sku' ? value.toLowerCase() : value}`;
+      const firstRow = seen.get(key);
+      if (firstRow) {
+        duplicates.push({ row: rowIndex + 1, firstRow, field, value });
+      } else {
+        seen.set(key, rowIndex + 1);
+      }
+    });
+  });
+  return duplicates;
 }
