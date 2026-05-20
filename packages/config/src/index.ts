@@ -16,3 +16,4 @@ export {
 } from './modules';
 export { ROLES, ROLE_HIERARCHY, hasMinRole, SUBDOMAIN_ACCESS } from './roles';
 export type { Role, SubdomainApp } from './roles';
+export { CURRENT_ONBOARDING_VERSION } from './onboarding';

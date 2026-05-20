@@ -1,17 +1,28 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AppShell } from '@superplus/ui';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { getBlockedStaffModule, getStaffBottomNavItems, normalizeReleaseMode } from '@superplus/config';
+import { usePathname, useRouter } from 'next/navigation';
+import { getBlockedStaffModule, getStaffBottomNavItems, normalizeReleaseMode, CURRENT_ONBOARDING_VERSION } from '@superplus/config';
 import { AccountSwitchButton } from '@/app/account-switch-button';
-import { HubNotifications } from './hub-notifications';
+import { NotificationsSlot } from '@/app/notifications-slot';
 import { trpc } from '@/lib/trpc-client';
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: me } = trpc.users.me.useQuery();
   const { data: threadCounts } = trpc.threads.counts.useQuery();
   const { data: releaseModeSetting } = trpc.settings.getReleaseMode.useQuery(undefined, { retry: false });
+
+  useEffect(() => {
+    if (me && pathname !== '/hub/onboarding') {
+      if (!me.onboardedAt || me.onboardingVersion < CURRENT_ONBOARDING_VERSION) {
+        router.replace('/hub/onboarding');
+      }
+    }
+  }, [me, pathname, router]);
   const releaseMode = normalizeReleaseMode(releaseModeSetting?.mode);
   const blockedModule = getBlockedStaffModule(pathname, releaseMode);
   const baseNavItems = [
@@ -25,7 +36,7 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
   ));
 
   return (
-    <AppShell navItems={navItems} notificationSlot={<HubNotifications />} accountSlot={<AccountSwitchButton />}>
+    <AppShell navItems={navItems} notificationSlot={<NotificationsSlot />} accountSlot={<AccountSwitchButton />}>
       {blockedModule ? (
         <div className="px-5 py-10 text-center">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-surface-cream">

@@ -19,6 +19,7 @@ export function IconGrid({ items }: { items: IconGridItem[] }) {
         <button
           key={item.href}
           onClick={() => router.push(item.href)}
+          data-walkthrough={item.href.split('/').pop()}
           className="relative flex flex-col items-center justify-center gap-3 p-5 bg-surface-white rounded-[--radius-lg] shadow-[--shadow-card] active:scale-95 active:shadow-sm transition-all duration-200 min-h-[140px] border-2 border-transparent focus:border-brand"
         >
           <div

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "onboardedAt" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN "onboardingVersion" INTEGER NOT NULL DEFAULT 0;

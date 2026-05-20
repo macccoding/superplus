@@ -28,6 +28,18 @@ function getAvatarColor(name: string): string {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
+async function prefetchOnboardingAssets() {
+  try {
+    if (!('caches' in window)) return;
+    const manifest = await import('@/data/onboarding-v1.json');
+    const urls = manifest.slides
+      .flatMap((s: { imageUrl: string; audioUrl: string }) => [s.imageUrl, s.audioUrl])
+      .filter(Boolean);
+    const cache = await caches.open('superplus-v2');
+    await Promise.allSettled(urls.map((url: string) => cache.add(url)));
+  } catch { /* best-effort, silent failure */ }
+}
+
 export function LoginClient({ staff }: { staff: StaffMember[] }) {
   const router = useRouter();
   const [selected, setSelected] = useState<StaffMember | null>(null);
@@ -52,6 +64,8 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
       setError('Invalid PIN. Try again.');
       setPin('');
     } else {
+      // Prefetch onboarding assets into SW cache
+      prefetchOnboardingAssets();
       router.push('/');
       router.refresh();
     }

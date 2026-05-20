@@ -18,11 +18,18 @@ export default function ProfilePage() {
   const [alertStatus, setAlertStatus] = useState('');
   const { data: vapidKey } = trpc.notifications.publicVapidKey.useQuery();
   const { data: notificationPrefs } = trpc.notifications.preferences.useQuery();
+  const { data: pushStatus } = trpc.notifications.pushStatus.useQuery();
+  const utils = trpc.useUtils();
   const registerPush = trpc.notifications.registerPushSubscription.useMutation({
-    onSuccess: () => setAlertStatus('Store alerts are on.'),
+    onSuccess: () => {
+      setAlertStatus('Store alerts are on.');
+      utils.notifications.pushStatus.invalidate();
+    },
     onError: (error) => setAlertStatus(error.message),
   });
-  const updatePrefs = trpc.notifications.updatePreferences.useMutation();
+  const updatePrefs = trpc.notifications.updatePreferences.useMutation({
+    onSuccess: () => utils.notifications.preferences.invalidate(),
+  });
 
   const changePin = trpc.users.changeMyPin.useMutation({
     onSuccess: () => {
@@ -114,12 +121,25 @@ export default function ProfilePage() {
           <span className="material-symbols-outlined text-on-surface-secondary text-[20px]">chevron_right</span>
         </button>
 
+        <button
+          onClick={() => router.push('/hub/onboarding')}
+          className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all border-l-4 border-brand/20"
+        >
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
+            <span className="text-sm font-bold text-on-surface">Learn the App</span>
+          </div>
+          <span className="material-symbols-outlined text-on-surface-secondary text-[20px]">chevron_right</span>
+        </button>
+
         <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-brand">notifications_active</span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-on-surface">Store Alerts</p>
-              <p className="text-xs font-bold text-on-surface-secondary">Get urgent store alerts.</p>
+              <p className="text-xs font-bold text-on-surface-secondary">
+                {pushStatus?.configured ? `${pushStatus.subscriptions.length} device${pushStatus.subscriptions.length === 1 ? '' : 's'} connected` : 'In-app alerts are on. Device alerts need setup.'}
+              </p>
             </div>
           </div>
           <button
@@ -149,11 +169,17 @@ export default function ProfilePage() {
             <span className={`material-symbols-outlined ${registerPush.isPending ? 'animate-spin' : ''}`}>{registerPush.isPending ? 'progress_activity' : 'notifications'}</span>
             Turn On Alerts
           </button>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {[
               ['threadMentions', '@Me'],
               ['threadReplies', 'Replies'],
               ['urgentThreads', 'Urgent'],
+              ['taskAlerts', 'Tasks'],
+              ['announcementAlerts', 'Announce'],
+              ['scheduleAlerts', 'Schedule'],
+              ['stockAlerts', 'Stock'],
+              ['incidentAlerts', 'Incidents'],
+              ['suggestionResponses', 'Ideas'],
             ].map(([key, label]) => (
               <button
                 key={key}

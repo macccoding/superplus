@@ -10,11 +10,18 @@
     "test:tasks": "pnpm --filter @superplus/db exec tsx ../../apps/web/src/server/trpc/routers/tasks-policy.test.ts",
     "test:threads": "pnpm --filter @superplus/db exec tsx ../../apps/web/src/server/trpc/routers/threads-policy.test.ts",
     "test:logbook": "pnpm --filter @superplus/db exec tsx ../../apps/web/src/server/trpc/routers/logbook-policy.test.ts",
+    "test:announcements": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/announcements-policy.test.ts",
+    "test:products": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/products-foundation.test.ts",
+    "test:tools": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/lib/pricing.test.ts && pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/tool-linking.test.ts",
+    "generate:onboarding": "npx tsx scripts/generate-onboarding-assets.ts",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:seed": "turbo db:seed"
   },
   "devDependencies": {
+    "@vercel/blob": "^1.1.1",
+    "dotenv": "^17.4.2",
+    "openai": "^6.38.0",
     "turbo": "^2.5.0",
     "typescript": "^5.8.0"
   },

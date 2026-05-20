@@ -1,9 +1,13 @@
 'use client';
 
+import { Suspense, useCallback } from 'react';
 import { IconGrid } from '@superplus/ui';
 import { getStaffModulesByPlacement, normalizeReleaseMode } from '@superplus/config';
 import { useSession } from 'next-auth/react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
+import { OnboardingWalkthrough } from './onboarding/onboarding-walkthrough';
+import manifestV1 from '@/data/onboarding-v1.json';
 
 const adminItem = { label: 'Admin', icon: 'admin_panel_settings', href: '/admin', color: '#1B3A5C' };
 
@@ -12,6 +16,19 @@ function getGreeting() {
   if (hour < 12) return 'Good Morning';
   if (hour < 17) return 'Good Afternoon';
   return 'Good Evening';
+}
+
+function WalkthroughTrigger() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const showWalkthrough = searchParams.get('walkthrough') === '1' && typeof window !== 'undefined' && !sessionStorage.getItem('walkthrough-done');
+  const handleComplete = useCallback(() => {
+    sessionStorage.setItem('walkthrough-done', '1');
+    router.replace('/hub');
+  }, [router]);
+
+  if (!showWalkthrough || !manifestV1.walkthrough) return null;
+  return <OnboardingWalkthrough steps={manifestV1.walkthrough} onComplete={handleComplete} />;
 }
 
 export default function HubHomePage() {
@@ -70,6 +87,11 @@ export default function HubHomePage() {
           </div>
         </div>
       )}
+
+      {/* Spotlight walkthrough overlay */}
+      <Suspense>
+        <WalkthroughTrigger />
+      </Suspense>
     </div>
   );
 }

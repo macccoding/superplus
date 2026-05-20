@@ -38,6 +38,7 @@ export const usersRouter = router({
         select: {
           id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
+          onboardedAt: true, onboardingVersion: true,
           store: { select: { id: true, name: true, parish: true, address: true } },
         },
       });
@@ -277,6 +278,30 @@ export const usersRouter = router({
       return ctx.db.user.update({
         where: { id: ctx.user.id },
         data: { pinHash },
+        select: { id: true, fullName: true },
+      });
+    }),
+
+  completeOnboarding: protectedProcedure
+    .input(z.object({ version: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.user.update({
+        where: { id: ctx.user.id },
+        data: { onboardedAt: new Date(), onboardingVersion: input.version },
+        select: { id: true, onboardedAt: true, onboardingVersion: true },
+      });
+    }),
+
+  resetOnboarding: managerProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const storeIdWhere = ctx.user.role === 'OWNER' ? {} : { storeId: ctx.storeId };
+      await ctx.db.user.findFirstOrThrow({
+        where: { id: input.id, ...storeIdWhere },
+      });
+      return ctx.db.user.update({
+        where: { id: input.id },
+        data: { onboardedAt: null, onboardingVersion: 0 },
         select: { id: true, fullName: true },
       });
     }),

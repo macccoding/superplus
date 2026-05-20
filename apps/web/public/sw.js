@@ -1,6 +1,7 @@
-const CACHE_NAME = 'superplus-v1';
+const CACHE_NAME = 'superplus-v2';
 const STATIC_ASSETS = [
   '/hub',
+  '/hub/onboarding',
   '/manifest.json',
 ];
 
@@ -24,6 +25,21 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
 
   if (request.method !== 'GET' || request.url.includes('/api/')) {
+    return;
+  }
+
+  // Cache onboarding assets from Vercel Blob (images + audio)
+  if (request.url.includes('.public.blob.vercel-storage.com/onboarding/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        });
+      })
+    );
     return;
   }
 
