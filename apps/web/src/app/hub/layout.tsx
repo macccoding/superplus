@@ -35,6 +35,11 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
       : item
   ));
 
+  // Onboarding is full-screen — skip AppShell entirely
+  if (pathname === '/hub/onboarding') {
+    return <>{children}</>;
+  }
+
   return (
     <AppShell navItems={navItems} notificationSlot={<NotificationsSlot />} accountSlot={<AccountSwitchButton />}>
       {blockedModule ? (
