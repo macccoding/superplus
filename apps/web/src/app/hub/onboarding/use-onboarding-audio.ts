@@ -1,48 +1,84 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+// Single persistent Audio element — once "unlocked" by user gesture on iOS,
+// it can be played programmatically on subsequent slide changes
+let sharedAudio: HTMLAudioElement | null = null;
+let unlocked = false;
 
 export function useOnboardingAudio(audioUrl: string | null) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const currentUrlRef = useRef<string | null>(null);
+  const prevUrlRef = useRef<string | null>(null);
+  const autoplayRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Reset state when URL changes (slide change)
-  if (audioUrl !== currentUrlRef.current) {
-    currentUrlRef.current = audioUrl;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+  // When URL changes (slide change), stop current audio and prep for autoplay
+  useEffect(() => {
+    if (audioUrl === prevUrlRef.current) return;
+    prevUrlRef.current = audioUrl;
     setIsPlaying(false);
     setProgress(0);
-  }
+
+    if (sharedAudio) {
+      sharedAudio.pause();
+    }
+
+    // Autoplay if the audio element was already unlocked (user tapped play before)
+    if (unlocked && audioUrl && sharedAudio) {
+      sharedAudio.src = audioUrl;
+      sharedAudio.currentTime = 0;
+      sharedAudio.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  }, [audioUrl]);
+
+  // Attach progress/end listeners once
+  useEffect(() => {
+    if (!sharedAudio) return;
+    const audio = sharedAudio;
+    const onTimeUpdate = () => {
+      if (audio.duration) setProgress(audio.currentTime / audio.duration);
+    };
+    const onEnded = () => { setIsPlaying(false); setProgress(1); };
+
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('ended', onEnded);
+    return () => {
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, []);
 
   const toggle = useCallback(() => {
-    if (!currentUrlRef.current) return;
+    if (!prevUrlRef.current) return;
 
-    // Create Audio lazily on first play — inside the user gesture chain
-    // so iOS Safari allows playback
-    if (!audioRef.current) {
-      const audio = new Audio(currentUrlRef.current);
-      audio.addEventListener('timeupdate', () => {
-        if (audio.duration) setProgress(audio.currentTime / audio.duration);
+    // Create and unlock the shared Audio on first user tap
+    if (!sharedAudio) {
+      sharedAudio = new Audio(prevUrlRef.current);
+      sharedAudio.addEventListener('timeupdate', () => {
+        if (sharedAudio!.duration) setProgress(sharedAudio!.currentTime / sharedAudio!.duration);
       });
-      audio.addEventListener('ended', () => {
+      sharedAudio.addEventListener('ended', () => {
         setIsPlaying(false);
         setProgress(1);
       });
-      audioRef.current = audio;
     }
 
-    const audio = audioRef.current;
+    const audio = sharedAudio;
+
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
     } else {
+      // Set src if it changed
+      if (audio.src !== prevUrlRef.current) {
+        audio.src = prevUrlRef.current!;
+      }
       if (progress >= 1) audio.currentTime = 0;
-      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+      audio.play().then(() => {
+        unlocked = true;
+        setIsPlaying(true);
+      }).catch(() => {});
     }
   }, [isPlaying, progress]);
 
