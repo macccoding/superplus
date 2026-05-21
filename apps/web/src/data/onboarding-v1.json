@@ -6,8 +6,15 @@
   "slides": [
     {
       "id": "welcome",
-      "heading": "Welcome!",
-      "subtext": "Your new work app",
+      "eyebrow": "Start here",
+      "heading": "Welcome to SuperPlus Hub",
+      "subtext": "Your work app for the store",
+      "caption": "Use Hub every shift to see your work, talk with the team, and leave clear notes.",
+      "bullets": [
+        "Check it when you start your shift",
+        "Use it instead of scattered WhatsApp messages",
+        "Ask a manager if anything looks wrong"
+      ],
       "icon": "waving_hand",
       "color": "#E31837",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/welcome.png",
@@ -16,8 +23,15 @@
     },
     {
       "id": "tasks",
+      "eyebrow": "Daily work",
       "heading": "Tasks",
       "subtext": "See what needs doing",
+      "caption": "Tasks are the work your manager needs completed, with the details in one place.",
+      "bullets": [
+        "Open a task to see the steps",
+        "Mark it done when finished",
+        "Tap Need Help if you are stuck"
+      ],
       "icon": "assignment",
       "color": "#446185",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tasks.png",
@@ -26,8 +40,15 @@
     },
     {
       "id": "threads",
+      "eyebrow": "Team chat",
       "heading": "Threads",
       "subtext": "Talk to your team",
+      "caption": "Threads keep store conversations together so important messages are easy to find.",
+      "bullets": [
+        "Read store updates here first",
+        "Reply when a manager asks a question",
+        "Mention someone when you need their attention"
+      ],
       "icon": "forum",
       "color": "#2e7d32",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/threads.png",
@@ -36,8 +57,15 @@
     },
     {
       "id": "logbook",
+      "eyebrow": "Shift notes",
       "heading": "Logbook",
       "subtext": "Write what happened",
+      "caption": "The Logbook helps the next shift understand what changed, what broke, and what needs follow-up.",
+      "bullets": [
+        "Record incidents and handover notes",
+        "Keep messages clear and respectful",
+        "Add details before you leave"
+      ],
       "icon": "history",
       "color": "#845500",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/logbook.png",
@@ -46,8 +74,15 @@
     },
     {
       "id": "tools",
+      "eyebrow": "Helpful tools",
       "heading": "Tools",
       "subtext": "Calculator and more",
+      "caption": "Tools help you do common store jobs faster without hunting for another app.",
+      "bullets": [
+        "Look up products and prices",
+        "Use calculators and checklists",
+        "Report stock or expiry issues"
+      ],
       "icon": "build",
       "color": "#673ab7",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tools.png",
@@ -56,8 +91,15 @@
     },
     {
       "id": "ready",
-      "heading": "Ready!",
-      "subtext": "You're all set",
+      "eyebrow": "You are ready",
+      "heading": "Start your first shift",
+      "subtext": "You can replay this anytime",
+      "caption": "Next, Hub will point out the main buttons. After that, you are ready to work from the app.",
+      "bullets": [
+        "Tap each main area once",
+        "Use Profile to replay orientation",
+        "Ask your manager if you need help"
+      ],
       "icon": "celebration",
       "color": "#E31837",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/ready.png",
@@ -69,25 +111,29 @@
     {
       "id": "wt-tasks",
       "target": "tasks",
-      "tooltip": "Your tasks are here",
+      "title": "Tasks",
+      "tooltip": "Start here to see work assigned to you and any open tasks your store needs done.",
       "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/wt-tasks.mp3"
     },
     {
       "id": "wt-threads",
       "target": "threads",
-      "tooltip": "Chat with your team",
+      "title": "Threads",
+      "tooltip": "Use Threads for team messages, questions, updates, and follow-ups that should not get lost.",
       "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/wt-threads.mp3"
     },
     {
       "id": "wt-logbook",
       "target": "logbook",
-      "tooltip": "Write your shift notes",
+      "title": "Logbook",
+      "tooltip": "Write shift notes here so the next person knows what happened and what still needs attention.",
       "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/wt-logbook.mp3"
     },
     {
       "id": "wt-tools",
       "target": "tools",
-      "tooltip": "Calculator and more",
+      "title": "Tools",
+      "tooltip": "Find store helpers here, like product lookup, calculators, checklists, and issue reports.",
       "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/wt-tools.mp3"
     }
   ]

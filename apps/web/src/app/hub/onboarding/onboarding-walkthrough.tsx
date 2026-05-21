@@ -7,6 +7,7 @@ import { useOnboardingAudio } from './use-onboarding-audio';
 interface WalkthroughStep {
   id: string;
   target: string;
+  title?: string;
   tooltip: string;
   audioUrl: string;
 }
@@ -66,14 +67,13 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
     Z
   `;
 
-  // Tooltip position — below the spotlight if there's room, otherwise above
+  const tooltipHeight = 236;
   const tooltipTop = y + h + 16;
-  const tooltipBelow = tooltipTop + 200 < window.innerHeight;
-  const tooltipY = tooltipBelow ? tooltipTop : y - 200 - 16;
+  const tooltipBelow = tooltipTop + tooltipHeight < window.innerHeight - 88;
+  const tooltipY = Math.max(16, tooltipBelow ? tooltipTop : y - tooltipHeight - 16);
 
   return (
     <div ref={overlayRef} className="fixed inset-0 z-[60]">
-      {/* Dark overlay with spotlight hole */}
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         <defs>
           <mask id="spotlight-mask">
@@ -91,20 +91,27 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
         />
       </svg>
 
-      {/* Spotlight border glow */}
       <div
-        className="absolute rounded-2xl border-2 border-white/30 pointer-events-none"
+        className="absolute rounded-2xl border-2 border-white/80 shadow-[0_0_0_6px_rgba(255,255,255,0.18)] pointer-events-none"
         style={{ left: x, top: y, width: w, height: h }}
       />
 
-      {/* Tooltip card */}
       <div
         className="absolute left-4 right-4 bg-white rounded-[--radius-lg] p-5 shadow-xl"
         style={{ top: tooltipY, maxWidth: 340, margin: '0 auto' }}
       >
-        <p className="text-base font-bold text-on-surface mb-3">{step.tooltip}</p>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-extrabold text-brand">
+            Step {current + 1} of {steps.length}
+          </span>
+          <span className="text-xs font-bold uppercase tracking-wide text-on-surface-secondary">
+            Hub tour
+          </span>
+        </div>
+        <h2 className="text-xl font-extrabold text-on-surface">{step.title ?? step.target}</h2>
+        <p className="mt-2 text-sm font-medium leading-5 text-on-surface-secondary">{step.tooltip}</p>
 
-        <div className="flex items-center gap-3">
+        <div className="mt-4 flex items-center gap-3">
           {step.audioUrl && (
             <OnboardingAudioButton
               isPlaying={audio.isPlaying}
@@ -114,18 +121,20 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
             />
           )}
           <button
+            type="button"
             onClick={handleNext}
-            className="flex-1 h-11 bg-brand text-white font-bold text-sm rounded-[--radius-lg] active:scale-[0.97] transition-transform"
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[--radius-lg] bg-brand text-sm font-extrabold text-white transition-transform active:scale-[0.97]"
           >
-            {current < steps.length - 1 ? 'Got it' : 'Got it!'}
+            <span>{current < steps.length - 1 ? 'Next' : 'Finish tour'}</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{current < steps.length - 1 ? 'arrow_forward' : 'check'}</span>
           </button>
         </div>
       </div>
 
-      {/* Skip tour */}
       <button
+        type="button"
         onClick={onComplete}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/70 text-sm font-medium active:text-white/90 transition-colors min-h-[48px] px-4"
+        className="absolute bottom-8 left-1/2 min-h-12 -translate-x-1/2 rounded-full bg-white/10 px-5 text-sm font-bold text-white/80 transition-colors active:text-white"
       >
         Skip tour
       </button>

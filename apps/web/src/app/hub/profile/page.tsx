@@ -280,7 +280,7 @@ export default function ProfilePage() {
       )}
 
       <div className="space-y-3">
-        <button onClick={() => router.push('/hub/onboarding')} className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all border-l-4 border-brand/20">
+        <button onClick={() => router.push('/hub/onboarding?mode=orientation')} className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all border-l-4 border-brand/20">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
             <span className="text-sm font-bold text-on-surface">Learn the App</span>

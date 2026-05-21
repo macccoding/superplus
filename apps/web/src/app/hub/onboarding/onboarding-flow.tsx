@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CURRENT_ONBOARDING_VERSION } from '@superplus/config';
 import { trpc } from '@/lib/trpc-client';
 import { OnboardingSlide, type SlideData } from './onboarding-slide';
 import { OnboardingProgress } from './onboarding-progress';
@@ -76,27 +75,30 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
   };
 
   if (!slide) return null;
+  const completeLabel = type === 'orientation' ? 'Start Hub' : 'Got It';
+  const nextLabel = isLast ? completeLabel : 'Next';
+  const closeLabel = type === 'whats-new' ? 'Close update' : 'Skip orientation';
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-[#FFF8F6] flex flex-col overflow-hidden h-dvh w-dvw"
+      className="fixed inset-0 z-[200] flex h-dvh w-dvw flex-col overflow-hidden bg-[#FFF8F6]"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      {/* Skip / Close button */}
       <button
+        type="button"
+        aria-label={closeLabel}
         onClick={handleSkip}
-        className="absolute top-4 right-4 z-[210] min-w-[48px] min-h-[48px] flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-sm active:scale-95 transition-transform"
+        className="absolute right-4 top-4 z-[210] flex min-h-12 min-w-12 items-center justify-center rounded-full bg-white/90 text-on-surface-secondary shadow-[0_10px_30px_rgba(27,58,92,0.14)] backdrop-blur-sm transition-transform active:scale-95"
       >
         {type === 'whats-new' ? (
-          <span className="material-symbols-outlined text-on-surface-secondary text-[24px]">close</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[24px]">close</span>
         ) : (
           <span className="text-sm font-semibold text-on-surface-secondary px-2">Skip</span>
         )}
       </button>
 
-      {/* Slide content */}
       <div
         className="flex-1 min-h-0 transition-transform duration-300 ease-out"
         style={{ transform: `translateX(${offset}%)` }}
@@ -104,33 +106,45 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
         <OnboardingSlide
           slide={slide}
           isFirst={current === 0}
+          current={current}
+          total={slides.length}
           audio={audio}
         />
       </div>
 
-      {/* Bottom bar: progress dots + CTA on last slide */}
-      <div className="bg-white px-6 pb-8 pt-2 flex flex-col items-center gap-4">
-        {isLast && (
+      <div className="bg-white px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(27,58,92,0.06)]">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <button
-            onClick={handleComplete}
+            type="button"
+            onClick={() => goTo(current - 1)}
+            disabled={current === 0 || transitioning}
+            className="flex min-h-12 min-w-12 items-center justify-center rounded-[--radius-lg] bg-surface-cream text-on-surface-secondary transition-all active:scale-[0.97] disabled:opacity-30"
+            aria-label="Previous slide"
+          >
+            <span aria-hidden="true" className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div className="flex flex-col items-center gap-1">
+            <OnboardingProgress total={slides.length} current={current} colors={colors} />
+            <span className="text-xs font-bold text-on-surface-secondary">
+              Swipe or tap Next
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => (isLast ? handleComplete() : goTo(current + 1))}
             disabled={completeOnboarding.isPending}
-            className="w-full h-14 bg-brand text-white font-extrabold text-base rounded-[--radius-lg] shadow-md active:scale-[0.97] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex min-h-12 min-w-[112px] items-center justify-center gap-2 rounded-[--radius-lg] bg-brand px-5 text-sm font-extrabold text-white shadow-md transition-all active:scale-[0.97] disabled:opacity-50"
           >
             {completeOnboarding.isPending ? (
-              <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+              <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
             ) : (
-              type === 'orientation' ? "Let's Go!" : 'Got It!'
+              <>
+                <span>{nextLabel}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{isLast ? 'check' : 'arrow_forward'}</span>
+              </>
             )}
           </button>
-        )}
-
-        <OnboardingProgress total={slides.length} current={current} colors={colors} />
-
-        {!isLast && (
-          <span className="text-[10px] text-on-surface-secondary/40 font-medium tracking-wider">
-            swipe &rarr;
-          </span>
-        )}
+        </div>
       </div>
     </div>
   );

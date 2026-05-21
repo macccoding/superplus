@@ -24,6 +24,7 @@ export function OnboardingAudioButton({
     >
       {/* Progress ring */}
       <svg
+        aria-hidden="true"
         className="absolute inset-0"
         width={size}
         height={size}
@@ -51,6 +52,7 @@ export function OnboardingAudioButton({
         style={{ width: size - 8, height: size - 8 }}
       >
         <span
+          aria-hidden="true"
           className="material-symbols-outlined text-white"
           style={{ fontSize: size * 0.5, fontVariationSettings: "'FILL' 1" }}
         >

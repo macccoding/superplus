@@ -8,15 +8,13 @@ interface OnboardingProgressProps {
 
 export function OnboardingProgress({ total, current, colors }: OnboardingProgressProps) {
   return (
-    <div className="flex gap-2 items-center justify-center" role="tablist" aria-label="Slide progress">
+    <div className="flex gap-2 items-center justify-center" role="progressbar" aria-label="Slide progress" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current + 1}>
       {Array.from({ length: total }, (_, i) => {
         const isActive = i === current;
         return (
           <div
             key={i}
-            role="tab"
-            aria-selected={isActive}
-            aria-label={`Slide ${i + 1} of ${total}`}
+            aria-hidden="true"
             className="rounded-full transition-all duration-300"
             style={{
               width: isActive ? 10 : 7,

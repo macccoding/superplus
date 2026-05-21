@@ -1,6 +1,8 @@
 'use client';
 
 import { CURRENT_ONBOARDING_VERSION } from '@superplus/config';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 import { OnboardingFlow } from './onboarding-flow';
 import manifestV1 from '@/data/onboarding-v1.json';
@@ -9,23 +11,29 @@ const manifests: Record<number, typeof manifestV1> = {
   1: manifestV1,
 };
 
-export default function OnboardingPage() {
+function OnboardingLoading() {
+  return (
+    <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
+      <span className="material-symbols-outlined animate-spin text-brand text-[40px]">progress_activity</span>
+    </div>
+  );
+}
+
+function OnboardingPageContent() {
+  const searchParams = useSearchParams();
   const { data: me, isLoading } = trpc.users.me.useQuery();
 
   if (isLoading) {
-    return (
-      <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
-        <span className="material-symbols-outlined animate-spin text-brand text-[40px]">progress_activity</span>
-      </div>
-    );
+    return <OnboardingLoading />;
   }
 
   // Determine which manifest to show
   const userVersion = me?.onboardingVersion ?? 0;
+  const replayOrientation = searchParams.get('mode') === 'orientation';
   let manifest: typeof manifestV1;
   let type: 'orientation' | 'whats-new';
 
-  if (userVersion === 0) {
+  if (userVersion === 0 || replayOrientation) {
     // Never onboarded — show full orientation (v1)
     manifest = manifests[1]!;
     type = 'orientation';
@@ -44,5 +52,13 @@ export default function OnboardingPage() {
       type={type}
       version={manifest.version}
     />
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<OnboardingLoading />}>
+      <OnboardingPageContent />
+    </Suspense>
   );
 }
