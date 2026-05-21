@@ -5,6 +5,8 @@ export interface SlideDefinition {
   icon: string;
   color: string;
   imagePrompt: string;
+  videoPrompt?: string;
+  videoDuration?: number;
   narrationScript: string;
 }
 
@@ -27,6 +29,7 @@ export interface OnboardingManifest {
     icon: string;
     color: string;
     imageUrl: string;
+    videoUrl: string;
     audioUrl: string;
     narrationScript: string;
   }>;

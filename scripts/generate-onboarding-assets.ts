@@ -3,6 +3,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
 import { generateImages } from './onboarding/generate-images';
+import { generateVideos } from './onboarding/generate-videos';
 import { generateAudio } from './onboarding/generate-audio';
 import { V1_SLIDES, V1_WALKTHROUGH } from './onboarding/slides';
 import type { OnboardingManifest } from './onboarding/manifest';
@@ -11,25 +12,34 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(__dirname, '../.env') });
 
 const version = parseInt(process.argv.find((a) => a.startsWith('--version='))?.split('=')[1] ?? '1');
+const skipImages = process.argv.includes('--skip-images');
+const skipVideos = process.argv.includes('--skip-videos');
+const skipAudio = process.argv.includes('--skip-audio');
 
 async function main() {
   console.log(`\nGenerating onboarding assets v${version}\n`);
 
-  const slides = version === 1 ? V1_SLIDES : V1_SLIDES; // extend for future versions
+  const slides = version === 1 ? V1_SLIDES : V1_SLIDES;
   const walkthrough = version === 1 ? V1_WALKTHROUGH : undefined;
 
-  // Generate images
-  console.log('Generating images...');
-  const imageUrls = await generateImages(slides, version);
+  // Generate images (fallback for when video can't play)
+  let imageUrls = new Map<string, string>();
+  if (!skipImages) {
+    console.log('Generating images...');
+    imageUrls = await generateImages(slides, version);
+  }
 
-  // Generate slide audio
-  console.log('\nGenerating slide audio...');
-  const slideAudioItems = slides.map((s) => ({ id: s.id, script: s.narrationScript }));
-  const slideAudioUrls = await generateAudio(slideAudioItems, version);
+  // Generate videos (primary — Sora 2 Pro with native audio)
+  let videoUrls = new Map<string, string>();
+  if (!skipVideos) {
+    console.log('\nGenerating videos (Sora 2 Pro)...');
+    console.log('  This takes a few minutes per video — be patient.\n');
+    videoUrls = await generateVideos(slides, version);
+  }
 
-  // Generate walkthrough audio
+  // Generate walkthrough audio (TTS — still needed for spotlight tooltips)
   let walkthroughAudioUrls = new Map<string, string>();
-  if (walkthrough) {
+  if (!skipAudio && walkthrough) {
     console.log('\nGenerating walkthrough audio...');
     const wtAudioItems = walkthrough.map((w) => ({ id: w.id, script: w.narrationScript }));
     walkthroughAudioUrls = await generateAudio(wtAudioItems, version);
@@ -39,7 +49,7 @@ async function main() {
   const manifest: OnboardingManifest = {
     version,
     type: version === 1 ? 'orientation' : 'whats-new',
-    title: version === 1 ? 'Welcome to SuperPlus Hub!' : "What's New!",
+    title: version === 1 ? 'Welcome to SuperPlus!' : "What's New!",
     generatedAt: new Date().toISOString(),
     slides: slides.map((s) => ({
       id: s.id,
@@ -48,7 +58,8 @@ async function main() {
       icon: s.icon,
       color: s.color,
       imageUrl: imageUrls.get(s.id) ?? '',
-      audioUrl: slideAudioUrls.get(s.id) ?? '',
+      videoUrl: videoUrls.get(s.id) ?? '',
+      audioUrl: '', // Audio is baked into video now, TTS only for walkthrough
       narrationScript: s.narrationScript,
     })),
     walkthrough: walkthrough?.map((w) => ({
@@ -64,7 +75,7 @@ async function main() {
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
   console.log(`\n✓ Manifest written to ${manifestPath}`);
   console.log(`  ${slides.length} slides, ${walkthrough?.length ?? 0} walkthrough steps`);
-  console.log(`  Total cost: ~$${((slides.length * 0.04) + ((slides.length + (walkthrough?.length ?? 0)) * 0.015)).toFixed(2)}`);
+  console.log(`  Videos: ${videoUrls.size}, Images: ${imageUrls.size}`);
 }
 
 main().catch((e) => {

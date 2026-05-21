@@ -1,8 +1,8 @@
 {
   "version": 1,
   "type": "orientation",
-  "title": "Welcome to SuperPlus Hub!",
-  "generatedAt": "2026-05-20T19:33:38.756Z",
+  "title": "Welcome to SuperPlus!",
+  "generatedAt": "2026-05-20T21:30:00.000Z",
   "slides": [
     {
       "id": "welcome",
@@ -11,58 +11,20 @@
       "icon": "waving_hand",
       "color": "#E31837",
       "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/welcome.png",
-      "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/welcome.mp3",
-      "narrationScript": "Hey! I'm Keisha. Welcome to SuperPlus Hub — this is your new app for work. Let me show you around."
+      "videoUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/welcome.mp4",
+      "audioUrl": "",
+      "narrationScript": "Hey! I'm Tanya. Welcome to SuperPlus — this is your new app for work. Let me show you around."
     },
     {
-      "id": "tasks",
-      "heading": "Tasks",
-      "subtext": "See what needs doing",
-      "icon": "assignment",
-      "color": "#446185",
-      "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tasks.png",
-      "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tasks.mp3",
-      "narrationScript": "This is Tasks. When your manager gives you something to do, it shows up here. Tap to see it, mark it done when you're finished."
-    },
-    {
-      "id": "threads",
-      "heading": "Threads",
-      "subtext": "Talk to your team",
-      "icon": "forum",
-      "color": "#2e7d32",
-      "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/threads.png",
-      "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/threads.mp3",
-      "narrationScript": "This is Threads — like a group chat for your store. Ask questions, share updates. No more missed messages."
-    },
-    {
-      "id": "logbook",
-      "heading": "Logbook",
-      "subtext": "Write what happened",
-      "icon": "history",
-      "color": "#845500",
-      "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/logbook.png",
-      "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/logbook.mp3",
-      "narrationScript": "The Logbook is where you write down what happened on your shift. Anything the next person needs to know goes here."
-    },
-    {
-      "id": "tools",
-      "heading": "Tools",
-      "subtext": "Calculator and more",
-      "icon": "build",
-      "color": "#673ab7",
-      "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tools.png",
-      "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tools.mp3",
-      "narrationScript": "These are your Tools — a calculator, product lookup, and other things to make your job easier."
-    },
-    {
-      "id": "ready",
-      "heading": "Ready!",
-      "subtext": "You're all set",
-      "icon": "celebration",
+      "id": "tour",
+      "heading": "",
+      "subtext": "",
+      "icon": "school",
       "color": "#E31837",
-      "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/ready.png",
-      "audioUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/ready.mp3",
-      "narrationScript": "That's it! You're all set. If you ever need to see this again, go to your Profile. Let's get started!"
+      "imageUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/welcome.png",
+      "videoUrl": "https://wqzrmlbfdk50lvlb.public.blob.vercel-storage.com/onboarding/v1/tour.mp4",
+      "audioUrl": "",
+      "narrationScript": "Let me show you what's inside. Tasks is where you see what needs doing. Threads is your group chat. The Logbook is where you write what happened on shift. And Tools has your calculator and more. That's it! You're all set."
     }
   ],
   "walkthrough": [
