@@ -44,7 +44,7 @@ export function OnboardingFlow({ slides, type, version }: OnboardingFlowProps) {
       await completeOnboarding.mutateAsync({ version });
       utils.users.me.invalidate();
       if (type === 'orientation') {
-        router.replace('/hub?walkthrough=1');
+        router.replace('/hub?walkthrough=1&source=orientation');
       } else {
         router.replace('/hub');
       }

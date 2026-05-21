@@ -22,11 +22,19 @@ function getGreeting() {
 function WalkthroughTrigger() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const showWalkthrough = searchParams.get('walkthrough') === '1' && typeof window !== 'undefined' && !sessionStorage.getItem('walkthrough-done');
+  const { data: me } = trpc.users.me.useQuery();
+  const walkthroughKey = me ? `walkthrough-done:${me.id}:${manifestV1.version}` : null;
+  const forceWalkthrough = searchParams.get('source') === 'orientation';
+  const showWalkthrough = searchParams.get('walkthrough') === '1'
+    && typeof window !== 'undefined'
+    && walkthroughKey
+    && (forceWalkthrough || !sessionStorage.getItem(walkthroughKey));
   const handleComplete = useCallback(() => {
-    sessionStorage.setItem('walkthrough-done', '1');
+    if (walkthroughKey) {
+      sessionStorage.setItem(walkthroughKey, '1');
+    }
     router.replace('/hub');
-  }, [router]);
+  }, [router, walkthroughKey]);
 
   if (!showWalkthrough || !manifestV1.walkthrough) return null;
   return <OnboardingWalkthrough steps={manifestV1.walkthrough} onComplete={handleComplete} />;

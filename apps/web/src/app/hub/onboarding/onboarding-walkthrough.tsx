@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { OnboardingAudioButton } from './onboarding-audio-button';
 import { useOnboardingAudio } from './use-onboarding-audio';
 
@@ -21,6 +22,8 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
   const [current, setCurrent] = useState(0);
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const step = steps[current];
   const audio = useOnboardingAudio(step?.audioUrl || null);
@@ -34,10 +37,31 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
   }, [step]);
 
   useEffect(() => {
+    if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+
+    const target = document.querySelector(`[data-walkthrough="${step?.target}"]`);
+    target?.scrollIntoView({ block: 'center', inline: 'nearest' });
+
     updateSpotlight();
+    frameRef.current = window.requestAnimationFrame(updateSpotlight);
+    timeoutRef.current = window.setTimeout(updateSpotlight, 220);
+
+    const observer = new ResizeObserver(updateSpotlight);
+    if (target) observer.observe(target);
     window.addEventListener('resize', updateSpotlight);
-    return () => window.removeEventListener('resize', updateSpotlight);
-  }, [updateSpotlight]);
+    window.addEventListener('scroll', updateSpotlight, true);
+    document.addEventListener('animationend', updateSpotlight, true);
+
+    return () => {
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+      observer.disconnect();
+      window.removeEventListener('resize', updateSpotlight);
+      window.removeEventListener('scroll', updateSpotlight, true);
+      document.removeEventListener('animationend', updateSpotlight, true);
+    };
+  }, [step, updateSpotlight]);
 
   const handleNext = () => {
     if (current < steps.length - 1) {
@@ -72,7 +96,7 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
   const tooltipBelow = tooltipTop + tooltipHeight < window.innerHeight - 88;
   const tooltipY = Math.max(16, tooltipBelow ? tooltipTop : y - tooltipHeight - 16);
 
-  return (
+  const overlay = (
     <div ref={overlayRef} className="fixed inset-0 z-[60]">
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         <defs>
@@ -92,11 +116,13 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
       </svg>
 
       <div
+        data-walkthrough-spotlight={step.target}
         className="absolute rounded-2xl border-2 border-white/80 shadow-[0_0_0_6px_rgba(255,255,255,0.18)] pointer-events-none"
         style={{ left: x, top: y, width: w, height: h }}
       />
 
       <div
+        data-walkthrough-card={step.target}
         className="absolute left-4 right-4 bg-white rounded-[--radius-lg] p-5 shadow-xl"
         style={{ top: tooltipY, maxWidth: 340, margin: '0 auto' }}
       >
@@ -140,4 +166,6 @@ export function OnboardingWalkthrough({ steps, onComplete }: OnboardingWalkthrou
       </button>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }
