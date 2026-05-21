@@ -280,22 +280,6 @@ export default function ProfilePage() {
       )}
 
       <div className="space-y-3">
-        <button onClick={() => router.push('/hub/schedule')} className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-navy">calendar_month</span>
-            <span className="text-sm font-bold text-on-surface">My Schedule</span>
-          </div>
-          <span className="material-symbols-outlined text-on-surface-secondary text-[20px]">chevron_right</span>
-        </button>
-
-        <button onClick={() => router.push('/hub/availability')} className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-warning">event_available</span>
-            <span className="text-sm font-bold text-on-surface">My Availability</span>
-          </div>
-          <span className="material-symbols-outlined text-on-surface-secondary text-[20px]">chevron_right</span>
-        </button>
-
         <button onClick={() => router.push('/hub/onboarding')} className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all border-l-4 border-brand/20">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
@@ -348,7 +332,6 @@ export default function ProfilePage() {
               ['urgentThreads', 'Urgent'],
               ['taskAlerts', 'Tasks'],
               ['announcementAlerts', 'Announce'],
-              ['scheduleAlerts', 'Schedule'],
               ['stockAlerts', 'Stock'],
               ['incidentAlerts', 'Incidents'],
               ['suggestionResponses', 'Ideas'],

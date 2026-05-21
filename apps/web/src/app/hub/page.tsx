@@ -46,12 +46,12 @@ export default function HubHomePage() {
   const canOpenAdmin = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
   const hubItems = getStaffModulesByPlacement(releaseMode, 'main');
   const moreItems = getStaffModulesByPlacement(releaseMode, 'more');
-  const hubItemsWithBadges = hubItems.map((item) => (
+  const hubItemsWithBadges = [...hubItems, profileItem].map((item) => (
     item.href === '/hub/threads'
       ? { ...item, badge: threadCounts?.unread || undefined }
       : item
   ));
-  const moreItemsForUser = canOpenAdmin ? [profileItem, adminItem, ...moreItems] : [profileItem, ...moreItems];
+  const moreItemsForUser = canOpenAdmin ? [adminItem, ...moreItems] : moreItems;
   const profileCompletion = [
     me?.preferredName,
     me?.favoriteColor,

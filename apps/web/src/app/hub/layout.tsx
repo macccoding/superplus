@@ -24,7 +24,9 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
     }
   }, [me, pathname, router]);
   const releaseMode = normalizeReleaseMode(releaseModeSetting?.mode);
-  const blockedModule = getBlockedStaffModule(pathname, releaseMode);
+  const blockedModule = pathname === '/hub/availability' && releaseMode !== 'FULL'
+    ? { label: 'Availability' }
+    : getBlockedStaffModule(pathname, releaseMode);
   const baseNavItems = [
     { label: 'Home', icon: 'home', href: '/hub' },
     ...getStaffBottomNavItems(releaseMode),
