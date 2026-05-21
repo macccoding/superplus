@@ -3,6 +3,7 @@ import { router, protectedProcedure, supervisorProcedure } from '../init';
 import { ExpiryStatus } from '@superplus/db';
 import { adminStoreWhere, resolveAdminScope } from './admin-scope';
 import { logAdminAction } from './admin-audit';
+import { notifyByRole } from '../../notifications';
 
 export const expiryAlertsRouter = router({
   list: protectedProcedure
@@ -34,7 +35,7 @@ export const expiryAlertsRouter = router({
           where: { id: input.productId, storeId: ctx.storeId },
         });
       }
-      return ctx.db.expiryAlert.create({
+      const result = await ctx.db.expiryAlert.create({
         data: {
           storeId: ctx.storeId,
           reportedById: ctx.user.id,
@@ -45,6 +46,18 @@ export const expiryAlertsRouter = router({
           location: input.location,
         },
       });
+      try {
+        await notifyByRole(
+          ctx.db,
+          ctx.storeId,
+          ['SUPERVISOR', 'MANAGER', 'OWNER'],
+          'GENERAL',
+          `Expiry alert: ${input.productName}`,
+          input.location || undefined,
+          '/tools/expiry-tracker'
+        );
+      } catch {}
+      return result;
     }),
 
   updateStatus: supervisorProcedure

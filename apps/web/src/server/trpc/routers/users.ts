@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure, managerProcedure } from '../init';
 import { JobLane, Role } from '@superplus/db';
-import { hasMinRole } from '@superplus/config';
+import { ROLE_HIERARCHY, hasMinRole } from '@superplus/config';
 import type { Role as ConfigRole } from '@superplus/config';
 import { TRPCError } from '@trpc/server';
-import { hash } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { adminStoreIdWhere, adminStoreWhere, resolveAdminScope } from './admin-scope';
 import { activeTaskStatuses } from './tasks-policy';
 import { logAdminAction } from './admin-audit';
@@ -97,9 +97,26 @@ function sanitizeManagerProfile(user: any) {
 }
 
 export const usersRouter = router({
-  loginList: publicProcedure.query(async ({ ctx }) => {
+  loginStores: publicProcedure.query(async ({ ctx }) => {
+    return ctx.db.store.findMany({
+      where: { isActive: true, launchEnabled: true },
+      select: { id: true, name: true, parish: true, address: true },
+      orderBy: { name: 'asc' },
+    });
+  }),
+
+  loginList: publicProcedure
+    .input(z.object({ storeId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+    const where: any = { isActive: true };
+    if (input?.storeId) {
+      where.storeId = input.storeId;
+      where.store = { isActive: true, launchEnabled: true };
+    } else {
+      where.store = { isActive: true, launchEnabled: true };
+    }
     const users = await ctx.db.user.findMany({
-      where: { isActive: true },
+      where,
       select: {
         id: true,
         fullName: true,
@@ -125,6 +142,7 @@ export const usersRouter = router({
         select: {
           id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
+          mustChangePin: true, pinChangedAt: true,
           onboardedAt: true, onboardingVersion: true,
           ...staffProfileSelect,
           store: { select: { id: true, name: true, parish: true, address: true } },
@@ -184,7 +202,7 @@ export const usersRouter = router({
         where,
         select: {
           id: true, fullName: true, phone: true, role: true, jobLane: true,
-          storeId: true, isActive: true, createdAt: true,
+          storeId: true, isActive: true, createdAt: true, mustChangePin: true, pinChangedAt: true,
           ...staffProfileSelect,
           store: { select: { name: true } },
         },
@@ -201,7 +219,7 @@ export const usersRouter = router({
       const [users, activeTasks, recentActions] = await Promise.all([
         ctx.db.user.findMany({
           where: { storeId: storeIdWhere },
-          select: { id: true, fullName: true, phone: true, role: true, jobLane: true, storeId: true, isActive: true, createdAt: true, ...staffProfileSelect, store: { select: { id: true, name: true } } },
+          select: { id: true, fullName: true, phone: true, role: true, jobLane: true, storeId: true, isActive: true, createdAt: true, mustChangePin: true, pinChangedAt: true, ...staffProfileSelect, store: { select: { id: true, name: true } } },
           orderBy: { fullName: 'asc' },
         }),
         ctx.db.task.findMany({
@@ -289,6 +307,9 @@ export const usersRouter = router({
           pinHash,
           role: input.role,
           jobLane: input.jobLane ?? defaultJobLaneForRole(input.role),
+          mustChangePin: true,
+          onboardedAt: null,
+          onboardingVersion: 0,
         },
         select: {
           id: true, fullName: true, phone: true, role: true, jobLane: true,
@@ -330,6 +351,91 @@ export const usersRouter = router({
         sourceId: target.id,
         note: target.fullName,
         metadata: { from: target.jobLane, to: input.jobLane },
+      });
+      return updated;
+    }),
+
+  updateStaffDetails: managerProcedure
+    .input(z.object({
+      id: z.string(),
+      fullName: z.string().trim().min(1).max(100),
+      phone: z.string().trim().min(10).max(15),
+      role: z.nativeEnum(Role),
+      jobLane: z.nativeEnum(JobLane),
+      storeId: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findFirstOrThrow({
+        where: ctx.user.role === 'OWNER' ? { id: input.id } : { id: input.id, storeId: ctx.storeId },
+      });
+      const actorRole = ctx.user.role as ConfigRole;
+      const targetRole = target.role as ConfigRole;
+      const nextRole = input.role as ConfigRole;
+      const actorRank = ROLE_HIERARCHY[actorRole];
+
+      if (actorRole !== 'OWNER' && ROLE_HIERARCHY[targetRole] >= actorRank) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot edit staff with equal or higher role' });
+      }
+      if (actorRole !== 'OWNER' && ROLE_HIERARCHY[nextRole] >= actorRank) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot assign equal or higher role' });
+      }
+
+      const nextStoreId = actorRole === 'OWNER' && input.storeId ? input.storeId : target.storeId;
+      if (actorRole !== 'OWNER' && nextStoreId !== target.storeId) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Managers can only edit staff in their own store' });
+      }
+      if (target.id === ctx.user.id && (nextRole !== targetRole || nextStoreId !== target.storeId)) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'You cannot change your own role or store' });
+      }
+      if (actorRole === 'OWNER' && input.storeId) {
+        await ctx.db.store.findFirstOrThrow({ where: { id: input.storeId, isActive: true } });
+      }
+
+      const phoneOwner = await ctx.db.user.findFirst({
+        where: { phone: input.phone, NOT: { id: input.id } },
+        select: { id: true },
+      });
+      if (phoneOwner) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'That phone number is already assigned to another staff member' });
+      }
+
+      const updated = await ctx.db.user.update({
+        where: { id: input.id },
+        data: {
+          fullName: input.fullName,
+          phone: input.phone,
+          role: input.role,
+          jobLane: input.jobLane,
+          storeId: nextStoreId,
+        },
+        select: {
+          id: true, fullName: true, phone: true, role: true, jobLane: true,
+          storeId: true, isActive: true, createdAt: true,
+          store: { select: { name: true } },
+        },
+      });
+      await logAdminAction(ctx.db, ctx.user.id, nextStoreId, {
+        action: 'USER_DETAILS_UPDATED',
+        storeId: nextStoreId,
+        sourceType: 'USER',
+        sourceId: target.id,
+        note: updated.fullName,
+        metadata: {
+          from: {
+            fullName: target.fullName,
+            phone: target.phone,
+            role: target.role,
+            jobLane: target.jobLane,
+            storeId: target.storeId,
+          },
+          to: {
+            fullName: updated.fullName,
+            phone: updated.phone,
+            role: updated.role,
+            jobLane: updated.jobLane,
+            storeId: updated.storeId,
+          },
+        },
       });
       return updated;
     }),
@@ -378,7 +484,7 @@ export const usersRouter = router({
       const pinHash = await hash(input.newPin, 10);
       const updated = await ctx.db.user.update({
         where: { id: input.id },
-        data: { pinHash },
+        data: { pinHash, mustChangePin: true, pinChangedAt: null, onboardedAt: null, onboardingVersion: 0 },
         select: { id: true, fullName: true },
       });
       await logAdminAction(ctx.db, ctx.user.id, target.storeId, {
@@ -395,20 +501,26 @@ export const usersRouter = router({
     .input(z.object({
       currentPin: z.string().length(4),
       newPin: z.string().length(4).regex(/^\d{4}$/),
+      confirmPin: z.string().length(4).regex(/^\d{4}$/).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (input.confirmPin && input.confirmPin !== input.newPin) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'PINs do not match' });
+      }
+      if (input.currentPin === input.newPin) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Choose a new PIN, not the temporary PIN' });
+      }
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.user.id },
       });
-      const { compare } = await import('bcryptjs');
       const valid = await compare(input.currentPin, user.pinHash);
       if (!valid) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Current PIN is incorrect' });
 
       const pinHash = await hash(input.newPin, 10);
       return ctx.db.user.update({
         where: { id: ctx.user.id },
-        data: { pinHash },
-        select: { id: true, fullName: true },
+        data: { pinHash, mustChangePin: false, pinChangedAt: new Date() },
+        select: { id: true, fullName: true, mustChangePin: true, pinChangedAt: true },
       });
     }),
 

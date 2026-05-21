@@ -334,9 +334,21 @@ export default function AdminTasksPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard icon="assignment" label="Open Work" value={openCount} tone="navy" />
-        <StatCard icon="support_agent" label="Need Help" value={helpCount} tone="warning" />
-        <StatCard icon="event_busy" label="Overdue" value={overdueCount} tone="brand" />
+        <StatCard
+          icon="assignment"
+          label="Open Work"
+          value={openCount}
+          tone="navy"
+          onClick={() => {
+            clearSelectionForFilterChange();
+            setChip('');
+            setStatus('');
+            setDue('');
+            setSearch('');
+          }}
+        />
+        <StatCard icon="support_agent" label="Need Help" value={helpCount} tone="warning" onClick={() => applyChip('help')} />
+        <StatCard icon="event_busy" label="Overdue" value={overdueCount} tone="brand" onClick={() => applyChip('overdue')} />
       </div>
 
       <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm mb-6">
@@ -611,17 +623,30 @@ export default function AdminTasksPage() {
   );
 }
 
-function StatCard({ icon, label, value, tone }: { icon: string; label: string; value: number; tone: 'brand' | 'navy' | 'warning' }) {
+function StatCard({ icon, label, value, tone, onClick }: { icon: string; label: string; value: number; tone: 'brand' | 'navy' | 'warning'; onClick?: () => void }) {
   const toneClass = tone === 'brand' ? 'bg-brand/10 text-brand' : tone === 'navy' ? 'bg-navy/10 text-navy' : 'bg-warning/15 text-warning';
-  return (
-    <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm flex items-center gap-3">
+  const content = (
+    <>
       <div className={`w-12 h-12 rounded-[--radius-lg] flex items-center justify-center ${toneClass}`}>
         <span aria-hidden="true" className="material-symbols-outlined">{icon}</span>
       </div>
-      <div>
+      <div className="min-w-0 flex-1 text-left">
         <p className="text-2xl font-bold text-on-surface">{value}</p>
         <p className="text-sm text-on-surface-secondary">{label}</p>
       </div>
+      {onClick && <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-on-surface-secondary">chevron_right</span>}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm flex items-center gap-3 text-left transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 hover:shadow-md">
+        {content}
+      </button>
+    );
+  }
+  return (
+    <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm flex items-center gap-3">
+      {content}
     </div>
   );
 }

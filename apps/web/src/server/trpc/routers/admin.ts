@@ -545,7 +545,7 @@ async function buildSummary(ctx: any, scope: AdminScope, days: 1 | 7 | 30) {
     ctx.db.suggestion.count({ where: { ...where, status: SuggestionStatus.NEW } }),
     ctx.db.purchaseOrder.count({ where: { ...where, status: { in: [POStatus.ORDERED, POStatus.PARTIALLY_RECEIVED] } } }),
     ctx.db.task.findMany({ where, include: { store: true, createdBy: { select: { fullName: true } } }, orderBy: { updatedAt: 'desc' }, take: 5 }),
-    ctx.db.thread.findMany({ where, include: { store: true, _count: { select: { messages: true } } }, orderBy: { updatedAt: 'desc' }, take: 5 }),
+    ctx.db.thread.findMany({ where: { ...where, type: { not: 'DIRECT' } }, include: { store: true, _count: { select: { messages: true } } }, orderBy: { updatedAt: 'desc' }, take: 5 }),
   ]);
 
   const attention = await buildAttentionItems(ctx, scope, { take: 16 });

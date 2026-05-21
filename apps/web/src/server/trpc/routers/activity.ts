@@ -13,7 +13,7 @@ export const activityRouter = router({
           take: 20,
         }),
         ctx.db.thread.findMany({
-          where: storeFilter,
+          where: { ...storeFilter, type: { not: 'DIRECT' } },
           include: { author: { select: { id: true, fullName: true, role: true } }, store: true, _count: { select: { messages: true } } },
           orderBy: { updatedAt: 'desc' },
           take: 20,

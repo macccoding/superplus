@@ -132,6 +132,24 @@ async function main() {
     role: Role.MANAGER,
     jobLane: JobLane.SUPERVISOR,
   });
+  if (STORE_NAME.toLowerCase().includes('santa cruz')) {
+    await upsertUser({
+      storeId: store.id,
+      fullName: 'Michael',
+      phone: '8763828177',
+      pinHash,
+      role: Role.OWNER,
+      jobLane: JobLane.SUPERVISOR,
+    });
+    await upsertUser({
+      storeId: store.id,
+      fullName: 'Charles Chen',
+      phone: '8763828178',
+      pinHash,
+      role: Role.MANAGER,
+      jobLane: JobLane.SUPERVISOR,
+    });
+  }
 
   const usersByKey = new Map<string, string>();
   for (const employee of employees) {
@@ -218,12 +236,13 @@ async function main() {
 }
 
 async function getOrCreateStore() {
+  const parish = STORE_NAME.toLowerCase().includes('santa cruz') ? 'Saint Elizabeth' : 'Manchester';
   const existing = await prisma.store.findFirst({ where: { name: STORE_NAME } });
   if (existing) {
     return prisma.store.update({
       where: { id: existing.id },
       data: {
-        parish: 'Manchester',
+        parish,
         address: existing.address || 'Schedule test roster seeded from SuperPlus screenshots',
         phone: '+18769998099',
         openTime: '06:00',
@@ -237,7 +256,7 @@ async function getOrCreateStore() {
   return prisma.store.create({
     data: {
       name: STORE_NAME,
-      parish: 'Manchester',
+      parish,
       address: 'Schedule test roster seeded from SuperPlus screenshots',
       phone: '+18769998099',
       openTime: '06:00',

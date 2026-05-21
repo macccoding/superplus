@@ -3,6 +3,14 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { trpc } from '@/lib/trpc-client';
+
+interface LoginStore {
+  id: string;
+  name: string;
+  parish: string;
+  address: string;
+}
 
 interface StaffMember {
   loginId: string;
@@ -40,13 +48,18 @@ async function prefetchOnboardingAssets() {
   } catch { /* best-effort, silent failure */ }
 }
 
-export function LoginClient({ staff }: { staff: StaffMember[] }) {
+export function LoginClient({ stores }: { stores: LoginStore[] }) {
   const router = useRouter();
+  const [selectedStore, setSelectedStore] = useState<LoginStore | null>(stores.length === 1 ? stores[0] : null);
   const [selected, setSelected] = useState<StaffMember | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [staffSearch, setStaffSearch] = useState('');
+  const { data: staff, isLoading: staffLoading } = trpc.users.loginList.useQuery(
+    { storeId: selectedStore?.id },
+    { enabled: Boolean(selectedStore?.id) }
+  );
 
   async function handleSubmit() {
     if (!selected || pin.length < 4) return;
@@ -67,31 +80,84 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
     } else {
       // Prefetch onboarding assets into SW cache
       prefetchOnboardingAssets();
-      router.push('/');
+      router.push('/auth/create-pin');
       router.refresh();
     }
   }
 
+  if (!selectedStore) {
+    return (
+      <div className="w-full max-w-lg mx-auto px-4">
+        <div className="text-center mb-8">
+          <img src="/logo-transparent.png" alt="SuperPlus" className="h-24 mx-auto mb-3" />
+          <h1 className="text-2xl font-extrabold text-on-surface">SuperPlus</h1>
+          <p className="text-on-surface-secondary text-sm mt-1">Choose your store</p>
+        </div>
+
+        <div className="space-y-3">
+          {stores.map((store) => (
+            <button
+              key={store.id}
+              type="button"
+              onClick={() => { setSelectedStore(store); setSelected(null); setPin(''); setError(''); }}
+              className="flex min-h-[76px] w-full items-center gap-4 rounded-[--radius-lg] border-2 border-transparent bg-surface-white p-4 text-left shadow-sm transition-all active:scale-[0.98] hover:border-brand/30 focus:border-brand"
+            >
+              <span className="material-symbols-outlined flex h-12 w-12 shrink-0 items-center justify-center rounded-[--radius-lg] bg-brand/10 text-brand">store</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-extrabold text-on-surface">{store.name.replace('SuperPlus ', '')}</span>
+                <span className="block text-sm text-on-surface-secondary">{store.parish}</span>
+              </span>
+              <span className="material-symbols-outlined text-on-surface-secondary">chevron_right</span>
+            </button>
+          ))}
+        </div>
+
+        {stores.length === 0 && (
+          <div className="rounded-[--radius-lg] bg-surface-white p-6 text-center shadow-sm">
+            <p className="font-bold text-on-surface">No stores are live yet</p>
+            <p className="mt-1 text-sm text-on-surface-secondary">Ask management when your store is launching.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!selected) {
+    const staffList = staff ?? [];
     const normalizedSearch = staffSearch.trim().toLowerCase();
     const filteredStaff = normalizedSearch
-      ? staff.filter((user) => (
+      ? staffList.filter((user) => (
         user.fullName.toLowerCase().includes(normalizedSearch) ||
         user.firstName.toLowerCase().includes(normalizedSearch) ||
         user.role.toLowerCase().includes(normalizedSearch) ||
         user.storeName.toLowerCase().includes(normalizedSearch)
       ))
-      : staff;
+      : staffList;
 
     return (
       <div className="w-full max-w-lg mx-auto px-4">
         <div className="text-center mb-8">
           <img src="/logo-transparent.png" alt="SuperPlus" className="h-24 mx-auto mb-3" />
           <h1 className="text-2xl font-extrabold text-on-surface">SuperPlus</h1>
-          <p className="text-on-surface-secondary text-sm mt-1">Select your name to sign in</p>
+          <p className="text-on-surface-secondary text-sm mt-1">{selectedStore.name.replace('SuperPlus ', '')} · select your name</p>
         </div>
 
-        {staff.length > 9 && (
+        <button
+          type="button"
+          onClick={() => { setSelectedStore(null); setSelected(null); setPin(''); setError(''); }}
+          className="mb-4 flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-surface-cream px-4 text-sm font-bold text-on-surface-secondary active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          Change store
+        </button>
+
+        {staffLoading && (
+          <div className="flex min-h-[180px] items-center justify-center rounded-[--radius-lg] bg-surface-white shadow-sm">
+            <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
+          </div>
+        )}
+
+        {!staffLoading && staffList.length > 9 && (
           <div className="relative mb-4">
             <span aria-hidden="true" className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-secondary">search</span>
             <input
@@ -104,7 +170,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {!staffLoading && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {filteredStaff.map((user) => {
             const color = getAvatarColor(user.fullName);
             const rc = roleColors[user.role] || roleColors.STAFF;
@@ -127,9 +193,9 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
               </button>
             );
           })}
-        </div>
+        </div>}
 
-        {filteredStaff.length === 0 && (
+        {!staffLoading && filteredStaff.length === 0 && (
           <div className="rounded-[--radius-lg] bg-surface-white p-6 text-center shadow-sm">
             <p className="font-bold text-on-surface">No names found</p>
             <button

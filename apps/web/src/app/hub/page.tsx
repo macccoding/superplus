@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback } from 'react';
+import Link from 'next/link';
 import { IconGrid } from '@superplus/ui';
 import { getStaffModulesByPlacement, normalizeReleaseMode } from '@superplus/config';
 import { useSession } from 'next-auth/react';
@@ -112,12 +113,12 @@ export default function HubHomePage() {
       )}
 
       {totalTasks > 0 && (
-        <div className="mx-5 mt-2 bg-brand-light/10 border-l-4 border-brand rounded-[--radius-lg] p-4 flex items-start gap-3 shadow-sm">
+        <Link href="/hub/tasks" className="mx-5 mt-2 flex items-start gap-3 rounded-[--radius-lg] border-l-4 border-brand bg-brand-light/10 p-4 shadow-sm transition-all active:scale-[0.98]">
           <span
             className="material-symbols-outlined text-brand"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >info</span>
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="text-sm font-bold text-on-surface">
               {totalTasks} task{totalTasks !== 1 ? 's' : ''} need attention
             </h3>
@@ -127,7 +128,8 @@ export default function HubHomePage() {
                 : `${availableTasks?.length || 0} unassigned, ${myTasks?.length || 0} assigned to you`}
             </p>
           </div>
-        </div>
+          <span className="material-symbols-outlined text-on-surface-secondary text-[20px]">chevron_right</span>
+        </Link>
       )}
 
       {/* Spotlight walkthrough overlay */}

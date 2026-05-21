@@ -72,26 +72,11 @@ export default function ReportsPage() {
             <h2 className="font-bold text-on-surface text-lg">Thread Operations</h2>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <div className="rounded-[--radius-lg] bg-surface p-3 text-center">
-              <p className="text-2xl font-bold text-on-surface">{threadAnalytics.totalThreads}</p>
-              <p className="text-xs text-on-surface-secondary">Threads</p>
-            </div>
-            <div className="rounded-[--radius-lg] bg-error/5 p-3 text-center">
-              <p className="text-2xl font-bold text-error">{threadAnalytics.unacknowledgedUrgentCount}</p>
-              <p className="text-xs text-on-surface-secondary">Urgent not acked</p>
-            </div>
-            <div className="rounded-[--radius-lg] bg-warning/10 p-3 text-center">
-              <p className="text-2xl font-bold text-warning">{threadAnalytics.noReplyCount}</p>
-              <p className="text-xs text-on-surface-secondary">No reply</p>
-            </div>
-            <div className="rounded-[--radius-lg] bg-navy/10 p-3 text-center">
-              <p className="text-2xl font-bold text-navy">{threadAnalytics.averageFirstResponseMinutes != null ? `${threadAnalytics.averageFirstResponseMinutes}m` : '-'}</p>
-              <p className="text-xs text-on-surface-secondary">Avg reply</p>
-            </div>
-            <div className="rounded-[--radius-lg] bg-success/10 p-3 text-center">
-              <p className="text-2xl font-bold text-success">{threadAnalytics.taskConversionRate}%</p>
-              <p className="text-xs text-on-surface-secondary">Made tasks</p>
-            </div>
+            <ThreadMetric href="/hub/threads" value={threadAnalytics.totalThreads} label="Threads" />
+            <ThreadMetric href="/hub/threads?tab=unacked" value={threadAnalytics.unacknowledgedUrgentCount} label="Urgent not acked" tone="danger" />
+            <ThreadMetric href="/hub/threads?tab=noReply" value={threadAnalytics.noReplyCount} label="No reply" tone="warning" />
+            <ThreadMetric href="/hub/threads" value={threadAnalytics.averageFirstResponseMinutes != null ? `${threadAnalytics.averageFirstResponseMinutes}m` : '-'} label="Avg reply" tone="navy" />
+            <ThreadMetric href="/hub/threads?tab=needsTask" value={`${threadAnalytics.taskConversionRate}%`} label="Made tasks" tone="success" />
           </div>
           {threadAnalytics.recurringIssueKeywords.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -326,5 +311,24 @@ function ErrorDisplay() {
       <span className="material-symbols-outlined text-[18px]">error</span>
       Failed to load
     </div>
+  );
+}
+
+function ThreadMetric({ href, value, label, tone = 'default' }: { href: string; value: string | number; label: string; tone?: 'default' | 'danger' | 'warning' | 'navy' | 'success' }) {
+  const toneClass = tone === 'danger'
+    ? 'bg-error/5 text-error'
+    : tone === 'warning'
+      ? 'bg-warning/10 text-warning'
+      : tone === 'navy'
+        ? 'bg-navy/10 text-navy'
+        : tone === 'success'
+          ? 'bg-success/10 text-success'
+          : 'bg-surface text-on-surface';
+  return (
+    <Link href={href} className={`rounded-[--radius-lg] p-3 text-center transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 hover:shadow-sm ${toneClass}`}>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs text-on-surface-secondary">{label}</p>
+      <span aria-hidden="true" className="material-symbols-outlined mt-1 text-[16px] text-on-surface-secondary">chevron_right</span>
+    </Link>
   );
 }

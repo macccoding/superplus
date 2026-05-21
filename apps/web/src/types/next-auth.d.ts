@@ -8,6 +8,7 @@ declare module 'next-auth' {
       role: string;
       storeId: string;
       storeName: string;
+      mustChangePin: boolean;
     };
   }
 }

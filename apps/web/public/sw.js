@@ -72,7 +72,7 @@ self.addEventListener('push', (event) => {
     body: payload.body || 'New store alert',
     icon: '/logo.png',
     badge: '/logo.png',
-    data: { url: payload.link || '/hub/notifications' },
+    data: { url: payload.link || '/hub' },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });

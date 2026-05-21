@@ -133,24 +133,6 @@ function CreateThreadContent() {
           <p className="mt-1 text-sm font-bold text-on-surface-secondary">Visible to the store team. Use direct messages for private staff conversations.</p>
         </div>
 
-        {(templates || []).length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-on-surface mb-3">Quick start</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(templates || []).map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => applyTemplate(template)}
-                  className="min-h-12 rounded-[--radius-lg] bg-surface-cream px-3 text-sm font-bold text-on-surface-secondary flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                >
-                  <span className="material-symbols-outlined text-[20px]">{template.icon}</span>
-                  {template.title}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div>
           <label className="block text-sm font-medium text-on-surface mb-2">Topic</label>
           <input
@@ -203,6 +185,23 @@ function CreateThreadContent() {
 
         {moreOpen && (
           <div className="space-y-5 border-t border-outline/20 pt-5">
+            {(templates || []).length > 0 && (
+              <div>
+                <p className="text-sm font-bold text-on-surface mb-3">Quick start</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(templates || []).map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => applyTemplate(template)}
+                      className="min-h-12 rounded-[--radius-lg] bg-surface-cream px-3 text-sm font-bold text-on-surface-secondary flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">{template.icon}</span>
+                      {template.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <p className="text-sm font-bold text-on-surface mb-2">Mention staff</p>
               <input

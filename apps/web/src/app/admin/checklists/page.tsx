@@ -67,10 +67,10 @@ export default function ChecklistsAdminPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Stat label="Templates" value={health?.counts.templates ?? 0} icon="checklist" />
-        <Stat label="Missed Today" value={health?.counts.missedToday ?? 0} icon="assignment_late" tone="warning" />
+        <Stat label="Missed Today" value={health?.counts.missedToday ?? 0} icon="assignment_late" tone="warning" href={activeScope ? `/admin/checklists/submissions?scope=${activeScope}` : '/admin/checklists/submissions'} />
         <Stat label="Skipped Often" value={health?.counts.skippedOften ?? 0} icon="skip_next" tone="warning" />
         <Stat label="Unused" value={health?.counts.unusedTemplates ?? 0} icon="visibility_off" />
-        <Stat label="Submissions" value={health?.counts.submissions ?? 0} icon="task_alt" tone="success" />
+        <Stat label="Submissions" value={health?.counts.submissions ?? 0} icon="task_alt" tone="success" href={activeScope ? `/admin/checklists/submissions?scope=${activeScope}` : '/admin/checklists/submissions'} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -180,15 +180,31 @@ export default function ChecklistsAdminPage() {
   );
 }
 
-function Stat({ label, value, icon, tone = 'default' }: { label: string; value: number; icon: string; tone?: 'default' | 'warning' | 'success' }) {
+function Stat({ label, value, icon, tone = 'default', href }: { label: string; value: number; icon: string; tone?: 'default' | 'warning' | 'success'; href?: string }) {
   const color = tone === 'warning' ? 'text-warning' : tone === 'success' ? 'text-success' : 'text-navy';
-  return (
-    <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px]">
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <span className={`material-symbols-outlined ${color}`}>{icon}</span>
         <span className="text-2xl font-extrabold text-on-surface">{value}</span>
       </div>
-      <p className="text-xs font-bold uppercase text-on-surface-secondary mt-3">{label}</p>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase text-on-surface-secondary">{label}</p>
+        {href && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-secondary">chevron_right</span>}
+      </div>
+    </>
+  );
+  const className = "block bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px] transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 hover:shadow-md";
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-label={`Open ${label}`}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px]">
+      {content}
     </div>
   );
 }

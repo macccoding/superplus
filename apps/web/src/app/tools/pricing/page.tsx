@@ -17,6 +17,21 @@ export default function PricingPage() {
   const { data: session } = useSession();
   const canEditRules = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
+  if (session && !canEditRules) {
+    return (
+      <div className="px-5 py-6">
+        <section className="px-0 pt-0 pb-4">
+          <h2 className="text-2xl font-bold text-on-surface">Pricing</h2>
+        </section>
+        <div className="bg-surface-white rounded-[--radius-lg] p-6 text-center shadow-sm">
+          <span className="material-symbols-outlined text-on-surface-secondary text-[48px] mb-2">lock</span>
+          <h3 className="text-lg font-bold text-on-surface">Supervisors Only</h3>
+          <p className="text-sm text-on-surface-secondary mt-2">Ask a supervisor for price and margin help.</p>
+        </div>
+      </div>
+    );
+  }
+
   const costNum = parseFloat(cost) || 0;
   const manualMarginNum = parseFloat(manualMargin) || 0;
   const margins = Array.from(new Set([20, 25, 30, 35, 40, 50, manualMarginNum])).sort((a, b) => a - b);

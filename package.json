@@ -13,6 +13,7 @@
     "test:announcements": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/announcements-policy.test.ts",
     "test:products": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/products-foundation.test.ts",
     "test:tools": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/lib/pricing.test.ts && pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/tool-linking.test.ts",
+    "test:launch": "pnpm --filter @superplus/db exec tsx --tsconfig ../../apps/web/tsconfig.json ../../apps/web/src/server/trpc/routers/users-launch.test.ts",
     "generate:onboarding": "npx tsx scripts/generate-onboarding-assets.ts",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",

@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 
 const roleColors: Record<string, string> = {
@@ -37,17 +38,22 @@ function profileLabel(user: any) {
   return 'Not started';
 }
 
-export default function PeoplePage() {
+function PeopleContent() {
   const utils = trpc.useUtils();
+  const searchParams = useSearchParams();
+  const { data: me } = trpc.users.me.useQuery();
   const { data: stores } = trpc.stores.list.useQuery();
   const storeOptions = (stores ?? []).filter((store: any) => store.isActive !== false);
   const canUseAllStores = storeOptions.length > 1;
-  const [scope, setScope] = useState('ALL');
+  const isOwner = me?.role === 'OWNER';
+  const [scope, setScope] = useState(searchParams.get('scope') || 'ALL');
   const activeScope = canUseAllStores ? scope : storeOptions[0]?.id;
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editUser, setEditUser] = useState({ fullName: '', phone: '', role: 'STAFF', jobLane: 'CASHIER', storeId: '' });
   const [resetTarget, setResetTarget] = useState<any | null>(null);
   const [toggleTarget, setToggleTarget] = useState<any | null>(null);
   const [newPin, setNewPin] = useState('');
@@ -81,6 +87,14 @@ export default function PeoplePage() {
     },
   });
 
+  const updateStaffDetails = trpc.users.updateStaffDetails.useMutation({
+    onSuccess: () => {
+      utils.users.invalidate();
+      utils.admin.invalidate();
+      setEditTarget(null);
+    },
+  });
+
   const toggleActive = trpc.users.toggleActive.useMutation({
     onSuccess: () => {
       utils.users.invalidate();
@@ -100,6 +114,19 @@ export default function PeoplePage() {
   const summary = ops?.summary ?? { active: 0, inactive: 0, managers: 0, supervisors: 0, unassigned: 0, overloaded: 0, profilesComplete: 0, profilesMissing: 0, upcomingBirthdays: 0 };
   const selectedStoreId = activeScope === 'ALL' ? newUser.storeId : activeScope;
   const canCreate = newUser.fullName.trim() && newUser.phone.trim() && newUser.pin.length === 4 && selectedStoreId;
+  const canSaveEdit = editUser.fullName.trim() && editUser.phone.trim().length >= 10 && editUser.storeId;
+  const canEditStaff = (user: any) => isOwner || (me?.role === 'MANAGER' && user.role !== 'OWNER' && user.role !== 'MANAGER');
+  const startEdit = (user: any) => {
+    setEditTarget(user);
+    setEditUser({
+      fullName: user.fullName ?? '',
+      phone: user.phone ?? '',
+      role: user.role ?? 'STAFF',
+      jobLane: user.jobLane ?? 'CASHIER',
+      storeId: user.storeId ?? '',
+    });
+    updateStaffDetails.reset();
+  };
 
   return (
     <div className="space-y-6">
@@ -273,6 +300,12 @@ export default function PeoplePage() {
                         <Metric label="Help" value={workload.help} urgent={workload.help > 0} />
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-3">
+                        {canEditStaff(user) && (
+                          <button onClick={() => startEdit(user)} className="col-span-2 h-12 rounded-[--radius-lg] bg-navy text-white text-sm font-bold flex items-center justify-center gap-2">
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                            Edit Details
+                          </button>
+                        )}
                         <button onClick={() => { setResetTarget(user); setNewPin(''); setResetDone(false); }} className="h-12 rounded-[--radius-lg] bg-surface-cream text-sm font-bold text-on-surface-secondary">Reset PIN</button>
                         <button onClick={() => user.isActive && workload.active > 0 ? setToggleTarget({ ...user, workload }) : toggleActive.mutate({ id: user.id })} className={`h-12 rounded-[--radius-lg] text-sm font-bold ${user.isActive ? 'bg-error/10 text-error' : 'bg-success/10 text-success'}`}>
                           {user.isActive ? 'Deactivate' : 'Activate'}
@@ -352,6 +385,7 @@ export default function PeoplePage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
+                          {canEditStaff(user) && <button onClick={() => startEdit(user)} className="h-11 px-3 rounded-[--radius-md] bg-navy text-xs font-bold text-white">Edit</button>}
                           <button onClick={() => { setResetTarget(user); setNewPin(''); setResetDone(false); }} className="h-11 px-3 rounded-[--radius-md] bg-surface-cream text-xs font-bold text-on-surface-secondary">Reset PIN</button>
                           <button onClick={() => user.isActive && workload.active > 0 ? setToggleTarget({ ...user, workload }) : toggleActive.mutate({ id: user.id })} className={`h-11 px-3 rounded-[--radius-md] text-xs font-bold ${user.isActive ? 'bg-error/10 text-error' : 'bg-success/10 text-success'}`}>
                             {user.isActive ? 'Deactivate' : 'Activate'}
@@ -405,6 +439,60 @@ export default function PeoplePage() {
         </div>
       )}
 
+      {editTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditTarget(null)}>
+          <div className="bg-surface-white rounded-[--radius-lg] p-6 w-full max-w-md space-y-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <h2 className="text-xl font-bold text-on-surface">Edit Staff Details</h2>
+              <p className="text-sm text-on-surface-secondary mt-1">Correct name, phone, role, job lane, or store assignment.</p>
+            </div>
+            {isOwner ? (
+              <select value={editUser.storeId} onChange={(e) => setEditUser({ ...editUser, storeId: e.target.value })} className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] text-on-surface" aria-label="Store assignment">
+                <option value="">Choose store</option>
+                {storeOptions.map((store: any) => <option key={store.id} value={store.id}>{store.name}</option>)}
+              </select>
+            ) : (
+              <div className="w-full min-h-14 px-4 py-3 bg-surface border-2 border-outline rounded-[--radius-lg]">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-secondary">Store</p>
+                <p className="font-bold text-on-surface">{editTarget.store?.name ?? 'Current store'}</p>
+              </div>
+            )}
+            <input value={editUser.fullName} onChange={(e) => setEditUser({ ...editUser, fullName: e.target.value })} placeholder="Full name" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary" />
+            <input value={editUser.phone} onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })} placeholder="Phone (+1876...)" type="tel" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary" />
+            <select value={editUser.role} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })} className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] text-on-surface" aria-label="Role">
+              <option value="STAFF">Staff</option>
+              <option value="SUPERVISOR">Supervisor</option>
+              {isOwner && <option value="MANAGER">Manager</option>}
+              {isOwner && <option value="OWNER">Owner</option>}
+            </select>
+            <select value={editUser.jobLane} onChange={(e) => setEditUser({ ...editUser, jobLane: e.target.value })} className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] text-on-surface" aria-label="Job lane">
+              {jobLaneOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            <div className="rounded-[--radius-lg] bg-surface-cream px-4 py-3 text-xs font-bold text-on-surface-secondary">
+              PIN reset stays separate so staff account fixes do not accidentally change login access.
+            </div>
+            {updateStaffDetails.error && <p className="text-sm font-bold text-error">{updateStaffDetails.error.message}</p>}
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setEditTarget(null)} className="flex-1 h-14 border-2 border-outline rounded-[--radius-lg] text-on-surface-secondary font-bold">Cancel</button>
+              <button
+                onClick={() => updateStaffDetails.mutate({
+                  id: editTarget.id,
+                  fullName: editUser.fullName,
+                  phone: editUser.phone,
+                  role: editUser.role as any,
+                  jobLane: editUser.jobLane as any,
+                  storeId: editUser.storeId || undefined,
+                })}
+                disabled={!canSaveEdit || updateStaffDetails.isPending}
+                className="flex-1 h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {resetTarget && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setResetTarget(null)}>
           <div className="bg-surface-white rounded-[--radius-lg] p-6 w-full max-w-sm space-y-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -440,6 +528,14 @@ export default function PeoplePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PeoplePage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-on-surface-secondary">Loading people...</div>}>
+      <PeopleContent />
+    </Suspense>
   );
 }
 

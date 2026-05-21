@@ -19,9 +19,14 @@ const t = initTRPC.context<Context>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
-const enforceAuth = t.middleware(({ ctx, next }) => {
+const PIN_RESET_ALLOWED_PATHS = new Set(['users.me', 'users.changeMyPin']);
+
+const enforceAuth = t.middleware(({ ctx, next, path }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+  if (ctx.session.user.mustChangePin && !PIN_RESET_ALLOWED_PATHS.has(path)) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Create your new PIN before using SuperPlus' });
   }
   return next({
     ctx: {

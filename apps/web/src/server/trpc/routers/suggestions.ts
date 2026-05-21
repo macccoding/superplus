@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../init';
 import { SuggestionCategory, SuggestionStatus } from '@superplus/db';
-import { createNotification } from '../../notifications';
+import { createNotification, notifyByRole } from '../../notifications';
 import { logAdminAction } from './admin-audit';
 import { adminStoreWhere, resolveAdminScope } from './admin-scope';
 
@@ -9,9 +9,23 @@ export const suggestionsRouter = router({
   submit: protectedProcedure
     .input(z.object({ body: z.string().min(1).max(2000), category: z.nativeEnum(SuggestionCategory).default(SuggestionCategory.GENERAL), isAnonymous: z.boolean().default(true) }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.suggestion.create({
+      const result = await ctx.db.suggestion.create({
         data: { storeId: ctx.storeId, body: input.body, category: input.category, isAnonymous: input.isAnonymous, authorId: input.isAnonymous ? null : ctx.user.id },
       });
+      try {
+        await notifyByRole(
+          ctx.db,
+          ctx.storeId,
+          ['MANAGER', 'OWNER'],
+          'GENERAL',
+          input.body.trim().toUpperCase().startsWith('URGENT')
+            ? 'Urgent staff report'
+            : input.isAnonymous ? 'New anonymous staff report' : 'New staff report',
+          `${input.category.toLowerCase()} report submitted`,
+          '/admin/suggestions'
+        );
+      } catch {}
+      return result;
     }),
   myList: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.suggestion.findMany({ where: { authorId: ctx.user.id }, orderBy: { createdAt: 'desc' }, take: 20 });

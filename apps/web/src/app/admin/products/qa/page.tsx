@@ -49,22 +49,34 @@ export default function ProductQaPage() {
       ) : (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {Object.entries(labels).map(([key, meta]) => (
-              <div key={key} className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm">
+            {Object.entries(labels).map(([key, meta]) => {
+              const count = (data?.summary as any)?.[key] ?? 0;
+              return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => document.getElementById(`qa-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                disabled={count === 0}
+                className="bg-surface-white rounded-[--radius-lg] p-4 text-left shadow-sm transition-all active:scale-[0.98] disabled:cursor-default disabled:opacity-70 disabled:active:scale-100 enabled:focus:outline-none enabled:focus:ring-2 enabled:focus:ring-primary/30 enabled:hover:shadow-md"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <span className={`material-symbols-outlined ${meta.tone}`}>{meta.icon}</span>
-                  <p className="text-2xl font-extrabold text-on-surface">{(data?.summary as any)?.[key] ?? 0}</p>
+                  <p className="text-2xl font-extrabold text-on-surface">{count}</p>
                 </div>
-                <p className="text-xs font-bold text-on-surface-secondary mt-2">{meta.title}</p>
-              </div>
-            ))}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-on-surface-secondary">{meta.title}</p>
+                  {count > 0 && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-secondary">expand_more</span>}
+                </div>
+              </button>
+              );
+            })}
           </div>
 
           {Object.entries(labels).map(([key, meta]) => {
             const items = (data?.findings as any)?.[key] ?? [];
             if (items.length === 0) return null;
             return (
-              <section key={key} className="bg-surface-white rounded-[--radius-lg] shadow-sm overflow-hidden">
+              <section id={`qa-${key}`} key={key} className="scroll-mt-20 bg-surface-white rounded-[--radius-lg] shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-outline/20 flex items-center gap-2">
                   <span className={`material-symbols-outlined ${meta.tone}`}>{meta.icon}</span>
                   <h2 className="font-bold text-on-surface">{meta.title}</h2>

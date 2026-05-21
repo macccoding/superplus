@@ -46,13 +46,18 @@ export default function ProductLookupPage() {
     <div>
       <section className="px-5 pt-6 pb-4">
         <h2 className="text-2xl font-bold text-on-surface">Product Lookup</h2>
+        <p className="text-sm text-on-surface-secondary mt-1">Find price, shelf location, and product status</p>
       </section>
 
       {/* Search bar */}
       <div className="px-5 mb-4">
+        <label htmlFor="product-search" className="block text-xs font-bold text-on-surface-secondary mb-2">
+          Name, barcode, SKU, or brand
+        </label>
         <div className="relative">
           <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-secondary">search</span>
           <input
+            id="product-search"
             ref={inputRef}
             type="text"
             value={query}
@@ -61,14 +66,30 @@ export default function ProductLookupPage() {
             className="w-full h-14 pl-12 pr-16 bg-surface-white border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary transition-colors shadow-sm"
             autoFocus
           />
-          <button
-            type="button"
-            aria-label="Scan barcode"
-            onClick={() => setShowScanner(true)}
-            className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-lg bg-surface-cream"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-on-surface-secondary">qr_code_scanner</span>
-          </button>
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => {
+                  setQuery('');
+                  setDebouncedQuery('');
+                  inputRef.current?.focus();
+                }}
+                className="flex h-12 w-10 items-center justify-center rounded-lg bg-surface-cream"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-on-surface-secondary">close</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Scan barcode"
+              onClick={() => setShowScanner(true)}
+              className="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-cream"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-on-surface-secondary">qr_code_scanner</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -95,6 +116,17 @@ export default function ProductLookupPage() {
             {s.replaceAll('_', ' ')}
           </button>
         ))}
+        {(categoryFilter || stockFilter) && (
+          <button
+            onClick={() => {
+              setCategoryFilter(undefined);
+              setStockFilter(undefined);
+            }}
+            className="h-12 shrink-0 rounded-lg px-4 text-sm font-bold whitespace-nowrap bg-navy/10 text-navy transition-all"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Results */}
@@ -107,42 +139,62 @@ export default function ProductLookupPage() {
 
         {results && results.items.length > 0 ? (
           results.items.map((product: any) => (
-            <button
+            <div
               key={product.id}
-              onClick={() => router.push(`/tools/product-lookup/${product.id}`)}
-              className="w-full text-left bg-surface-white rounded-[--radius-lg] p-4 shadow-sm active:scale-[0.98] transition-all duration-200"
+              className="w-full bg-surface-white rounded-[--radius-lg] p-4 shadow-sm"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-on-surface truncate">{product.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    {product.matchReason && (
-                      <span className="text-xs px-2 py-0.5 bg-brand/10 rounded text-brand font-bold">
-                        {product.matchReason}
-                      </span>
-                    )}
-                    {product.category && (
-                      <span className="text-xs px-2 py-0.5 bg-surface-cream rounded text-on-surface-secondary">
-                        {product.category.name}
-                      </span>
-                    )}
-                    {product.brand && (
-                      <span className="text-xs text-on-surface-secondary">{product.brand}</span>
-                    )}
-                    {product.location && (
-                      <span className="text-xs text-on-surface-secondary">{product.location}</span>
-                    )}
+              <button
+                onClick={() => router.push(`/tools/product-lookup/${product.id}`)}
+                className="w-full text-left active:scale-[0.98] transition-all duration-200"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-on-surface truncate">{product.name}</h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      {product.matchReason && (
+                        <span className="text-xs px-2 py-0.5 bg-brand/10 rounded text-brand font-bold">
+                          {product.matchReason}
+                        </span>
+                      )}
+                      {product.category && (
+                        <span className="text-xs px-2 py-0.5 bg-surface-cream rounded text-on-surface-secondary">
+                          {product.category.name}
+                        </span>
+                      )}
+                      {product.brand && (
+                        <span className="text-xs text-on-surface-secondary">{product.brand}</span>
+                      )}
+                      {product.location && (
+                        <span className="text-xs text-on-surface-secondary">{product.location}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right ml-3">
+                    <p className="text-lg font-bold text-on-surface">${Number(product.retailPrice).toFixed(2)}</p>
+                    <div className="flex items-center gap-1 mt-1 justify-end">
+                      <span aria-hidden="true" className={`w-2 h-2 rounded-full ${stockDot[product.stockStatus]}`} />
+                      <span className="text-xs text-on-surface-secondary">{product.stockStatus.replaceAll('_', ' ')}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right ml-3">
-                  <p className="text-lg font-bold text-on-surface">${Number(product.retailPrice).toFixed(2)}</p>
-                  <div className="flex items-center gap-1 mt-1 justify-end">
-                    <span aria-hidden="true" className={`w-2 h-2 rounded-full ${stockDot[product.stockStatus]}`} />
-                    <span className="text-xs text-on-surface-secondary">{product.stockStatus.replaceAll('_', ' ')}</span>
-                  </div>
-                </div>
+              </button>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button
+                  onClick={() => router.push(`/tools/stock-out?productId=${product.id}&productName=${encodeURIComponent(product.name)}&location=${encodeURIComponent(product.location || '')}`)}
+                  className="h-11 rounded-lg bg-error/10 text-error text-sm font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">remove_shopping_cart</span>
+                  Stock-Out
+                </button>
+                <button
+                  onClick={() => router.push(`/tools/expiry-tracker?productId=${product.id}&productName=${encodeURIComponent(product.name)}&location=${encodeURIComponent(product.location || '')}`)}
+                  className="h-11 rounded-lg bg-warning/20 text-warning text-sm font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">event_busy</span>
+                  Expiry
+                </button>
               </div>
-            </button>
+            </div>
           ))
         ) : (
           !isLoading && (debouncedQuery || categoryFilter || stockFilter) && (

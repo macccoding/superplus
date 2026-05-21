@@ -53,13 +53,13 @@ export default function SupplyPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
-        <Stat label="Stock-outs" value={data?.counts.activeStockOuts ?? 0} icon="inventory" tone="danger" />
-        <Stat label="Repeat" value={data?.counts.repeatStockOuts ?? 0} icon="repeat" tone="warning" />
-        <Stat label="Expiry" value={data?.counts.activeExpiryAlerts ?? 0} icon="event_available" tone="warning" />
-        <Stat label="Overdue" value={data?.counts.overdueExpiryAlerts ?? 0} icon="event_busy" tone="danger" />
-        <Stat label="Partial PO" value={data?.counts.partialOrders ?? 0} icon="receipt_long" tone="warning" />
-        <Stat label="Late PO" value={data?.counts.lateOrders ?? 0} icon="schedule" tone="danger" />
-        <Stat label="Suppliers" value={data?.counts.suppliers ?? 0} icon="local_shipping" />
+        <Stat label="Stock-outs" value={data?.counts.activeStockOuts ?? 0} icon="inventory" tone="danger" href="/tools/stock-out" />
+        <Stat label="Repeat" value={data?.counts.repeatStockOuts ?? 0} icon="repeat" tone="warning" href="/tools/stock-out" />
+        <Stat label="Expiry" value={data?.counts.activeExpiryAlerts ?? 0} icon="event_available" tone="warning" href="/tools/expiry-tracker" />
+        <Stat label="Overdue" value={data?.counts.overdueExpiryAlerts ?? 0} icon="event_busy" tone="danger" href="/tools/expiry-tracker" />
+        <Stat label="Partial PO" value={data?.counts.partialOrders ?? 0} icon="receipt_long" tone="warning" href="/admin/orders" />
+        <Stat label="Late PO" value={data?.counts.lateOrders ?? 0} icon="schedule" tone="danger" href="/admin/orders" />
+        <Stat label="Suppliers" value={data?.counts.suppliers ?? 0} icon="local_shipping" href="/admin/suppliers" />
       </div>
 
       {isLoading ? (
@@ -165,15 +165,31 @@ export default function SupplyPage() {
   );
 }
 
-function Stat({ label, value, icon, tone = 'default' }: { label: string; value: number; icon: string; tone?: 'default' | 'danger' | 'warning' }) {
+function Stat({ label, value, icon, tone = 'default', href }: { label: string; value: number; icon: string; tone?: 'default' | 'danger' | 'warning'; href?: string }) {
   const color = tone === 'danger' ? 'text-error' : tone === 'warning' ? 'text-warning' : 'text-navy';
-  return (
-    <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px]">
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <span className={`material-symbols-outlined ${color}`}>{icon}</span>
         <span className="text-2xl font-extrabold text-on-surface">{value}</span>
       </div>
-      <p className="text-xs font-bold uppercase text-on-surface-secondary mt-3">{label}</p>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase text-on-surface-secondary">{label}</p>
+        {href && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-secondary">chevron_right</span>}
+      </div>
+    </>
+  );
+  const className = "block bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px] transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 hover:shadow-md";
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-label={`Open ${label}`}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px]">
+      {content}
     </div>
   );
 }

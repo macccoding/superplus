@@ -18,8 +18,8 @@ async function main() {
   const owner = await prisma.user.create({
     data: {
       storeId: store.id,
-      fullName: 'Admin Owner',
-      phone: '+18760000001',
+      fullName: 'Michael',
+      phone: '8763828177',
       pinHash,
       role: Role.OWNER,
       jobLane: JobLane.SUPERVISOR,

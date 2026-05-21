@@ -146,6 +146,9 @@ model Store {
   openTime  String?
   closeTime String?
   openDays  String?
+  launchEnabled Boolean  @default(false)
+  launchedAt    DateTime?
+  launchNotes   String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -184,6 +187,8 @@ model User {
   avatarUrl String?
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
+  mustChangePin     Boolean  @default(false)
+  pinChangedAt      DateTime?
   onboardedAt       DateTime?
   onboardingVersion Int      @default(0)
   preferredName     String?

@@ -4,6 +4,7 @@ import {
   ThreadCategory,
   ThreadLifecycleEventType,
   ThreadReactionType,
+  ThreadType,
 } from '@superplus/db';
 import { notifyByRole } from './notifications';
 
@@ -37,6 +38,7 @@ export async function runThreadLifecycle(db: any, input?: { storeId?: string; no
   const urgentThreads = await db.thread.findMany({
     where: {
       ...whereScope,
+      type: { not: ThreadType.DIRECT },
       isResolved: false,
       category: ThreadCategory.URGENT,
       lastMessageAt: { lte: minutesAgo(15, now) },
@@ -75,6 +77,7 @@ export async function runThreadLifecycle(db: any, input?: { storeId?: string; no
   const noReplyThreads = await db.thread.findMany({
     where: {
       ...whereScope,
+      type: { not: ThreadType.DIRECT },
       isResolved: false,
       createdAt: { lte: hoursAgo(4, now) },
     },
@@ -97,6 +100,7 @@ export async function runThreadLifecycle(db: any, input?: { storeId?: string; no
   const staleThreads = await db.thread.findMany({
     where: {
       ...whereScope,
+      type: { not: ThreadType.DIRECT },
       isResolved: false,
       lastMessageAt: { lte: hoursAgo(48, now) },
       links: { some: { type: TaskLinkType.TASK } },

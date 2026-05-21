@@ -48,6 +48,7 @@ export const authConfig: NextAuthConfig = {
             pinHash: true,
             role: true,
             storeId: true,
+            mustChangePin: true,
             store: { select: { name: true } },
           },
         });
@@ -63,17 +64,24 @@ export const authConfig: NextAuthConfig = {
           role: user.role,
           storeId: user.storeId,
           storeName: user.store.name,
+          mustChangePin: user.mustChangePin,
         };
       },
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
         token.storeId = (user as any).storeId;
         token.storeName = (user as any).storeName;
+        token.mustChangePin = (user as any).mustChangePin;
+      }
+      if (trigger === 'update' && session?.user) {
+        if (typeof (session.user as any).mustChangePin === 'boolean') {
+          token.mustChangePin = (session.user as any).mustChangePin;
+        }
       }
       return token;
     },
@@ -82,6 +90,7 @@ export const authConfig: NextAuthConfig = {
       session.user.role = token.role as string;
       session.user.storeId = token.storeId as string;
       session.user.storeName = token.storeName as string;
+      session.user.mustChangePin = Boolean(token.mustChangePin);
       return session;
     },
   },

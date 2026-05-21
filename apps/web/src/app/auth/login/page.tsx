@@ -4,9 +4,9 @@ import { trpc } from '@/lib/trpc-client';
 import { LoginClient } from './login-client';
 
 export default function LoginPage() {
-  const { data: staff, isLoading, isError } = trpc.users.loginList.useQuery();
+  const { data: stores, isLoading: storesLoading, isError: storesError } = trpc.users.loginStores.useQuery();
 
-  if (isError) {
+  if (storesError) {
     return (
       <div className="text-center">
         <div className="w-16 h-16 bg-brand rounded-2xl mx-auto mb-4 flex items-center justify-center brand-shadow">
@@ -18,7 +18,7 @@ export default function LoginPage() {
     );
   }
 
-  if (isLoading || !staff) {
+  if (storesLoading || !stores) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
@@ -31,5 +31,5 @@ export default function LoginPage() {
     );
   }
 
-  return <LoginClient staff={staff} />;
+  return <LoginClient stores={stores} />;
 }

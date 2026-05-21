@@ -31,10 +31,10 @@ const viewByTab: Record<Tab, 'ALL' | 'CHANNELS' | 'DIRECT' | 'UNREAD' | 'MENTION
 };
 const tabs: Array<{ key: Tab; label: string; icon: string }> = [
   { key: 'all', label: 'All', icon: 'forum' },
-  { key: 'direct', label: 'DMs', icon: 'person' },
-  { key: 'channels', label: 'Store', icon: 'storefront' },
   { key: 'unread', label: 'New', icon: 'mark_chat_unread' },
   { key: 'mentioned', label: '@Me', icon: 'alternate_email' },
+  { key: 'channels', label: 'Store', icon: 'storefront' },
+  { key: 'direct', label: 'Staff', icon: 'person' },
   { key: 'pinned', label: 'Pinned', icon: 'push_pin' },
   { key: 'saved', label: 'Saved', icon: 'bookmark' },
   { key: 'urgent', label: 'Urgent', icon: 'priority_high' },
@@ -43,8 +43,8 @@ const tabs: Array<{ key: Tab; label: string; icon: string }> = [
   { key: 'unacked', label: 'Unacked', icon: 'check_circle' },
   { key: 'resolved', label: 'Done', icon: 'check_circle' },
 ];
-const primaryTabs = tabs.filter((tab) => ['all', 'direct', 'channels', 'unread'].includes(tab.key));
-const staffFilterTabs = tabs.filter((tab) => ['mentioned', 'pinned', 'saved', 'resolved'].includes(tab.key));
+const primaryTabs = tabs.filter((tab) => ['all', 'unread', 'mentioned', 'channels', 'direct'].includes(tab.key));
+const staffFilterTabs = tabs.filter((tab) => ['pinned', 'saved', 'resolved'].includes(tab.key));
 const managerFilterTabs = tabs.filter((tab) => ['urgent', 'noReply', 'needsTask', 'unacked'].includes(tab.key));
 const primaryTabKeys = new Set(primaryTabs.map((tab) => tab.key));
 const emptyCopy: Record<Tab, { icon: string; title: string; description: string }> = {
@@ -128,8 +128,14 @@ function ThreadsContent() {
     health: health ? health as any : undefined,
   }), [authorId, category, dateFrom, dateTo, hasAttachment, hasTask, health, mentionedUserId, search, status, tab]);
 
-  const { data: liveThreads, isLoading, isError } = trpc.threads.list.useQuery(listInput);
-  const { data: counts } = trpc.threads.counts.useQuery();
+  const { data: liveThreads, isLoading, isError } = trpc.threads.list.useQuery(listInput, {
+    refetchInterval: 12000,
+    refetchIntervalInBackground: false,
+  });
+  const { data: counts } = trpc.threads.counts.useQuery(undefined, {
+    refetchInterval: 12000,
+    refetchIntervalInBackground: false,
+  });
   const { data: mentionTargets } = trpc.threads.mentionTargets.useQuery(undefined, { enabled: filtersOpen });
   const queuedCreate = trpc.threads.create.useMutation({ onSuccess: () => utils.threads.invalidate() });
   const queuedReply = trpc.threads.reply.useMutation({ onSuccess: () => utils.threads.invalidate() });
@@ -291,22 +297,22 @@ function ThreadsContent() {
   return (
     <div>
       <section className="px-5 pt-6 pb-4">
-        <PageHeader title="Messages" subtitle="Staff DMs and store threads" />
+        <PageHeader title="Messages" subtitle="Chats and store updates" />
         <div className="mb-4 grid grid-cols-2 gap-3">
           <button
             onClick={() => router.push('/hub/threads/direct')}
             className="min-h-24 rounded-[--radius-lg] bg-navy p-4 text-left text-on-navy shadow-sm active:scale-[0.98] transition-transform"
           >
             <span className="material-symbols-outlined text-[28px]">person_add</span>
-            <span className="mt-2 block text-base font-extrabold">Message Staff</span>
-            <span className="mt-1 block text-xs font-bold text-on-navy/80">Private 1-to-1</span>
+            <span className="mt-2 block text-base font-extrabold">Staff Chat</span>
+            <span className="mt-1 block text-xs font-bold text-on-navy/80">Private message</span>
           </button>
           <button
             onClick={() => router.push('/hub/threads/create?from=channels')}
             className="min-h-24 rounded-[--radius-lg] bg-brand p-4 text-left text-on-brand shadow-sm active:scale-[0.98] transition-transform"
           >
             <span className="material-symbols-outlined text-[28px]">storefront</span>
-            <span className="mt-2 block text-base font-extrabold">Store Thread</span>
+            <span className="mt-2 block text-base font-extrabold">Store Chat</span>
             <span className="mt-1 block text-xs font-bold text-on-brand/85">Team update</span>
           </button>
         </div>
@@ -327,7 +333,7 @@ function ThreadsContent() {
             className="min-h-11 rounded-[--radius-lg] bg-surface-white text-on-surface-secondary font-bold flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-[20px]">tune</span>
-            Filters
+            More Filters
             {activeFilters.length > 0 && <span className="rounded-full bg-brand px-2 py-0.5 text-xs text-on-brand">{activeFilters.length}</span>}
           </button>
           {canManage && (
@@ -421,7 +427,7 @@ function ThreadsContent() {
             <button
               key={key}
               onClick={() => changeTab(key)}
-              className={`min-h-12 min-w-[92px] rounded-lg px-2 text-center text-xs font-bold transition-colors duration-150 flex items-center justify-center gap-1 ${
+              className={`min-h-12 min-w-[82px] rounded-lg px-2 text-center text-xs font-bold transition-colors duration-150 flex items-center justify-center gap-1 ${
                 tab === key
                   ? 'bg-brand text-on-brand shadow-sm'
                   : 'text-on-surface-secondary hover:bg-surface-creamest'
@@ -485,7 +491,7 @@ function ThreadsContent() {
         )}
       </section>
 
-      <section className="px-5 pb-24 space-y-3">
+      <section className="px-5 pb-24 space-y-2">
         {isLoading && !threads ? (
           <PageSkeleton variant="task-list" />
         ) : threads && threads.length > 0 ? (

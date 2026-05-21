@@ -248,12 +248,12 @@ function AdminDashboardContent() {
       </section>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <Kpi icon="priority_high" label="Needs Action" value={data.kpis.riskCount} tone="danger" />
-        <Kpi icon="event_busy" label="Overdue" value={data.kpis.overdueTasks} tone="danger" />
-        <Kpi icon="support_agent" label="Need Help" value={data.kpis.helpTasks} tone="warning" />
-        <Kpi icon="rate_review" label="Review" value={data.kpis.reviewTasks} tone="navy" />
-        <Kpi icon="task_alt" label="Done" value={data.kpis.completedTasks} tone="success" />
-        <Kpi icon="groups" label="Staff" value={data.kpis.staff} tone="neutral" />
+        <Kpi icon="priority_high" label="Needs Action" value={data.kpis.riskCount} tone="danger" href="/admin/activity" />
+        <Kpi icon="event_busy" label="Overdue" value={data.kpis.overdueTasks} tone="danger" href={scopedHref('/admin/tasks?due=OVERDUE')} />
+        <Kpi icon="support_agent" label="Need Help" value={data.kpis.helpTasks} tone="warning" href={scopedHref('/admin/tasks?status=NEEDS_HELP')} />
+        <Kpi icon="rate_review" label="Review" value={data.kpis.reviewTasks} tone="navy" href={scopedHref('/admin/tasks?status=IN_REVIEW')} />
+        <Kpi icon="task_alt" label="Done" value={data.kpis.completedTasks} tone="success" href={scopedHref('/admin/tasks?status=DONE')} />
+        <Kpi icon="groups" label="Staff" value={data.kpis.staff} tone="neutral" href={scopedHref('/admin/people')} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.75fr]">
@@ -525,25 +525,48 @@ export default function AdminDashboardPage() {
   );
 }
 
-function Kpi({ icon, label, value, tone }: { icon: string; label: string; value: number; tone: 'danger' | 'warning' | 'navy' | 'success' | 'neutral' }) {
+function Kpi({ icon, label, value, tone, href }: { icon: string; label: string; value: number; tone: 'danger' | 'warning' | 'navy' | 'success' | 'neutral'; href?: string }) {
   const toneClass = tone === 'danger' ? 'bg-error/10 text-error' : tone === 'warning' ? 'bg-warning/15 text-warning' : tone === 'success' ? 'bg-success/10 text-success' : tone === 'navy' ? 'bg-navy/10 text-navy' : 'bg-surface-cream text-on-surface-secondary';
-  return (
-    <div className="rounded-[--radius-lg] bg-surface-white p-4 shadow-sm">
+  const content = (
+    <>
       <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-[--radius-lg] ${toneClass}`}>
         <span className="material-symbols-outlined">{icon}</span>
       </div>
-      <p className="text-2xl font-extrabold text-on-surface">{value}</p>
-      <p className="text-xs font-bold text-on-surface-secondary">{label}</p>
+      <div className="flex items-end justify-between gap-2">
+        <div>
+          <p className="text-2xl font-extrabold text-on-surface">{value}</p>
+          <p className="text-xs font-bold text-on-surface-secondary">{label}</p>
+        </div>
+        {href && <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-on-surface-secondary">chevron_right</span>}
+      </div>
+    </>
+  );
+  const className = "block rounded-[--radius-lg] bg-surface-white p-4 shadow-sm transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 hover:shadow-md";
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-label={`Open ${label}`}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <div className="rounded-[--radius-lg] bg-surface-white p-4 shadow-sm">
+      {content}
     </div>
   );
 }
 
 function TodayTile({ href, icon, label, value, danger }: { href: string; icon: string; label: string; value: number; danger?: boolean }) {
   return (
-    <Link href={href} className={`rounded-[--radius-lg] p-3 ${danger ? 'bg-error/10 text-error' : 'bg-surface text-on-surface'}`}>
+    <Link href={href} className={`block rounded-[--radius-lg] p-3 transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 ${danger ? 'bg-error/10 text-error' : 'bg-surface text-on-surface'}`}>
       <span aria-hidden="true" className="material-symbols-outlined text-[22px]">{icon}</span>
-      <p className="mt-2 text-2xl font-extrabold">{value}</p>
-      <p className="text-xs font-bold text-on-surface-secondary">{label}</p>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <div>
+          <p className="text-2xl font-extrabold">{value}</p>
+          <p className="text-xs font-bold text-on-surface-secondary">{label}</p>
+        </div>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-secondary">chevron_right</span>
+      </div>
     </Link>
   );
 }

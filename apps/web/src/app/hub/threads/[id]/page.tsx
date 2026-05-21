@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, use, useEffect, useRef, useState } from 'react';
+import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { trpc } from '@/lib/trpc-client';
@@ -14,6 +14,7 @@ import { type DraftThreadAttachment, fileToThreadAttachment, humanFileSize, MAX_
 
 const roleRank: Record<string, number> = { STAFF: 1, SUPERVISOR: 2, MANAGER: 3, OWNER: 4 };
 const attachmentTypes = ['IMAGE', 'DOCUMENT', 'LINK'] as const;
+const quickReplies = ['Done', 'Checking now', 'Need help', 'Can someone confirm?', 'On my way', 'Ordered'];
 
 function sourceHref(type: string, entityId: string) {
   const hrefs: Record<string, string> = {
@@ -36,6 +37,29 @@ function reactionCounts(reactions: any[]) {
     acc[reaction.type] = (acc[reaction.type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+}
+
+function initials(name: string) {
+  return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function messageDateLabel(value: Date | string) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+}
+
+function sameDay(a: Date | string, b: Date | string) {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+function nearBottom(element: HTMLDivElement | null) {
+  if (!element) return true;
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 160;
 }
 
 function plainError(message?: string) {
@@ -95,13 +119,25 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const [recapOpen, setRecapOpen] = useState(false);
   const [receiptsOpen, setReceiptsOpen] = useState(false);
   const [moderationOpen, setModerationOpen] = useState(false);
+  const [threadMenuOpen, setThreadMenuOpen] = useState(false);
+  const [messageMenuId, setMessageMenuId] = useState('');
+  const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
+  const [showNewMessages, setShowNewMessages] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [threadSearch, setThreadSearch] = useState('');
+  const [searchIndex, setSearchIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const markedReadRef = useRef('');
+  const messageCountRef = useRef(0);
   const utils = trpc.useUtils();
   const from = searchParams.get('from') || 'all';
   const canManage = roleRank[session?.user?.role || 'STAFF'] >= 2;
 
-  const { data: liveThread, isLoading, isError } = trpc.threads.getById.useQuery({ id });
+  const { data: liveThread, isLoading, isError } = trpc.threads.getById.useQuery({ id }, {
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
+  });
   const { data: mentionTargets } = trpc.threads.mentionTargets.useQuery();
   const { data: taskUsers } = trpc.tasks.assignableUsers.useQuery(undefined, { enabled: canManage });
   const { data: recap } = trpc.threads.recap.useQuery({ id }, { enabled: recapOpen && !!id });
@@ -165,10 +201,66 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
 
   const thread = liveThread ?? cachedThread;
   const usingCache = !liveThread && !!cachedThread && isError;
+  const canSendReply = !!reply.trim() || attachments.length > 0 || !!attachmentUrl.trim();
+  const queuedReplyMessages = readQueuedThreadMutations()
+    .filter((entry) => entry.type === 'REPLY' && (entry.payload as any)?.threadId === id)
+    .map((entry) => {
+      const payload = entry.payload as any;
+      return {
+        id: entry.id,
+        authorId: session?.user?.id,
+        author: { id: session?.user?.id, fullName: session?.user?.name || 'You', role: session?.user?.role },
+        body: payload.body,
+        createdAt: entry.createdAt,
+        editedAt: null,
+        deletedAt: null,
+        isPinned: false,
+        mentions: [],
+        reactions: [],
+        attachments: payload.attachments || [],
+        links: [],
+        deliveryStatus: 'queued',
+      };
+    });
+  const visibleMessages = thread
+    ? [
+      ...thread.messages,
+      ...queuedReplyMessages,
+      ...optimisticMessages.filter((message) => !queuedReplyMessages.some((queued) => queued.id === message.id)),
+    ].sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    : [];
+  const searchMatches = useMemo(() => {
+    const term = threadSearch.trim().toLowerCase();
+    if (!term) return [];
+    return visibleMessages
+      .filter((message: any) => !message.deletedAt && `${message.body} ${message.author?.fullName || ''}`.toLowerCase().includes(term))
+      .map((message: any) => message.id);
+  }, [threadSearch, visibleMessages]);
+  const searchMatchKey = searchMatches.join('|');
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [thread?.messages.length]);
+    if (!thread) return;
+    const previousCount = messageCountRef.current;
+    const nextCount = visibleMessages.length;
+    const shouldJumpToBottom = previousCount === 0 || nearBottom(scrollRef.current);
+    messageCountRef.current = nextCount;
+    if (shouldJumpToBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setShowNewMessages(false);
+    } else if (nextCount > previousCount) {
+      setShowNewMessages(true);
+    }
+  }, [visibleMessages.length, thread]);
+
+  useEffect(() => {
+    setSearchIndex(0);
+  }, [threadSearch]);
+
+  useEffect(() => {
+    if (!searchOpen || !threadSearch.trim() || searchMatches.length === 0) return;
+    setSearchIndex(0);
+    document.getElementById(`message-${searchMatches[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [searchMatchKey, searchOpen, threadSearch]);
 
   useEffect(() => {
     if (!thread?.id || markedReadRef.current === thread.id) return;
@@ -194,7 +286,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
 
   const replyPayload = () => ({
     threadId: id,
-    body: reply,
+    body: reply.trim() || (attachments.length > 0 || attachmentUrl.trim() ? 'Attachment' : reply),
     mentionedUserIds,
     mentionGroupIds: mentionGroupIds as any,
     attachments: [
@@ -262,15 +354,59 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
   };
 
   const submitReply = () => {
-    if (!reply.trim()) return;
+    const hasAttachment = attachments.length > 0 || !!attachmentUrl.trim();
+    if (!reply.trim() && !hasAttachment) return;
+    if (!session?.user) return;
     const input = replyPayload();
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       const queued = queueThreadMutation('REPLY', input);
       setReply('');
-      setActionMessage(queued ? `Reply saved on this phone. ${readQueuedThreadMutations().length} waiting.` : 'Could not save this reply on this phone. Try again when online.');
+      setMentionedUserIds([]);
+      setMentionGroupIds([]);
+      setAttachments([]);
+      setReplyMoreOpen(false);
+      setActionMessage(queued ? 'Queued. It will send when online.' : 'Could not save this reply on this phone. Try again when online.');
       return;
     }
-    sendReply.mutate(input);
+    const optimisticId = `sending-${Date.now()}`;
+    const currentUser = session.user;
+    setOptimisticMessages((current) => [
+      ...current,
+      {
+        id: optimisticId,
+        authorId: currentUser.id,
+        author: { id: currentUser.id, fullName: currentUser.name || 'You', role: currentUser.role },
+        body: input.body,
+        createdAt: new Date().toISOString(),
+        editedAt: null,
+        deletedAt: null,
+        isPinned: false,
+        mentions: [],
+        reactions: [],
+        attachments: input.attachments || [],
+        links: [],
+        deliveryStatus: 'sending',
+        payload: input,
+      },
+    ]);
+    setReply('');
+    setMentionedUserIds([]);
+    setMentionGroupIds([]);
+    setMentionSearch('');
+    setAttachmentUrl('');
+    setAttachmentLabel('');
+    setAttachments([]);
+    setReplyMoreOpen(false);
+    sendReply.mutate(input, {
+      onSuccess: () => {
+        setOptimisticMessages((current) => current.filter((message) => message.id !== optimisticId));
+      },
+      onError: () => {
+        setOptimisticMessages((current) => current.map((message) => (
+          message.id === optimisticId ? { ...message, deliveryStatus: 'failed' } : message
+        )));
+      },
+    });
   };
 
   const runReaction = (messageId: string, type: 'ACK' | 'THANKS') => {
@@ -281,6 +417,34 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
       return;
     }
     react.mutate(input);
+  };
+
+  const retryFailedReply = (msg: any) => {
+    if (!msg.payload) return;
+    setOptimisticMessages((current) => current.map((item) => (
+      item.id === msg.id ? { ...item, deliveryStatus: 'sending' } : item
+    )));
+    sendReply.mutate(msg.payload, {
+      onSuccess: () => {
+        setOptimisticMessages((current) => current.filter((item) => item.id !== msg.id));
+      },
+      onError: () => {
+        setOptimisticMessages((current) => current.map((item) => (
+          item.id === msg.id ? { ...item, deliveryStatus: 'failed' } : item
+        )));
+      },
+    });
+  };
+
+  const goToSearchResult = (direction: 1 | -1) => {
+    if (searchMatches.length === 0) return;
+    const nextIndex = (searchIndex + direction + searchMatches.length) % searchMatches.length;
+    setSearchIndex(nextIndex);
+    document.getElementById(`message-${searchMatches[nextIndex]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const addQuickReply = (text: string) => {
+    setReply((current) => current.trim() ? `${current.trim()}\n${text}` : text);
   };
 
   const filteredMentionUsers = (mentionTargets?.users || []).filter((user) => (
@@ -336,89 +500,28 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-64px)]">
-      <div className="bg-surface-white px-5 py-3 border-b border-outline/30 shrink-0">
-        <button onClick={() => router.push(`/hub/threads?tab=${from}`)} className="flex items-center gap-1 text-sm text-on-surface-secondary mb-2">
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          Back
-        </button>
-        <div className="flex items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-on-surface text-lg">{thread.title}</h2>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span className="text-xs text-on-surface-secondary">{thread.author.fullName}</span>
-              <span className="text-xs text-on-surface-secondary">·</span>
-              {isDirect ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-navy/10 text-navy font-bold">Private message</span>
-              ) : (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${thread.category === 'URGENT' ? 'bg-brand/10 text-brand' : 'bg-surface-cream text-on-surface-secondary'}`}>
-                  {thread.category}
-                </span>
-              )}
-              {thread.isResolved && <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success font-bold">Done</span>}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => toggleSave.mutate({ id })}
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${thread.isSaved ? 'bg-brand/10 text-brand' : 'bg-surface text-on-surface-secondary'}`}
-              title={thread.isSaved ? 'Saved' : 'Save'}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: thread.isSaved ? "'FILL' 1" : "'FILL' 0" }}>bookmark</span>
-            </button>
-            <button
-              onClick={() => toggleFollow.mutate({ id })}
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${thread.isFollowing ? 'bg-success/10 text-success' : 'bg-surface text-on-surface-secondary'}`}
-              title={thread.isFollowing ? 'Following' : 'Follow'}
-            >
-              <span className="material-symbols-outlined">{thread.isFollowing ? 'notifications_active' : 'notifications_off'}</span>
-            </button>
-            <button
-              onClick={() => toggleMute.mutate({ id })}
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${thread.isMuted ? 'bg-warning/10 text-warning' : 'bg-surface text-on-surface-secondary'}`}
-              title={thread.isMuted ? 'Muted' : 'Mute'}
-            >
-              <span className="material-symbols-outlined">{thread.isMuted ? 'volume_off' : 'volume_up'}</span>
-            </button>
-          </div>
-        </div>
-
-        {canManageThreadActions && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => togglePin.mutate({ id })}
-              className="min-h-11 rounded-[--radius-lg] bg-warning/10 text-warning font-bold flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[20px]">push_pin</span>
-              {thread.isPinned ? 'Unpin' : 'Pin'}
-            </button>
-            {!thread.isResolved && (
-              <button
-                onClick={() => resolve.mutate({ id })}
-                className="min-h-11 rounded-[--radius-lg] bg-success/10 text-success font-bold flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                Done
-              </button>
-            )}
-          </div>
-        )}
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <button onClick={() => setRecapOpen(!recapOpen)} className="min-h-10 rounded-[--radius-lg] bg-navy/10 text-navy text-xs font-bold flex items-center justify-center gap-1">
-            <span className="material-symbols-outlined text-[17px]">summarize</span>
-            Catch Up
+      <div className="sticky top-0 z-30 bg-surface-white px-3 py-2 border-b border-outline/30 shrink-0">
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push(`/hub/threads?tab=${from}`)} className="w-11 h-11 rounded-full bg-surface text-on-surface-secondary flex items-center justify-center">
+            <span className="material-symbols-outlined text-[22px]">arrow_back</span>
           </button>
-          {canManageThreadActions && thread.category === 'URGENT' && (
-            <button onClick={() => setReceiptsOpen(!receiptsOpen)} className="min-h-10 rounded-[--radius-lg] bg-brand/10 text-brand text-xs font-bold flex items-center justify-center gap-1">
-              <span className="material-symbols-outlined text-[17px]">visibility</span>
-              Seen
-            </button>
-          )}
-          {canManageThreadActions && (
-            <button onClick={() => setModerationOpen(!moderationOpen)} className="min-h-10 rounded-[--radius-lg] bg-surface text-on-surface-secondary text-xs font-bold flex items-center justify-center gap-1">
-              <span className="material-symbols-outlined text-[17px]">history</span>
-              Trail
-            </button>
-          )}
+          <div className={`w-11 h-11 rounded-full ${isDirect ? 'bg-navy' : thread.category === 'URGENT' ? 'bg-brand' : 'bg-success'} text-white flex items-center justify-center shrink-0`}>
+            <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>{isDirect ? 'person' : thread.type === 'CHANNEL' ? 'storefront' : 'forum'}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-base font-extrabold text-on-surface">{thread.title}</h2>
+            <p className="truncate text-xs font-bold text-on-surface-secondary">
+              {isDirect ? 'Private staff message' : `${thread.category.toLowerCase().replace('_', ' ')} · ${thread.messages.length} messages`}
+              {thread.isResolved ? ' · Done' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setThreadMenuOpen(true)}
+            className="w-11 h-11 rounded-full bg-surface text-on-surface-secondary flex items-center justify-center"
+            aria-label="Chat actions"
+          >
+            <span className="material-symbols-outlined text-[22px]">more_vert</span>
+          </button>
         </div>
       </div>
 
@@ -429,10 +532,111 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
         </div>
       )}
 
+      {searchOpen && (
+        <div className="border-b border-outline/30 bg-surface-white px-3 py-2">
+          <div className="flex items-center gap-2">
+            <label className="relative min-w-0 flex-1">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-secondary">search</span>
+              <input
+                value={threadSearch}
+                onChange={(event) => setThreadSearch(event.target.value)}
+                placeholder="Search in chat"
+                className="h-11 w-full rounded-full border-2 border-outline bg-surface pl-10 pr-4 text-sm font-bold text-on-surface placeholder:text-on-surface-secondary focus:border-primary focus:outline-none"
+              />
+            </label>
+            <button onClick={() => goToSearchResult(-1)} disabled={searchMatches.length === 0} className="h-10 w-10 rounded-full bg-surface text-on-surface-secondary disabled:opacity-30">
+              <span className="material-symbols-outlined text-[20px]">keyboard_arrow_up</span>
+            </button>
+            <button onClick={() => goToSearchResult(1)} disabled={searchMatches.length === 0} className="h-10 w-10 rounded-full bg-surface text-on-surface-secondary disabled:opacity-30">
+              <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
+            </button>
+            <button onClick={() => { setSearchOpen(false); setThreadSearch(''); }} className="h-10 w-10 rounded-full bg-surface text-on-surface-secondary">
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+          {threadSearch.trim() && (
+            <p className="mt-1 px-2 text-xs font-bold text-on-surface-secondary">
+              {searchMatches.length === 0 ? 'No messages found' : `${searchIndex + 1} of ${searchMatches.length}`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {threadMenuOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/30 flex items-end" onClick={() => setThreadMenuOpen(false)}>
+          <div className="w-full rounded-t-[--radius-lg] bg-surface-white p-4 shadow-[--shadow-elevated]" onClick={(event) => event.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-outline/60" />
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="px-2 text-xs font-extrabold uppercase text-on-surface-secondary">Chat</p>
+                <button onClick={() => { setThreadMenuOpen(false); setSearchOpen(true); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-surface px-4 text-left text-on-surface font-bold flex items-center gap-3">
+                  <span className="material-symbols-outlined">search</span>
+                  Search in chat
+                </button>
+                <button onClick={() => { setThreadMenuOpen(false); setRecapOpen(!recapOpen); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-navy/10 px-4 text-left text-navy font-bold flex items-center gap-3">
+                  <span className="material-symbols-outlined">summarize</span>
+                  Catch up
+                </button>
+              </div>
+              <div className="space-y-1">
+                <p className="px-2 text-xs font-extrabold uppercase text-on-surface-secondary">Notifications</p>
+                <button onClick={() => { setThreadMenuOpen(false); toggleSave.mutate({ id }); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-surface px-4 text-left text-on-surface font-bold flex items-center gap-3">
+                  <span className="material-symbols-outlined">{thread.isSaved ? 'bookmark_remove' : 'bookmark'}</span>
+                  {thread.isSaved ? 'Unsave chat' : 'Save chat'}
+                </button>
+                <button onClick={() => { setThreadMenuOpen(false); toggleMute.mutate({ id }); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-surface px-4 text-left text-on-surface font-bold flex items-center gap-3">
+                  <span className="material-symbols-outlined">{thread.isMuted ? 'volume_up' : 'volume_off'}</span>
+                  {thread.isMuted ? 'Unmute alerts' : 'Mute alerts'}
+                </button>
+                <button onClick={() => { setThreadMenuOpen(false); toggleFollow.mutate({ id }); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-surface px-4 text-left text-on-surface font-bold flex items-center gap-3">
+                  <span className="material-symbols-outlined">{thread.isFollowing ? 'notifications_off' : 'notifications_active'}</span>
+                  {thread.isFollowing ? 'Stop following' : 'Follow replies'}
+                </button>
+              </div>
+              {canManageThreadActions && (
+                <div className="space-y-1 border-t border-outline/30 pt-3">
+                  <p className="px-2 text-xs font-extrabold uppercase text-on-surface-secondary">Supervisor</p>
+                  <button onClick={() => { setThreadMenuOpen(false); togglePin.mutate({ id }); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-warning/10 px-4 text-left text-warning font-bold flex items-center gap-3">
+                    <span className="material-symbols-outlined">push_pin</span>
+                    {thread.isPinned ? 'Unpin chat' : 'Pin chat'}
+                  </button>
+                  {!thread.isResolved && (
+                    <button onClick={() => { setThreadMenuOpen(false); resolve.mutate({ id }); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-success/10 px-4 text-left text-success font-bold flex items-center gap-3">
+                      <span className="material-symbols-outlined">check_circle</span>
+                      Mark done
+                    </button>
+                  )}
+                  {thread.category === 'URGENT' && (
+                    <button onClick={() => { setThreadMenuOpen(false); setReceiptsOpen(!receiptsOpen); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-brand/10 px-4 text-left text-brand font-bold flex items-center gap-3">
+                      <span className="material-symbols-outlined">visibility</span>
+                      Seen list
+                    </button>
+                  )}
+                  <button onClick={() => { setThreadMenuOpen(false); setModerationOpen(!moderationOpen); }} className="min-h-[52px] w-full rounded-[--radius-lg] bg-surface px-4 text-left text-on-surface-secondary font-bold flex items-center gap-3">
+                    <span className="material-symbols-outlined">history</span>
+                    Action trail
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
-        className="flex-1 overflow-y-auto p-[--spacing-container] space-y-3"
-        style={{ paddingBottom: thread.isResolved ? '96px' : '176px' }}
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto bg-surface p-[--spacing-container] space-y-3"
+        style={{ paddingBottom: thread.isResolved ? '96px' : replyMoreOpen ? '420px' : '176px' }}
       >
+        {(thread.unreadCount || 0) >= 5 && !recapOpen && (
+          <button
+            onClick={() => setRecapOpen(true)}
+            className="w-full min-h-12 rounded-[--radius-lg] bg-navy/10 px-4 text-sm font-extrabold text-navy flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[20px]">summarize</span>
+            Catch up on {thread.unreadCount} new messages
+          </button>
+        )}
         {recapOpen && (
           <div className="rounded-[--radius-lg] bg-navy/5 p-3 space-y-3">
             <div className="flex items-center gap-2 text-navy font-extrabold text-sm">
@@ -571,165 +775,213 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         )}
 
-        {thread.messages.map((msg: any) => {
+        {visibleMessages.map((msg: any, index: number) => {
           const mine = msg.authorId === session.user.id;
           const counts = reactionCounts(msg.reactions || []);
           const ackUsers = (msg.reactions || []).filter((reaction: any) => reaction.type === 'ACK').map((reaction: any) => reaction.user);
           const isEditing = editMessageId === msg.id;
+          const showAuthor = !mine && !isDirect;
+          const showDate = index === 0 || !sameDay(visibleMessages[index - 1].createdAt, msg.createdAt);
+          const deliveryStatus = msg.deliveryStatus as 'sending' | 'queued' | 'failed' | undefined;
+          const isSearchHit = searchMatches.includes(msg.id);
+          const isActiveSearchHit = searchMatches[searchIndex] === msg.id;
           return (
-            <div id={`message-${msg.id}`} key={msg.id} className={`rounded-[--radius-lg] p-4 shadow-sm ${mine ? 'bg-brand/5' : 'bg-surface-white'} ${msg.isPinned ? 'ring-2 ring-warning/30' : ''}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-navy/10 flex items-center justify-center">
-                  <span className="text-xs font-bold text-navy">
-                    {msg.author.fullName.split(' ').map((n: string) => n[0]).join('')}
+            <div key={msg.id}>
+              {showDate && (
+                <div className="my-3 flex justify-center">
+                  <span className="rounded-full bg-surface-white px-3 py-1 text-xs font-bold text-on-surface-secondary shadow-sm">
+                    {messageDateLabel(msg.createdAt)}
                   </span>
                 </div>
-                <span className="text-sm font-bold text-on-surface">{msg.author.fullName}</span>
-                {msg.editedAt && !msg.deletedAt && <span className="text-xs text-outline">edited</span>}
-                <span className="text-xs text-on-surface-secondary ml-auto">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              )}
+              <div id={`message-${msg.id}`} className={`flex ${mine ? 'justify-end' : 'justify-start'} gap-2`}>
+                {!mine && !isDirect && (
+                  <div className="mt-1 w-8 h-8 rounded-full bg-navy/10 text-navy flex items-center justify-center shrink-0">
+                    <span className="text-xs font-extrabold">{initials(msg.author.fullName)}</span>
+                  </div>
+                )}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !deliveryStatus && setMessageMenuId(messageMenuId === msg.id ? '' : msg.id)}
+                  onKeyDown={(event) => {
+                    if ((event.key === 'Enter' || event.key === ' ') && !deliveryStatus) {
+                      event.preventDefault();
+                      setMessageMenuId(messageMenuId === msg.id ? '' : msg.id);
+                    }
+                  }}
+                  className={`relative max-w-[82%] rounded-2xl px-3 py-2 text-left shadow-sm ${mine ? 'rounded-br-md bg-brand text-on-brand' : 'rounded-bl-md bg-surface-white text-on-surface'} ${msg.isPinned ? 'ring-2 ring-warning/30' : ''} ${isSearchHit ? (isActiveSearchHit ? 'ring-2 ring-brand' : 'ring-2 ring-warning/40') : ''}`}
+                  aria-label="Open message actions"
+                >
+                  {showAuthor && <p className="mb-1 text-xs font-extrabold text-navy">{msg.author.fullName}</p>}
+
+                  {msg.deletedAt ? (
+                    <p className={`text-sm italic ${mine ? 'text-on-brand/80' : 'text-on-surface-secondary'}`}>Message deleted</p>
+                  ) : isEditing ? (
+                    <div className="space-y-2" onClick={(event) => event.stopPropagation()}>
+                      <textarea
+                        value={editBody}
+                        onChange={(event) => setEditBody(event.target.value)}
+                        className="w-full min-w-[220px] px-3 py-2 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-sm text-on-surface"
+                        rows={3}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => setEditMessageId('')} className="min-h-10 rounded-[--radius-lg] bg-surface text-on-surface-secondary font-bold">Cancel</button>
+                        <button onClick={() => editMessage.mutate({ messageId: msg.id, body: editBody })} className="min-h-10 rounded-[--radius-lg] bg-brand text-on-brand font-bold">Save</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{msg.body}</p>
+
+                      {msg.mentions?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {msg.mentions.map((mention: any) => (
+                            <span key={mention.id} className={`px-2 py-1 rounded-full text-xs font-bold ${mine ? 'bg-white/20 text-on-brand' : 'bg-brand/10 text-brand'}`}>
+                              @{mention.user.fullName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {msg.attachments?.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {msg.attachments.map((attachment: any) => (
+                            <a
+                              key={attachment.id || attachment.url}
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(event) => event.stopPropagation()}
+                              className={`min-h-11 rounded-[--radius-lg] px-3 py-2 text-sm font-bold flex items-center gap-2 ${mine ? 'bg-white/15 text-on-brand' : 'bg-surface text-navy'}`}
+                            >
+                              {attachment.type === 'IMAGE' ? (
+                                <img src={attachment.url} alt={attachment.label || 'Thread attachment'} className="h-14 w-14 rounded-md object-cover" />
+                              ) : (
+                                <span className="material-symbols-outlined text-[20px]">{attachment.type === 'DOCUMENT' ? 'description' : 'link'}</span>
+                              )}
+                              <span className="min-w-0 flex-1 truncate">{attachment.label || 'Attachment'}</span>
+                              {attachment.sizeBytes ? <span className={`text-xs ${mine ? 'text-on-brand/75' : 'text-on-surface-secondary'}`}>{humanFileSize(attachment.sizeBytes)}</span> : null}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      {msg.links?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {msg.links.map((link: any) => {
+                            const href = sourceHref(link.type, link.entityId);
+                            return href ? (
+                              <button key={link.id} onClick={(event) => { event.stopPropagation(); router.push(href); }} className={`min-h-10 px-3 rounded-[--radius-lg] text-sm font-bold inline-flex items-center gap-2 ${mine ? 'bg-white/15 text-on-brand' : 'bg-navy/10 text-navy'}`}>
+                                <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                                {link.label || link.type}
+                              </button>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+
+                      <div className={`mt-1 flex items-center justify-end gap-1 text-[11px] font-bold ${mine ? 'text-on-brand/75' : 'text-on-surface-secondary'}`}>
+                        {msg.editedAt && !msg.deletedAt && <span>edited</span>}
+                        {deliveryStatus && <span>{deliveryStatus}</span>}
+                        <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        {mine && <span className="material-symbols-outlined text-[15px]">{deliveryStatus === 'queued' ? 'schedule' : deliveryStatus === 'failed' ? 'error' : 'done_all'}</span>}
+                      </div>
+                      {deliveryStatus === 'failed' && (
+                        <button
+                          onClick={(event) => { event.stopPropagation(); retryFailedReply(msg); }}
+                          className="mt-2 min-h-9 rounded-full bg-white/20 px-3 text-xs font-extrabold text-on-brand"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {!deliveryStatus && (
+                    <span className={`pointer-events-none absolute -bottom-2 ${mine ? '-left-1' : '-right-1'} rounded-full bg-surface-white px-1.5 py-0.5 text-[10px] font-bold text-on-surface-secondary shadow ${messageMenuId === msg.id ? 'opacity-100' : 'opacity-0'}`}>
+                      Actions
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {msg.deletedAt ? (
-                <p className="text-sm italic text-on-surface-secondary pl-10">Message deleted</p>
-              ) : isEditing ? (
-                <div className="pl-10 space-y-2">
-                  <textarea
-                    value={editBody}
-                    onChange={(event) => setEditBody(event.target.value)}
-                    className="w-full px-3 py-2 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-sm text-on-surface"
-                    rows={3}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setEditMessageId('')} className="min-h-10 rounded-[--radius-lg] bg-surface text-on-surface-secondary font-bold">Cancel</button>
-                    <button onClick={() => editMessage.mutate({ messageId: msg.id, body: editBody })} className="min-h-10 rounded-[--radius-lg] bg-brand text-on-brand font-bold">Save</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-on-surface whitespace-pre-wrap leading-relaxed pl-10">{msg.body}</p>
-
-                  {msg.mentions?.length > 0 && (
-                    <div className="pl-10 mt-3 flex flex-wrap gap-2">
-                      {msg.mentions.map((mention: any) => (
-                        <span key={mention.id} className="px-2 py-1 rounded-full bg-brand/10 text-brand text-xs font-bold">
-                          @{mention.user.fullName}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {msg.attachments?.length > 0 && (
-                    <div className="pl-10 mt-3 space-y-2">
-                      {msg.attachments.map((attachment: any) => (
-                        <a
-                          key={attachment.id}
-                          href={attachment.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-h-11 rounded-[--radius-lg] bg-surface px-3 py-2 text-sm font-bold text-navy flex items-center gap-2"
-                        >
-                          {attachment.type === 'IMAGE' ? (
-                            <img src={attachment.url} alt={attachment.label || 'Thread attachment'} className="h-12 w-12 rounded-md object-cover" />
-                          ) : (
-                            <span className="material-symbols-outlined text-[20px]">{attachment.type === 'DOCUMENT' ? 'description' : 'link'}</span>
-                          )}
-                          <span className="min-w-0 flex-1 truncate">{attachment.label || 'Attachment'}</span>
-                          {attachment.sizeBytes ? <span className="text-xs text-on-surface-secondary">{humanFileSize(attachment.sizeBytes)}</span> : null}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {msg.links?.length > 0 && (
-                    <div className="pl-10 mt-3 flex flex-wrap gap-2">
-                      {msg.links.map((link: any) => {
-                        const href = sourceHref(link.type, link.entityId);
-                        return href ? (
-                          <button key={link.id} onClick={() => router.push(href)} className="min-h-10 px-3 rounded-[--radius-lg] bg-navy/10 text-navy text-sm font-bold inline-flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-                            {link.label || link.type}
-                          </button>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-
-                  <div className="pl-10 mt-3 flex flex-wrap gap-2">
+              {messageMenuId === msg.id && (
+                <div className={`mt-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className="max-w-[82%] rounded-[--radius-lg] bg-surface-white p-2 shadow-sm flex flex-wrap gap-2">
                     {!isDirect && (
                       <>
-                        <button onClick={() => runReaction(msg.id, 'ACK')} className="min-h-9 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1">
+                        <button onClick={() => { setMessageMenuId(''); runReaction(msg.id, 'ACK'); }} className="min-h-10 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1">
                           <span className="material-symbols-outlined text-[17px]">check_circle</span>
-                          {counts.ACK || 0}
+                          ACK {counts.ACK || 0}
                         </button>
-                        {canManageThreadActions && ackUsers.length > 0 && (
-                          <button
-                            onClick={() => setAckMessageId(ackMessageId === msg.id ? '' : msg.id)}
-                            className="min-h-9 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1"
-                          >
-                            <span className="material-symbols-outlined text-[17px]">groups</span>
-                            Who
-                          </button>
-                        )}
-                        <button onClick={() => runReaction(msg.id, 'THANKS')} className="min-h-9 px-3 rounded-full bg-warning/10 text-warning text-xs font-bold inline-flex items-center gap-1">
+                        <button onClick={() => { setMessageMenuId(''); runReaction(msg.id, 'THANKS'); }} className="min-h-10 px-3 rounded-full bg-warning/10 text-warning text-xs font-bold inline-flex items-center gap-1">
                           <span className="material-symbols-outlined text-[17px]">thumb_up</span>
-                          {counts.THANKS || 0}
+                          Thanks {counts.THANKS || 0}
                         </button>
                       </>
                     )}
+                    {canManageThreadActions && ackUsers.length > 0 && (
+                      <button onClick={() => setAckMessageId(ackMessageId === msg.id ? '' : msg.id)} className="min-h-10 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[17px]">groups</span>
+                        Who
+                      </button>
+                    )}
                     {mine && (
-                      <button
-                        onClick={() => { setEditMessageId(msg.id); setEditBody(msg.body); }}
-                        className="min-h-9 px-3 rounded-full bg-surface text-on-surface-secondary text-xs font-bold inline-flex items-center gap-1"
-                      >
+                      <button onClick={() => { setMessageMenuId(''); setEditMessageId(msg.id); setEditBody(msg.body); }} className="min-h-10 px-3 rounded-full bg-surface text-on-surface-secondary text-xs font-bold inline-flex items-center gap-1">
                         <span className="material-symbols-outlined text-[17px]">edit</span>
                         Edit
                       </button>
                     )}
                     {(mine || canManageThreadActions) && (
-                      <button
-                        onClick={() => deleteMessage.mutate({ messageId: msg.id })}
-                        className="min-h-9 px-3 rounded-full bg-error/10 text-error text-xs font-bold inline-flex items-center gap-1"
-                      >
+                      <button onClick={() => { setMessageMenuId(''); deleteMessage.mutate({ messageId: msg.id }); }} className="min-h-10 px-3 rounded-full bg-error/10 text-error text-xs font-bold inline-flex items-center gap-1">
                         <span className="material-symbols-outlined text-[17px]">delete</span>
                         Delete
                       </button>
                     )}
                     {canManageThreadActions && (
-                      <button
-                        onClick={() => openTaskSheet(msg)}
-                        className="min-h-9 px-3 rounded-full bg-brand/10 text-brand text-xs font-bold inline-flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">add_task</span>
-                        Task
-                      </button>
+                      <>
+                        <button onClick={() => { setMessageMenuId(''); openTaskSheet(msg); }} className="min-h-10 px-3 rounded-full bg-brand/10 text-brand text-xs font-bold inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[17px]">add_task</span>
+                          Task
+                        </button>
+                        <button onClick={() => { setMessageMenuId(''); toggleMessagePin.mutate({ messageId: msg.id }); }} className={`min-h-10 px-3 rounded-full text-xs font-bold inline-flex items-center gap-1 ${msg.isPinned ? 'bg-warning text-white' : 'bg-warning/10 text-warning'}`}>
+                          <span className="material-symbols-outlined text-[17px]">push_pin</span>
+                          {msg.isPinned ? 'Unpin' : 'Pin'}
+                        </button>
+                      </>
                     )}
                   </div>
-                  {canManageThreadActions && (
-                    <div className="pl-10 mt-2">
-                      <button
-                        onClick={() => toggleMessagePin.mutate({ messageId: msg.id })}
-                        className={`min-h-9 px-3 rounded-full text-xs font-bold inline-flex items-center gap-1 ${msg.isPinned ? 'bg-warning text-white' : 'bg-warning/10 text-warning'}`}
-                      >
-                        <span className="material-symbols-outlined text-[17px]">push_pin</span>
-                        {msg.isPinned ? 'Pinned' : 'Pin'}
-                      </button>
-                    </div>
-                  )}
-                  {canManageThreadActions && ackMessageId === msg.id && (
-                    <div className="ml-10 mt-3 rounded-[--radius-lg] bg-success/10 p-3 text-success">
-                      <p className="text-xs font-extrabold uppercase">Acknowledged by</p>
-                      <p className="mt-1 text-sm font-bold">
-                        {ackUsers.map((user: any) => user.fullName).join(', ')}
-                      </p>
-                    </div>
-                  )}
-                </>
+                </div>
+              )}
+
+              {canManageThreadActions && ackMessageId === msg.id && (
+                <div className={`mt-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className="max-w-[82%] rounded-[--radius-lg] bg-success/10 p-3 text-success">
+                    <p className="text-xs font-extrabold uppercase">Acknowledged by</p>
+                    <p className="mt-1 text-sm font-bold">
+                      {ackUsers.map((user: any) => user.fullName).join(', ')}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
+
+      {showNewMessages && (
+        <button
+          onClick={() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+            setShowNewMessages(false);
+          }}
+          className="fixed bottom-[calc(var(--spacing-nav-height)+88px)] left-1/2 z-40 -translate-x-1/2 rounded-full bg-navy px-4 py-2 text-sm font-extrabold text-on-navy shadow-lg"
+        >
+          New messages
+        </button>
+      )}
 
       {!thread.isResolved && (
         <div className="fixed bottom-[--spacing-nav-height] left-0 right-0 bg-surface-white border-t-2 border-surface-variant p-3 z-40">
@@ -775,24 +1027,29 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                   <button
                     key={type}
                     onClick={() => setAttachmentType(type)}
-                    className={`min-h-10 rounded-[--radius-lg] text-xs font-bold ${attachmentType === type ? 'bg-navy text-white' : 'bg-surface-white text-on-surface-secondary'}`}
+                    className={`min-h-11 rounded-[--radius-lg] text-xs font-bold flex items-center justify-center gap-1 ${attachmentType === type ? 'bg-navy text-white' : 'bg-surface-white text-on-surface-secondary'}`}
                   >
+                    <span className="material-symbols-outlined text-[18px]">{type === 'IMAGE' ? 'photo_camera' : type === 'DOCUMENT' ? 'description' : 'link'}</span>
                     {type === 'IMAGE' ? 'Photo' : type === 'DOCUMENT' ? 'File' : 'Link'}
                   </button>
                 ))}
               </div>
-              <label className="min-h-11 rounded-[--radius-lg] bg-success/10 text-success font-bold flex items-center justify-center gap-2">
-                <span className={`material-symbols-outlined text-[20px] ${isUploading ? 'animate-spin' : ''}`}>{isUploading ? 'progress_activity' : 'attach_file'}</span>
-                {isUploading ? 'Uploading...' : 'Choose File'}
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                  className="hidden"
-                  onChange={(event) => addFiles(event.target.files)}
-                />
-              </label>
-              <p className="text-xs text-on-surface-secondary">Up to {humanFileSize(MAX_THREAD_UPLOAD_BYTES)} each.</p>
+              {attachmentType !== 'LINK' && (
+                <>
+                  <label className="min-h-11 rounded-[--radius-lg] bg-success/10 text-success font-bold flex items-center justify-center gap-2">
+                    <span className={`material-symbols-outlined text-[20px] ${isUploading ? 'animate-spin' : ''}`}>{isUploading ? 'progress_activity' : attachmentType === 'IMAGE' ? 'photo_camera' : 'attach_file'}</span>
+                    {isUploading ? 'Uploading...' : attachmentType === 'IMAGE' ? 'Choose Photo' : 'Choose File'}
+                    <input
+                      type="file"
+                      multiple
+                      accept={attachmentType === 'IMAGE' ? 'image/*' : '.pdf,.doc,.docx,.xls,.xlsx,.txt'}
+                      className="hidden"
+                      onChange={(event) => addFiles(event.target.files)}
+                    />
+                  </label>
+                  <p className="text-xs text-on-surface-secondary">Up to {humanFileSize(MAX_THREAD_UPLOAD_BYTES)} each.</p>
+                </>
+              )}
               {attachments.length > 0 && (
                 <div className="space-y-2">
                   {attachments.map((attachment, index) => (
@@ -809,20 +1066,35 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                   ))}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={attachmentUrl}
-                  onChange={(event) => setAttachmentUrl(event.target.value)}
-                  placeholder="https://..."
-                  className="h-11 px-3 bg-surface-white border border-outline rounded-[--radius-lg] text-sm text-on-surface"
-                />
-                <input
-                  value={attachmentLabel}
-                  onChange={(event) => setAttachmentLabel(event.target.value)}
-                  placeholder="Label"
-                  className="h-11 px-3 bg-surface-white border border-outline rounded-[--radius-lg] text-sm text-on-surface"
-                />
-              </div>
+              {attachmentType === 'LINK' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={attachmentUrl}
+                    onChange={(event) => setAttachmentUrl(event.target.value)}
+                    placeholder="https://..."
+                    className="h-11 px-3 bg-surface-white border border-outline rounded-[--radius-lg] text-sm text-on-surface"
+                  />
+                  <input
+                    value={attachmentLabel}
+                    onChange={(event) => setAttachmentLabel(event.target.value)}
+                    placeholder="Short label"
+                    className="h-11 px-3 bg-surface-white border border-outline rounded-[--radius-lg] text-sm text-on-surface"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          {!replyMoreOpen && !reply.trim() && (
+            <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+              {quickReplies.map((text) => (
+                <button
+                  key={text}
+                  onClick={() => addQuickReply(text)}
+                  className="min-h-9 shrink-0 rounded-full bg-surface px-3 text-xs font-extrabold text-on-surface-secondary"
+                >
+                  {text}
+                </button>
+              ))}
             </div>
           )}
           <div className="flex gap-2">
@@ -832,18 +1104,22 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
             >
               <span className="material-symbols-outlined">{replyMoreOpen ? 'close' : 'add'}</span>
             </button>
-            <input
+            <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              placeholder="Type a reply..."
-              className="flex-1 h-12 px-4 bg-surface border-2 border-outline rounded-full focus:border-primary focus:outline-none text-sm text-on-surface placeholder:text-on-surface-secondary transition-colors"
+              placeholder="Message"
+              rows={1}
+              className="max-h-28 min-h-12 flex-1 resize-none rounded-[24px] border-2 border-outline bg-surface px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-secondary transition-colors focus:border-primary focus:outline-none"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && reply.trim()) submitReply();
+                if (e.key === 'Enter' && !e.shiftKey && reply.trim()) {
+                  e.preventDefault();
+                  submitReply();
+                }
               }}
             />
             <button
               onClick={submitReply}
-              disabled={!reply.trim() || sendReply.isPending || isUploading}
+              disabled={!canSendReply || sendReply.isPending || isUploading}
               className="w-12 h-12 bg-brand text-on-brand rounded-full flex items-center justify-center disabled:opacity-40 active:scale-90 transition-all duration-200"
             >
               <span className="material-symbols-outlined">send</span>

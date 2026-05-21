@@ -26,6 +26,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const stock = stockConfig[product.stockStatus] || stockConfig.IN_STOCK;
+  const stockOutHref = `/tools/stock-out?productId=${product.id}&productName=${encodeURIComponent(product.name)}&location=${encodeURIComponent(product.location || '')}`;
+  const expiryHref = `/tools/expiry-tracker?productId=${product.id}&productName=${encodeURIComponent(product.name)}&location=${encodeURIComponent(product.location || '')}`;
 
   return (
     <div className="px-5 py-6">
@@ -53,6 +55,23 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="bg-brand/5 rounded-[--radius-lg] p-4 text-center mb-6">
           <p className="text-xs text-on-surface-secondary">Retail Price</p>
           <p className="text-3xl font-extrabold text-brand">${Number(product.retailPrice).toFixed(2)}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            onClick={() => router.push(stockOutHref)}
+            className="h-12 rounded-[--radius-lg] bg-error/10 text-error text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[20px]">remove_shopping_cart</span>
+            Stock-Out
+          </button>
+          <button
+            onClick={() => router.push(expiryHref)}
+            className="h-12 rounded-[--radius-lg] bg-warning/20 text-warning text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-[20px]">event_busy</span>
+            Expiry
+          </button>
         </div>
 
         {/* Details grid */}

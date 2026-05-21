@@ -1,26 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc-client';
 import { useSession } from 'next-auth/react';
 import { EmptyState } from '@superplus/ui';
 
+const locationSuggestions = ['Front', 'Aisle', 'Backroom', 'Chiller', 'Freezer'];
+
 export default function ExpiryTrackerPage() {
+  return (
+    <Suspense fallback={<ToolLoading title="Expiry Tracker" />}>
+      <ExpiryTrackerContent />
+    </Suspense>
+  );
+}
+
+function ToolLoading({ title }: { title: string }) {
+  return (
+    <div className="px-5 py-6">
+      <h2 className="text-2xl font-bold text-on-surface">{title}</h2>
+      <div className="flex items-center justify-center py-20">
+        <span className="material-symbols-outlined animate-spin text-brand text-[32px]">progress_activity</span>
+      </div>
+    </div>
+  );
+}
+
+function ExpiryTrackerContent() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const utils = trpc.useUtils();
   const { data: alerts, isLoading } = trpc.expiryAlerts.list.useQuery();
-  const [showForm, setShowForm] = useState(false);
-  const [productName, setProductName] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const initialProductName = searchParams.get('productName') || '';
+  const initialProductId = searchParams.get('productId');
+  const initialLocation = searchParams.get('location') || '';
+  const [showForm, setShowForm] = useState(Boolean(initialProductName));
+  const [productName, setProductName] = useState(initialProductName);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(
+    initialProductId ? { id: initialProductId, name: initialProductName } : null
+  );
   const [expiryDate, setExpiryDate] = useState('');
   const [quantity, setQuantity] = useState('1');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(initialLocation);
   const [mutationError, setMutationError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const canManage = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER' || session?.user?.role === 'SUPERVISOR';
 
   const create = trpc.expiryAlerts.create.useMutation({
-    onSuccess: () => { utils.expiryAlerts.invalidate(); setShowForm(false); setProductName(''); setSelectedProduct(null); setExpiryDate(''); setQuantity('1'); setLocation(''); },
+    onSuccess: () => {
+      utils.expiryAlerts.invalidate();
+      setShowForm(false);
+      setProductName('');
+      setSelectedProduct(null);
+      setExpiryDate('');
+      setQuantity('1');
+      setLocation('');
+      setNotice('Expiry report sent.');
+      setTimeout(() => setNotice(''), 4000);
+    },
     onError: (err) => { setMutationError(err.message); setTimeout(() => setMutationError(''), 5000); },
   });
   const { data: productResults } = trpc.products.search.useQuery(
@@ -61,6 +100,12 @@ export default function ExpiryTrackerPage() {
         <div className="mx-[--spacing-container] mb-4 bg-error/10 text-error rounded-[--radius-lg] p-3 flex items-center gap-2 text-sm">
           <span className="material-symbols-outlined text-[18px]">error</span>
           {mutationError}
+        </div>
+      )}
+      {notice && (
+        <div className="mx-[--spacing-container] mb-4 bg-success/10 text-success rounded-[--radius-lg] p-3 flex items-center gap-2 text-sm font-bold">
+          <span className="material-symbols-outlined text-[18px]">check_circle</span>
+          {notice}
         </div>
       )}
 
@@ -134,13 +179,17 @@ export default function ExpiryTrackerPage() {
           <div className="bg-surface-white w-full rounded-t-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
             <h3 className="text-xl font-bold text-on-surface">Report Expiry</h3>
+            <div>
+              <label htmlFor="expiry-product" className="block text-xs font-bold text-on-surface-secondary mb-2">Product</label>
             <input
+              id="expiry-product"
               value={productName}
               onChange={(e) => { setProductName(e.target.value); setSelectedProduct(null); }}
               placeholder="Search product or enter manually"
               className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors"
               autoFocus
             />
+            </div>
             {!selectedProduct && productResults && productResults.items.length > 0 && (
               <div className="rounded-[--radius-lg] bg-surface overflow-hidden">
                 {productResults.items.map((product: any) => (
@@ -180,12 +229,27 @@ export default function ExpiryTrackerPage() {
                 <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} min="1" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface transition-colors" />
               </div>
             </div>
-            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (e.g. Aisle 3)" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
+            <div>
+              <label htmlFor="expiry-location" className="block text-xs font-bold text-on-surface-secondary mb-2">Location</label>
+              <input id="expiry-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Aisle, shelf, or area" className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-on-surface placeholder:text-on-surface-secondary transition-colors" />
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {locationSuggestions.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setLocation(item)}
+                    className="h-10 shrink-0 rounded-lg bg-surface-cream px-3 text-xs font-bold text-on-surface-secondary active:scale-95 transition-all"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               onClick={() => {
                 const [y, m, d] = expiryDate.split('-').map(Number);
                 const parsedDate = new Date(y, m - 1, d);
-                create.mutate({ productName, productId: selectedProduct?.id, expiryDate: parsedDate, quantity: parseInt(quantity) || 1, location: location || undefined });
+                create.mutate({ productName: productName.trim(), productId: selectedProduct?.id, expiryDate: parsedDate, quantity: parseInt(quantity) || 1, location: location.trim() || undefined });
               }}
               disabled={!productName.trim() || !expiryDate || create.isPending}
               className="w-full h-14 bg-brand text-on-brand font-bold rounded-[--radius-lg] disabled:opacity-40 active:scale-95 transition-all"

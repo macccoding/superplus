@@ -28,6 +28,10 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (req.auth.user?.mustChangePin && pathname !== '/auth/create-pin') {
+    return NextResponse.redirect(new URL('/auth/create-pin', req.url));
+  }
+
   if (pathname.startsWith('/admin')) {
     const role = req.auth.user?.role;
     if (role !== 'OWNER' && role !== 'MANAGER') {

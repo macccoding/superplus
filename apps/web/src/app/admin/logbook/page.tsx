@@ -70,11 +70,11 @@ export default function AdminLogbookPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <Metric icon="notes" label="Entries" value={digest?.entries ?? 0} />
-        <Metric icon="flag" label="Open" value={digest?.openCount ?? 0} danger={(digest?.openCount ?? 0) > 0} />
-        <Metric icon="check_circle" label="Resolved" value={digest?.resolvedCount ?? 0} />
-        <Metric icon="swap_horiz" label="Handover" value={digest?.handovers ?? 0} />
-        <Metric icon="inventory_2" label="Stock" value={digest?.inventoryNotes ?? 0} />
+        <Metric icon="notes" label="Entries" value={digest?.entries ?? 0} onClick={() => { setStatus('all'); setCategory(''); }} />
+        <Metric icon="flag" label="Open" value={digest?.openCount ?? 0} danger={(digest?.openCount ?? 0) > 0} onClick={() => { setStatus('open'); setCategory(''); }} />
+        <Metric icon="check_circle" label="Resolved" value={digest?.resolvedCount ?? 0} onClick={() => { setStatus('resolved'); setCategory(''); }} />
+        <Metric icon="swap_horiz" label="Handover" value={digest?.handovers ?? 0} onClick={() => { setStatus('all'); setCategory('HANDOVER'); }} />
+        <Metric icon="inventory_2" label="Stock" value={digest?.inventoryNotes ?? 0} onClick={() => { setStatus('all'); setCategory('INVENTORY'); }} />
         <Metric icon="add_task" label="Tasks" value={digest?.tasksCreated ?? 0} />
       </div>
 
@@ -135,12 +135,27 @@ export default function AdminLogbookPage() {
   );
 }
 
-function Metric({ icon, label, value, danger }: { icon: string; label: string; value: number; danger?: boolean }) {
-  return (
-    <div className={`rounded-[--radius-lg] bg-surface-white p-4 shadow-sm ${danger ? 'border-l-4 border-l-danger' : ''}`}>
-      <span className={`material-symbols-outlined text-[24px] ${danger ? 'text-danger' : 'text-navy'}`}>{icon}</span>
+function Metric({ icon, label, value, danger, onClick }: { icon: string; label: string; value: number; danger?: boolean; onClick?: () => void }) {
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <span className={`material-symbols-outlined text-[24px] ${danger ? 'text-danger' : 'text-navy'}`}>{icon}</span>
+        {onClick && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-secondary">chevron_right</span>}
+      </div>
       <p className="mt-3 text-3xl font-black text-on-surface">{value}</p>
       <p className="text-xs font-bold uppercase tracking-wide text-on-surface-secondary">{label}</p>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`rounded-[--radius-lg] bg-surface-white p-4 text-left shadow-sm transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30 hover:shadow-md ${danger ? 'border-l-4 border-l-danger' : ''}`}>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <div className={`rounded-[--radius-lg] bg-surface-white p-4 shadow-sm ${danger ? 'border-l-4 border-l-danger' : ''}`}>
+      {content}
     </div>
   );
 }
