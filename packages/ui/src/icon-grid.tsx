@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 
 export interface IconGridItem {
   label: string;
+  description?: string;
   icon: string;
   href: string;
   color: string;
@@ -29,6 +30,7 @@ export function IconGrid({ items }: { items: IconGridItem[] }) {
             <span aria-hidden="true" className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
           </div>
           <span className="text-[15px] font-bold text-on-surface">{item.label}</span>
+          {item.description && <span className="-mt-2 text-xs font-bold text-on-surface-secondary">{item.description}</span>}
           {item.badge && item.badge > 0 ? (
             <span className="absolute top-2.5 right-2.5 min-w-5 h-5 bg-brand text-on-brand text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm">
               {item.badge > 99 ? '99+' : item.badge}

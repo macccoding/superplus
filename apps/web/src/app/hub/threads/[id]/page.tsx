@@ -324,6 +324,8 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
     plainError(createTask.error?.message) ||
     plainError(dismissSuggestion.error?.message) ||
     actionMessage;
+  const isDirect = thread.type === 'DIRECT';
+  const canManageThreadActions = canManage && !isDirect;
   const pinnedMessages = thread.messages.filter((msg: any) => msg.isPinned && !msg.deletedAt);
   const urgentAckUsers = Array.from(new Map(
     thread.messages
@@ -345,9 +347,13 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className="text-xs text-on-surface-secondary">{thread.author.fullName}</span>
               <span className="text-xs text-on-surface-secondary">·</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${thread.category === 'URGENT' ? 'bg-brand/10 text-brand' : 'bg-surface-cream text-on-surface-secondary'}`}>
-                {thread.category}
-              </span>
+              {isDirect ? (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-navy/10 text-navy font-bold">Private message</span>
+              ) : (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${thread.category === 'URGENT' ? 'bg-brand/10 text-brand' : 'bg-surface-cream text-on-surface-secondary'}`}>
+                  {thread.category}
+                </span>
+              )}
               {thread.isResolved && <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success font-bold">Done</span>}
             </div>
           </div>
@@ -376,7 +382,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         </div>
 
-        {canManage && (
+        {canManageThreadActions && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               onClick={() => togglePin.mutate({ id })}
@@ -401,13 +407,13 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
             <span className="material-symbols-outlined text-[17px]">summarize</span>
             Catch Up
           </button>
-          {canManage && thread.category === 'URGENT' && (
+          {canManageThreadActions && thread.category === 'URGENT' && (
             <button onClick={() => setReceiptsOpen(!receiptsOpen)} className="min-h-10 rounded-[--radius-lg] bg-brand/10 text-brand text-xs font-bold flex items-center justify-center gap-1">
               <span className="material-symbols-outlined text-[17px]">visibility</span>
               Seen
             </button>
           )}
-          {canManage && (
+          {canManageThreadActions && (
             <button onClick={() => setModerationOpen(!moderationOpen)} className="min-h-10 rounded-[--radius-lg] bg-surface text-on-surface-secondary text-xs font-bold flex items-center justify-center gap-1">
               <span className="material-symbols-outlined text-[17px]">history</span>
               Trail
@@ -447,7 +453,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         )}
 
-        {receiptsOpen && canManage && thread.category === 'URGENT' && (
+        {receiptsOpen && canManageThreadActions && thread.category === 'URGENT' && (
           <div className="rounded-[--radius-lg] bg-brand/10 p-3 space-y-2 text-brand">
             <div className="flex items-center gap-2 font-extrabold text-sm">
               <span className="material-symbols-outlined text-[20px]">visibility</span>
@@ -465,7 +471,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         )}
 
-        {moderationOpen && canManage && (
+        {moderationOpen && canManageThreadActions && (
           <div className="rounded-[--radius-lg] bg-surface-white p-3 space-y-2 shadow-sm">
             <div className="flex items-center gap-2 text-on-surface font-extrabold text-sm">
               <span className="material-symbols-outlined text-[20px]">history</span>
@@ -501,7 +507,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         )}
 
-        {canManage && thread.category === 'URGENT' && (
+        {canManageThreadActions && thread.category === 'URGENT' && (
           <div className="rounded-[--radius-lg] bg-brand/10 p-3 text-brand">
             <div className="flex items-center gap-2 font-extrabold text-sm">
               <span className="material-symbols-outlined text-[20px]">check_circle</span>
@@ -515,7 +521,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
           </div>
         )}
 
-        {canManage && (opsSuggestions || []).length > 0 && (
+        {canManageThreadActions && (opsSuggestions || []).length > 0 && (
           <div className="rounded-[--radius-lg] bg-warning/10 p-3 space-y-2 text-warning">
             <div className="flex items-center gap-2 font-extrabold text-sm">
               <span className="material-symbols-outlined text-[20px]">tips_and_updates</span>
@@ -649,23 +655,27 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                   )}
 
                   <div className="pl-10 mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => runReaction(msg.id, 'ACK')} className="min-h-9 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[17px]">check_circle</span>
-                      {counts.ACK || 0}
-                    </button>
-                    {canManage && ackUsers.length > 0 && (
-                      <button
-                        onClick={() => setAckMessageId(ackMessageId === msg.id ? '' : msg.id)}
-                        className="min-h-9 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">groups</span>
-                        Who
-                      </button>
+                    {!isDirect && (
+                      <>
+                        <button onClick={() => runReaction(msg.id, 'ACK')} className="min-h-9 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[17px]">check_circle</span>
+                          {counts.ACK || 0}
+                        </button>
+                        {canManageThreadActions && ackUsers.length > 0 && (
+                          <button
+                            onClick={() => setAckMessageId(ackMessageId === msg.id ? '' : msg.id)}
+                            className="min-h-9 px-3 rounded-full bg-success/10 text-success text-xs font-bold inline-flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[17px]">groups</span>
+                            Who
+                          </button>
+                        )}
+                        <button onClick={() => runReaction(msg.id, 'THANKS')} className="min-h-9 px-3 rounded-full bg-warning/10 text-warning text-xs font-bold inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[17px]">thumb_up</span>
+                          {counts.THANKS || 0}
+                        </button>
+                      </>
                     )}
-                    <button onClick={() => runReaction(msg.id, 'THANKS')} className="min-h-9 px-3 rounded-full bg-warning/10 text-warning text-xs font-bold inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[17px]">thumb_up</span>
-                      {counts.THANKS || 0}
-                    </button>
                     {mine && (
                       <button
                         onClick={() => { setEditMessageId(msg.id); setEditBody(msg.body); }}
@@ -675,7 +685,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                         Edit
                       </button>
                     )}
-                    {(mine || canManage) && (
+                    {(mine || canManageThreadActions) && (
                       <button
                         onClick={() => deleteMessage.mutate({ messageId: msg.id })}
                         className="min-h-9 px-3 rounded-full bg-error/10 text-error text-xs font-bold inline-flex items-center gap-1"
@@ -684,7 +694,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                         Delete
                       </button>
                     )}
-                    {canManage && (
+                    {canManageThreadActions && (
                       <button
                         onClick={() => openTaskSheet(msg)}
                         className="min-h-9 px-3 rounded-full bg-brand/10 text-brand text-xs font-bold inline-flex items-center gap-1"
@@ -694,7 +704,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                       </button>
                     )}
                   </div>
-                  {canManage && (
+                  {canManageThreadActions && (
                     <div className="pl-10 mt-2">
                       <button
                         onClick={() => toggleMessagePin.mutate({ messageId: msg.id })}
@@ -705,7 +715,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                       </button>
                     </div>
                   )}
-                  {canManage && ackMessageId === msg.id && (
+                  {canManageThreadActions && ackMessageId === msg.id && (
                     <div className="ml-10 mt-3 rounded-[--radius-lg] bg-success/10 p-3 text-success">
                       <p className="text-xs font-extrabold uppercase">Acknowledged by</p>
                       <p className="mt-1 text-sm font-bold">
@@ -725,6 +735,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
         <div className="fixed bottom-[--spacing-nav-height] left-0 right-0 bg-surface-white border-t-2 border-surface-variant p-3 z-40">
           {replyMoreOpen && (
             <div className="mb-3 rounded-[--radius-lg] bg-surface p-3 space-y-3">
+              {!isDirect && (
               <div>
                 <p className="text-xs font-bold uppercase text-on-surface-secondary mb-2">Mention</p>
                 <input
@@ -758,6 +769,7 @@ function ThreadDetailContent({ params }: { params: Promise<{ id: string }> }) {
                   ))}
                 </div>
               </div>
+              )}
               <div className="grid grid-cols-3 gap-2">
                 {attachmentTypes.map((type) => (
                   <button

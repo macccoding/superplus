@@ -31,6 +31,12 @@ enum ThreadCategory {
   OTHER
 }
 
+enum ThreadType {
+  PUBLIC
+  CHANNEL
+  DIRECT
+}
+
 enum ThreadAttachmentType {
   IMAGE
   DOCUMENT
@@ -249,6 +255,8 @@ model Thread {
   storeId         String
   authorId        String
   title           String
+  type            ThreadType     @default(PUBLIC)
+  defaultKey      String?
   category        ThreadCategory @default(GENERAL)
   isPinned        Boolean        @default(false)
   isResolved      Boolean        @default(false)
@@ -273,6 +281,8 @@ model Thread {
   @@index([storeId, createdAt])
   @@index([storeId, isResolved, updatedAt])
   @@index([storeId, lastMessageAt])
+  @@index([storeId, type])
+  @@unique([storeId, defaultKey])
 }
 
 model ThreadMessage {

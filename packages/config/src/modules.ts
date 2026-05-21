@@ -20,6 +20,7 @@ export interface StaffModule {
   id: StaffModuleId;
   label: string;
   shortLabel?: string;
+  description?: string;
   icon: string;
   href: string;
   color: string;
@@ -29,7 +30,7 @@ export interface StaffModule {
 
 export const STAFF_MODULES: StaffModule[] = [
   { id: 'tasks', label: 'Tasks', icon: 'assignment', href: '/hub/tasks', color: '#446185', placement: 'main', simplified: true },
-  { id: 'threads', label: 'Threads', icon: 'forum', href: '/hub/threads', color: '#2e7d32', placement: 'main', simplified: true },
+  { id: 'threads', label: 'Threads', shortLabel: 'Messages', description: 'Staff messages', icon: 'forum', href: '/hub/threads', color: '#2e7d32', placement: 'main', simplified: true },
   { id: 'logbook', label: 'Logbook', shortLabel: 'Log', icon: 'history', href: '/hub/logbook', color: '#845500', placement: 'main', simplified: true },
   { id: 'tools', label: 'Tools', icon: 'build', href: '/tools', color: '#673ab7', placement: 'main', simplified: true },
   { id: 'schedule', label: 'Schedule', icon: 'calendar_month', href: '/hub/schedule', color: '#1565c0', placement: 'main', simplified: false },

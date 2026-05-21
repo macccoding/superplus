@@ -128,7 +128,10 @@ function CreateThreadContent() {
       )}
 
       <div className="bg-surface-white rounded-[--radius-lg] p-6 shadow-sm space-y-5">
-        <h2 className="text-xl font-bold text-on-surface">New Thread</h2>
+        <div>
+          <h2 className="text-xl font-bold text-on-surface">Store Thread</h2>
+          <p className="mt-1 text-sm font-bold text-on-surface-secondary">Visible to the store team. Use direct messages for private staff conversations.</p>
+        </div>
 
         {(templates || []).length > 0 && (
           <div>
@@ -153,7 +156,7 @@ function CreateThreadContent() {
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="What's this about?"
+            placeholder="What should the team know?"
             className="w-full h-14 px-4 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary transition-colors"
             autoFocus
           />
@@ -184,7 +187,7 @@ function CreateThreadContent() {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Start the conversation..."
+            placeholder="Write the store update..."
             rows={4}
             className="w-full px-4 py-3 bg-surface border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary resize-none transition-colors"
           />
@@ -326,7 +329,7 @@ function CreateThreadContent() {
           ) : (
             <>
               <span className="material-symbols-outlined">send</span>
-              Start Thread
+              Start Store Thread
             </>
           )}
         </button>

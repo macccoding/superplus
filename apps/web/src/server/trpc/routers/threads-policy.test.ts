@@ -5,6 +5,8 @@ import {
   canDeleteThreadMessage,
   canEditThreadMessage,
   canManageThread,
+  canViewThread,
+  directThreadKeyForUsers,
   shouldNotifyFollower,
   threadViews,
   uniqueRecipients,
@@ -18,6 +20,12 @@ const supervisor = { id: 'supervisor-1', role: 'SUPERVISOR' as const };
 
 assert.equal(canManageThread(staff), false);
 assert.equal(canManageThread(supervisor), true);
+assert.equal(canViewThread(staff, { type: 'PUBLIC', participantIds: [] }), true);
+assert.equal(canViewThread(staff, { type: 'DIRECT', participantIds: ['staff-1', 'staff-2'] }), true);
+assert.equal(canViewThread(supervisor, { type: 'DIRECT', participantIds: ['staff-1', 'staff-2'] }), false);
+assert.equal(canViewThread(staff, { type: 'CHANNEL', participantIds: ['staff-2'] }), false);
+assert.equal(directThreadKeyForUsers('staff-2', 'staff-1'), 'direct:staff-1:staff-2');
+assert.equal(directThreadKeyForUsers('staff-1', 'staff-2'), 'direct:staff-1:staff-2');
 
 assert.equal(canEditThreadMessage(staff, { authorId: 'staff-1' }), true);
 assert.equal(canEditThreadMessage(staff, { authorId: 'staff-2' }), false);
@@ -50,6 +58,8 @@ assert.equal(shouldNotifyFollower({ userId: otherStaff.id, isFollowing: false })
 assert.equal(shouldNotifyFollower({ userId: otherStaff.id, isFollowing: true, mutedAt: new Date() }), false);
 assert.deepEqual(allowedThreadReactions, [ThreadReactionType.ACK, ThreadReactionType.THANKS]);
 assert.ok(threadViews.includes('URGENT'));
+assert.ok(threadViews.includes('CHANNELS'));
+assert.ok(threadViews.includes('DIRECT'));
 assert.ok(threadViews.includes('NO_REPLY'));
 assert.ok(threadViews.includes('NEEDS_TASK'));
 assert.ok(threadViews.includes('UNACKED'));

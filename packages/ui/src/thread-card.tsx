@@ -4,6 +4,7 @@ interface ThreadCardProps {
   title: string;
   author: string;
   category: string;
+  kind?: 'thread' | 'channel' | 'direct';
   messageCount: number;
   attachmentCount?: number;
   unreadCount?: number;
@@ -30,6 +31,7 @@ export function ThreadCard({
   title,
   author,
   category,
+  kind = 'thread',
   messageCount,
   attachmentCount = 0,
   unreadCount = 0,
@@ -43,7 +45,11 @@ export function ThreadCard({
   updatedAt,
   onClick,
 }: ThreadCardProps) {
-  const cat = categoryConfig[category] || categoryConfig.GENERAL;
+  const cat = kind === 'direct'
+    ? { color: 'bg-navy', icon: 'person', label: 'Private' }
+    : kind === 'channel'
+      ? { color: 'bg-success', icon: 'storefront', label: 'Store' }
+      : categoryConfig[category] || categoryConfig.GENERAL;
 
   return (
     <button

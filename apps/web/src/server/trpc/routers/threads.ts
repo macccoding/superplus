@@ -10,6 +10,7 @@ import {
   ThreadLifecycleEventType,
   ThreadModerationAction,
   ThreadReactionType,
+  ThreadType,
 } from '@superplus/db';
 import type { Role } from '@superplus/config';
 import { router, protectedProcedure, supervisorProcedure } from '../init';
@@ -20,6 +21,7 @@ import {
   allowedThreadReactions,
   canDeleteThreadMessage,
   canEditThreadMessage,
+  directThreadKeyForUsers,
   shouldNotifyFollower,
   threadViews,
   uniqueRecipients,
@@ -149,7 +151,7 @@ async function assertSourceInStore(db: any, storeId: string, type: TaskLinkType,
     case TaskLinkType.TASK:
       return db.task.findFirstOrThrow({ where: { id: entityId, storeId }, select: { id: true, title: true } });
     case TaskLinkType.THREAD:
-      return db.thread.findFirstOrThrow({ where: { id: entityId, storeId }, select: { id: true, title: true } });
+      return db.thread.findFirstOrThrow({ where: { id: entityId, storeId, type: { not: ThreadType.DIRECT } }, select: { id: true, title: true } });
     case TaskLinkType.INCIDENT:
       return db.incident.findFirstOrThrow({ where: { id: entityId, storeId }, select: { id: true, title: true } });
     case TaskLinkType.LOGBOOK:
@@ -264,6 +266,12 @@ function participantFromThread(thread: any) {
 
 async function summarizeThread(ctx: any, thread: any) {
   const participant = participantFromThread(thread);
+  const directParticipant = thread.type === ThreadType.DIRECT
+    ? await ctx.db.threadParticipant.findFirst({
+      where: { threadId: thread.id, userId: { not: ctx.user.id } },
+      include: { user: { select: { id: true, fullName: true, role: true } } },
+    })
+    : null;
   const unreadMessages = await ctx.db.threadMessage.findMany({
     where: { threadId: thread.id },
     select: { authorId: true, createdAt: true, deletedAt: true },
@@ -279,6 +287,8 @@ async function summarizeThread(ctx: any, thread: any) {
 
   return {
     ...thread,
+    title: directParticipant?.user?.fullName || thread.title,
+    directUser: directParticipant?.user ?? null,
     preview,
     lastSender: lastMessage?.author ?? thread.lastMessageBy ?? thread.author,
     unreadCount,
@@ -296,6 +306,122 @@ function ackUserIds(messages: Array<{ reactions?: Array<{ type: ThreadReactionTy
 
 const threadSearchStatuses = ['ACTIVE', 'RESOLVED', 'ANY'] as const;
 const threadHealthFilters = ['URGENT', 'NO_REPLY', 'NEEDS_TASK', 'UNACKED'] as const;
+const defaultThreadDefinitions = [
+  {
+    key: 'store',
+    title: 'Store Chat',
+    category: ThreadCategory.GENERAL,
+    icon: 'storefront',
+    roles: ['STAFF', 'SUPERVISOR', 'MANAGER', 'OWNER'],
+    body: 'This is the main store discussion channel for day-to-day coordination.',
+  },
+  {
+    key: 'management',
+    title: 'Managers',
+    category: ThreadCategory.GENERAL,
+    icon: 'admin_panel_settings',
+    roles: ['SUPERVISOR', 'MANAGER', 'OWNER'],
+    body: 'Private supervisor and management discussion for store decisions and escalations.',
+  },
+  {
+    key: 'opening-closing',
+    title: 'Opening / Closing',
+    category: ThreadCategory.GENERAL,
+    icon: 'routine',
+    roles: ['STAFF', 'SUPERVISOR', 'MANAGER', 'OWNER'],
+    body: 'Use this for handover notes, opening checks, and closing follow-up.',
+  },
+  {
+    key: 'stock-products',
+    title: 'Stock & Products',
+    category: ThreadCategory.INVENTORY,
+    icon: 'inventory_2',
+    roles: ['STAFF', 'SUPERVISOR', 'MANAGER', 'OWNER'],
+    body: 'Use this for product questions, shelf issues, deliveries, stock-outs, and expiry follow-up.',
+  },
+  {
+    key: 'customer-issues',
+    title: 'Customer Issues',
+    category: ThreadCategory.URGENT,
+    icon: 'support_agent',
+    roles: ['STAFF', 'SUPERVISOR', 'MANAGER', 'OWNER'],
+    body: 'Use this for customer complaints, returns, register issues, and customer incidents.',
+  },
+] as const;
+
+function threadAccessWhere(ctx: any) {
+  return {
+    storeId: ctx.storeId,
+    OR: [
+      { type: ThreadType.PUBLIC },
+      { participants: { some: { userId: ctx.user.id } } },
+    ],
+  };
+}
+
+function threadVisibleWhere(ctx: any, extra: any = {}) {
+  return { AND: [threadAccessWhere(ctx), extra] };
+}
+
+async function ensureDefaultThreads(ctx: any) {
+  const activeUsers = await ctx.db.user.findMany({
+    where: { storeId: ctx.storeId, isActive: true },
+    select: { id: true, role: true },
+  });
+  const currentUser = activeUsers.find((user: { id: string }) => user.id === ctx.user.id);
+
+  for (const definition of defaultThreadDefinitions) {
+    const participantIds = activeUsers
+      .filter((user: { role: string }) => (definition.roles as readonly string[]).includes(user.role))
+      .map((user: { id: string }) => user.id);
+    if (participantIds.length === 0) continue;
+
+    const authorId = participantIds.includes(ctx.user.id)
+      ? ctx.user.id
+      : participantIds[0] || currentUser?.id;
+    if (!authorId) continue;
+
+    const thread = await ctx.db.thread.upsert({
+      where: { storeId_defaultKey: { storeId: ctx.storeId, defaultKey: definition.key } },
+      create: {
+        storeId: ctx.storeId,
+        authorId,
+        title: definition.title,
+        type: ThreadType.CHANNEL,
+        defaultKey: definition.key,
+        category: definition.category,
+        isPinned: definition.key === 'store',
+        lastMessageAt: new Date(),
+        lastMessageById: authorId,
+        messages: {
+          create: {
+            authorId,
+            body: definition.body,
+          },
+        },
+      },
+      update: {
+        title: definition.title,
+        type: ThreadType.CHANNEL,
+        category: definition.category,
+        isPinned: definition.key === 'store' ? true : undefined,
+      },
+      select: { id: true },
+    });
+
+    await ctx.db.threadParticipant.deleteMany({
+      where: { threadId: thread.id, userId: { notIn: participantIds } },
+    });
+    await ctx.db.threadParticipant.createMany({
+      data: participantIds.map((userId: string) => ({
+        threadId: thread.id,
+        userId,
+        isFollowing: true,
+      })),
+      skipDuplicates: true,
+    });
+  }
+}
 
 function applyThreadHealthWhere(where: any, health?: typeof threadHealthFilters[number]) {
   if (health === 'URGENT') where.category = ThreadCategory.URGENT;
@@ -353,13 +479,16 @@ export const threadsRouter = router({
       take: z.number().min(1).max(100).optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
+      await ensureDefaultThreads(ctx);
       const view = input?.view ?? 'ALL';
-      const where: any = { storeId: ctx.storeId };
+      const where: any = {};
       const status = input?.status;
       if (status === 'RESOLVED' || view === 'RESOLVED') where.isResolved = true;
       else if (status === 'ANY') {
         // Leave both active and resolved threads searchable.
       } else where.isResolved = false;
+      if (view === 'CHANNELS') where.type = { not: ThreadType.DIRECT };
+      if (view === 'DIRECT') where.type = ThreadType.DIRECT;
       if (view === 'PINNED') where.isPinned = true;
       if (view === 'SAVED') where.participants = { some: { userId: ctx.user.id, isSaved: true } };
       if (view === 'MENTIONED') where.mentions = { some: { userId: ctx.user.id, message: { deletedAt: null } } };
@@ -392,7 +521,7 @@ export const threadsRouter = router({
       }
 
       const threads = await ctx.db.thread.findMany({
-        where,
+        where: threadVisibleWhere(ctx, where),
         include: {
           author: { select: { id: true, fullName: true, role: true } },
           lastMessageBy: { select: { id: true, fullName: true, role: true } },
@@ -421,8 +550,9 @@ export const threadsRouter = router({
     }),
 
   counts: protectedProcedure.query(async ({ ctx }) => {
+    await ensureDefaultThreads(ctx);
     const threads = await ctx.db.thread.findMany({
-      where: { storeId: ctx.storeId },
+      where: threadAccessWhere(ctx),
       include: {
         participants: { where: { userId: ctx.user.id } },
         mentions: { where: { userId: ctx.user.id, message: { deletedAt: null } }, select: { id: true } },
@@ -433,6 +563,8 @@ export const threadsRouter = router({
     });
     return {
       all: threads.filter((thread: any) => !thread.isResolved).length,
+      channels: threads.filter((thread: any) => !thread.isResolved && thread.type !== ThreadType.DIRECT).length,
+      direct: threads.filter((thread: any) => !thread.isResolved && thread.type === ThreadType.DIRECT).length,
       unread: threads.filter((thread: any) => !thread.isResolved && unreadCountForThread(thread.messages, participantFromThread(thread), ctx.user.id) > 0).length,
       mentioned: threads.filter((thread: any) => !thread.isResolved && thread.mentions.length > 0).length,
       pinned: threads.filter((thread: any) => !thread.isResolved && thread.isPinned).length,
@@ -449,7 +581,7 @@ export const threadsRouter = router({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: threadVisibleWhere(ctx, { id: input.id }),
         include: {
           author: { select: { id: true, fullName: true, role: true } },
           resolvedBy: { select: { id: true, fullName: true, role: true } },
@@ -472,8 +604,16 @@ export const threadsRouter = router({
         participantFromThread(thread),
         ctx.user.id
       );
+      const directParticipant = thread.type === ThreadType.DIRECT
+        ? await ctx.db.threadParticipant.findFirst({
+          where: { threadId: thread.id, userId: { not: ctx.user.id } },
+          include: { user: { select: { id: true, fullName: true, role: true } } },
+        })
+        : null;
       return {
         ...thread,
+        title: directParticipant?.user?.fullName || thread.title,
+        directUser: directParticipant?.user ?? null,
         unreadCount,
         isFollowing: participantFromThread(thread)?.isFollowing ?? false,
         isSaved: participantFromThread(thread)?.isSaved ?? false,
@@ -485,7 +625,7 @@ export const threadsRouter = router({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: threadVisibleWhere(ctx, { id: input.id }),
         include: {
           author: { select: { id: true, fullName: true } },
           links: true,
@@ -540,7 +680,7 @@ export const threadsRouter = router({
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: threadVisibleWhere(ctx, { id: input.id }),
         select: {
           id: true,
           category: true,
@@ -579,7 +719,7 @@ export const threadsRouter = router({
     .input(z.object({ threadId: z.string(), messageId: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
-        where: { id: input.threadId, storeId: ctx.storeId },
+        where: threadVisibleWhere(ctx, { id: input.threadId, type: { not: ThreadType.DIRECT } }),
         include: {
           messages: {
             where: input.messageId ? { id: input.messageId, deletedAt: null } : { deletedAt: null },
@@ -608,7 +748,7 @@ export const threadsRouter = router({
   dismissOpsSuggestion: supervisorProcedure
     .input(z.object({ threadId: z.string(), suggestionId: z.string().min(1).max(60) }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.thread.findFirstOrThrow({ where: { id: input.threadId, storeId: ctx.storeId }, select: { id: true } });
+      await ctx.db.thread.findFirstOrThrow({ where: threadVisibleWhere(ctx, { id: input.threadId, type: { not: ThreadType.DIRECT } }), select: { id: true } });
       await ctx.db.threadLifecycleEvent.create({
         data: {
           threadId: input.threadId,
@@ -633,7 +773,7 @@ export const threadsRouter = router({
 
       const [threads, incidents, tasks] = await Promise.all([
         ctx.db.thread.findMany({
-          where: { storeId: ctx.storeId, isResolved: false },
+          where: threadVisibleWhere(ctx, { isResolved: false, type: { not: ThreadType.DIRECT } }),
           include: {
             author: { select: { fullName: true } },
             links: true,
@@ -772,7 +912,7 @@ export const threadsRouter = router({
       const since = new Date();
       since.setDate(since.getDate() - (input?.days ?? 30));
       const scope = await resolveAdminScope(ctx as any, input?.storeId);
-      const where = { ...adminStoreWhere(scope), createdAt: { gte: since } };
+      const where = { ...adminStoreWhere(scope), type: { not: ThreadType.DIRECT }, createdAt: { gte: since } };
       const threads = await ctx.db.thread.findMany({
         where,
         include: {
@@ -814,7 +954,7 @@ export const threadsRouter = router({
       const since = new Date();
       since.setDate(since.getDate() - (input?.days ?? 30));
       const scope = await resolveAdminScope(ctx as any, input?.storeId);
-      const where = { ...adminStoreWhere(scope), createdAt: { gte: since } };
+      const where = { ...adminStoreWhere(scope), type: { not: ThreadType.DIRECT }, createdAt: { gte: since } };
       const groups = await ctx.db.thread.groupBy({
         by: ['category'],
         where,
@@ -831,7 +971,7 @@ export const threadsRouter = router({
       since.setDate(since.getDate() - (input?.days ?? 30));
       const scope = await resolveAdminScope(ctx as any, input?.storeId);
       const threads = await ctx.db.thread.findMany({
-        where: { ...adminStoreWhere(scope), createdAt: { gte: since } },
+        where: { ...adminStoreWhere(scope), type: { not: ThreadType.DIRECT }, createdAt: { gte: since } },
         include: {
           messages: {
             where: { deletedAt: null },
@@ -906,6 +1046,84 @@ export const threadsRouter = router({
       return result.thread;
     }),
 
+  startDirect: protectedProcedure
+    .input(z.object({
+      userId: z.string().min(1),
+      body: z.string().min(1).max(2000).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Choose another staff member' });
+      }
+      const recipient = await ctx.db.user.findFirstOrThrow({
+        where: { id: input.userId, storeId: ctx.storeId, isActive: true },
+        select: { id: true, fullName: true },
+      });
+      const pair = [ctx.user.id, recipient.id].sort();
+      const defaultKey = directThreadKeyForUsers(ctx.user.id, recipient.id);
+      const title = `Direct: ${ctx.user.name} / ${recipient.fullName}`;
+
+      const thread = await ctx.db.$transaction(async (tx: any) => {
+        const existing = await tx.thread.findUnique({
+          where: { storeId_defaultKey: { storeId: ctx.storeId, defaultKey } },
+          select: { id: true },
+        });
+
+        const directThread = existing
+          ? await tx.thread.update({
+            where: { id: existing.id },
+            data: input.body
+              ? { lastMessageAt: new Date(), lastMessageById: ctx.user.id }
+              : {},
+          })
+          : await tx.thread.create({
+            data: {
+              storeId: ctx.storeId,
+              authorId: ctx.user.id,
+              title,
+              type: ThreadType.DIRECT,
+              defaultKey,
+              category: ThreadCategory.GENERAL,
+              lastMessageAt: input.body ? new Date() : null,
+              lastMessageById: input.body ? ctx.user.id : null,
+            },
+          });
+
+        await tx.threadParticipant.createMany({
+          data: pair.map((userId) => ({
+            threadId: directThread.id,
+            userId,
+            isFollowing: true,
+            lastReadAt: userId === ctx.user.id ? new Date() : undefined,
+          })),
+          skipDuplicates: true,
+        });
+
+        if (input.body?.trim()) {
+          const message = await tx.threadMessage.create({
+            data: {
+              threadId: directThread.id,
+              authorId: ctx.user.id,
+              body: input.body.trim(),
+            },
+          });
+          await tx.thread.update({
+            where: { id: directThread.id },
+            data: { lastMessageAt: message.createdAt, lastMessageById: ctx.user.id },
+          });
+        }
+
+        return directThread;
+      });
+
+      if (input.body?.trim()) {
+        try {
+          await createNotification(ctx.db, recipient.id, 'THREAD_REPLY', `Direct message from ${ctx.user.name}`, input.body.trim().slice(0, 120), `/hub/threads/${thread.id}`);
+        } catch {}
+      }
+      return thread;
+    }),
+
   reply: protectedProcedure
     .input(z.object({
       threadId: z.string(),
@@ -916,13 +1134,15 @@ export const threadsRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
-        where: { id: input.threadId, storeId: ctx.storeId },
+        where: threadVisibleWhere(ctx, { id: input.threadId }),
         include: { participants: true },
       });
       if (thread.isResolved) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'This thread is already resolved' });
       }
-      const mentionedUserIds = await resolveMentionUserIds(ctx.db, ctx.storeId, ctx.user.id, input.mentionedUserIds, input.mentionGroupIds);
+      const mentionedUserIds = thread.type === ThreadType.DIRECT
+        ? []
+        : await resolveMentionUserIds(ctx.db, ctx.storeId, ctx.user.id, input.mentionedUserIds, input.mentionGroupIds);
       const message = await ctx.db.$transaction(async (tx: any) => {
         const created = await tx.threadMessage.create({
           data: {
@@ -964,7 +1184,7 @@ export const threadsRouter = router({
   markRead: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.thread.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, select: { id: true } });
+      await ctx.db.thread.findFirstOrThrow({ where: threadVisibleWhere(ctx, { id: input.id }), select: { id: true } });
       return ctx.db.threadParticipant.upsert({
         where: { threadId_userId: { threadId: input.id, userId: ctx.user.id } },
         create: { threadId: input.id, userId: ctx.user.id, lastReadAt: new Date(), isFollowing: true },
@@ -977,7 +1197,7 @@ export const threadsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const threads = await ctx.db.thread.findMany({
         where: {
-          storeId: ctx.storeId,
+          ...threadAccessWhere(ctx),
           ...(input?.includeResolved ? {} : { isResolved: false }),
         },
         select: { id: true, lastMessageAt: true, updatedAt: true },
@@ -1002,7 +1222,7 @@ export const threadsRouter = router({
   toggleFollow: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.thread.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, select: { id: true } });
+      await ctx.db.thread.findFirstOrThrow({ where: threadVisibleWhere(ctx, { id: input.id }), select: { id: true } });
       const existing = await ctx.db.threadParticipant.findUnique({
         where: { threadId_userId: { threadId: input.id, userId: ctx.user.id } },
       });
@@ -1017,7 +1237,7 @@ export const threadsRouter = router({
   toggleMute: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.thread.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, select: { id: true } });
+      await ctx.db.thread.findFirstOrThrow({ where: threadVisibleWhere(ctx, { id: input.id }), select: { id: true } });
       const existing = await ctx.db.threadParticipant.findUnique({
         where: { threadId_userId: { threadId: input.id, userId: ctx.user.id } },
       });
@@ -1032,7 +1252,7 @@ export const threadsRouter = router({
   toggleSave: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.thread.findFirstOrThrow({ where: { id: input.id, storeId: ctx.storeId }, select: { id: true } });
+      await ctx.db.thread.findFirstOrThrow({ where: threadVisibleWhere(ctx, { id: input.id }), select: { id: true } });
       const existing = await ctx.db.threadParticipant.findUnique({
         where: { threadId_userId: { threadId: input.id, userId: ctx.user.id } },
       });
@@ -1051,7 +1271,7 @@ export const threadsRouter = router({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Reaction is not supported' });
       }
       const message = await ctx.db.threadMessage.findFirstOrThrow({
-        where: { id: input.messageId, thread: { storeId: ctx.storeId }, deletedAt: null },
+        where: { id: input.messageId, thread: threadVisibleWhere(ctx, { type: { not: ThreadType.DIRECT } }), deletedAt: null },
         select: { id: true },
       });
       const existing = await ctx.db.threadMessageReaction.findUnique({
@@ -1071,7 +1291,7 @@ export const threadsRouter = router({
     .input(z.object({ messageId: z.string(), body: z.string().min(1).max(2000) }))
     .mutation(async ({ ctx, input }) => {
       const message = await ctx.db.threadMessage.findFirstOrThrow({
-        where: { id: input.messageId, thread: { storeId: ctx.storeId } },
+        where: { id: input.messageId, thread: threadAccessWhere(ctx) },
         select: { id: true, threadId: true, authorId: true, deletedAt: true },
       });
       if (!canEditThreadMessage({ id: ctx.user.id, role: ctx.user.role as Role }, message)) {
@@ -1095,9 +1315,12 @@ export const threadsRouter = router({
     .input(z.object({ messageId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const message = await ctx.db.threadMessage.findFirstOrThrow({
-        where: { id: input.messageId, thread: { storeId: ctx.storeId } },
-        select: { id: true, threadId: true, authorId: true, deletedAt: true },
+        where: { id: input.messageId, thread: threadAccessWhere(ctx) },
+        select: { id: true, threadId: true, authorId: true, deletedAt: true, thread: { select: { type: true } } },
       });
+      if (message.thread.type === ThreadType.DIRECT && message.authorId !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the sender can delete a direct message' });
+      }
       if (!canDeleteThreadMessage({ id: ctx.user.id, role: ctx.user.role as Role }, message)) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'You cannot delete this message' });
       }
@@ -1119,7 +1342,7 @@ export const threadsRouter = router({
     .input(z.object({ messageId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const message = await ctx.db.threadMessage.findFirstOrThrow({
-        where: { id: input.messageId, thread: { storeId: ctx.storeId }, deletedAt: null },
+        where: { id: input.messageId, thread: threadVisibleWhere(ctx, { type: { not: ThreadType.DIRECT } }), deletedAt: null },
         select: { id: true, threadId: true, isPinned: true },
       });
       const updated = await ctx.db.threadMessage.update({
@@ -1139,10 +1362,10 @@ export const threadsRouter = router({
   addLink: supervisorProcedure
     .input(z.object({ threadId: z.string(), messageId: z.string().optional() }).merge(linkInput))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.thread.findFirstOrThrow({ where: { id: input.threadId, storeId: ctx.storeId }, select: { id: true } });
+      await ctx.db.thread.findFirstOrThrow({ where: threadVisibleWhere(ctx, { id: input.threadId }), select: { id: true } });
       if (input.messageId) {
         await ctx.db.threadMessage.findFirstOrThrow({
-          where: { id: input.messageId, threadId: input.threadId, thread: { storeId: ctx.storeId } },
+          where: { id: input.messageId, threadId: input.threadId, thread: threadAccessWhere(ctx) },
           select: { id: true },
         });
       }
@@ -1162,7 +1385,7 @@ export const threadsRouter = router({
     .input(z.object({ messageId: z.string() }))
     .query(async ({ ctx, input }) => {
       const message = await ctx.db.threadMessage.findFirstOrThrow({
-        where: { id: input.messageId, thread: { storeId: ctx.storeId }, deletedAt: null },
+        where: { id: input.messageId, thread: threadAccessWhere(ctx), deletedAt: null },
         include: {
           thread: true,
           author: { select: { id: true, fullName: true } },
@@ -1203,7 +1426,7 @@ export const threadsRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const message = await ctx.db.threadMessage.findFirstOrThrow({
-        where: { id: input.messageId, thread: { storeId: ctx.storeId }, deletedAt: null },
+        where: { id: input.messageId, thread: threadAccessWhere(ctx), deletedAt: null },
         include: { thread: true, author: { select: { fullName: true } } },
       });
       if (input.assignedToId) {
@@ -1280,7 +1503,7 @@ export const threadsRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const thread = await ctx.db.thread.findFirstOrThrow({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: threadVisibleWhere(ctx, { id: input.id, type: { not: ThreadType.DIRECT } }),
       });
       const updated = await ctx.db.thread.update({
         where: { id: input.id },
@@ -1297,8 +1520,12 @@ export const threadsRouter = router({
   resolve: supervisorProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const thread = await ctx.db.thread.findFirstOrThrow({
+        where: threadVisibleWhere(ctx, { id: input.id, type: { not: ThreadType.DIRECT } }),
+        select: { id: true },
+      });
       const updated = await ctx.db.thread.update({
-        where: { id: input.id, storeId: ctx.storeId },
+        where: { id: thread.id },
         data: { isResolved: true, resolvedAt: new Date(), resolvedById: ctx.user.id },
       });
       await logThreadEvent(ctx.db, {

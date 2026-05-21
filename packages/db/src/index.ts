@@ -56,6 +56,7 @@ export {
   Role,
   JobLane,
   ThreadCategory,
+  ThreadType,
   ThreadAttachmentType,
   ThreadReactionType,
   ThreadModerationAction,

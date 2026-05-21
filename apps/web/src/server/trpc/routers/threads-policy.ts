@@ -2,7 +2,7 @@ import { ThreadReactionType } from '@superplus/db';
 import { hasMinRole } from '@superplus/config';
 import type { Role } from '@superplus/config';
 
-export const threadViews = ['ALL', 'UNREAD', 'MENTIONED', 'PINNED', 'SAVED', 'RESOLVED', 'URGENT', 'NO_REPLY', 'NEEDS_TASK', 'UNACKED'] as const;
+export const threadViews = ['ALL', 'CHANNELS', 'DIRECT', 'UNREAD', 'MENTIONED', 'PINNED', 'SAVED', 'RESOLVED', 'URGENT', 'NO_REPLY', 'NEEDS_TASK', 'UNACKED'] as const;
 export type ThreadView = (typeof threadViews)[number];
 
 export const allowedThreadReactions: ThreadReactionType[] = [
@@ -12,6 +12,16 @@ export const allowedThreadReactions: ThreadReactionType[] = [
 
 export function canManageThread(user: { role: Role }): boolean {
   return hasMinRole(user.role, 'SUPERVISOR');
+}
+
+export function canViewThread(
+  user: { id: string },
+  thread: { type?: string | null; participantIds?: string[] }
+): boolean {
+  if (thread.type === 'DIRECT' || thread.type === 'CHANNEL') {
+    return (thread.participantIds || []).includes(user.id);
+  }
+  return true;
 }
 
 export function canEditThreadMessage(
@@ -43,6 +53,10 @@ export function unreadCountForThread(
 
 export function uniqueRecipients(actorId: string, recipientIds: Array<string | null | undefined>): string[] {
   return [...new Set(recipientIds.filter((id): id is string => !!id && id !== actorId))];
+}
+
+export function directThreadKeyForUsers(userId: string, recipientId: string): string {
+  return `direct:${[userId, recipientId].sort().join(':')}`;
 }
 
 export function shouldNotifyFollower(participant: { userId: string; isFollowing: boolean; mutedAt?: Date | null }): boolean {

@@ -13,10 +13,12 @@ import {
 } from '@/lib/thread-offline';
 import { ThreadCard, EmptyState, PageHeader, PageSkeleton } from '@superplus/ui';
 
-type Tab = 'all' | 'unread' | 'mentioned' | 'pinned' | 'saved' | 'urgent' | 'noReply' | 'needsTask' | 'unacked' | 'resolved';
+type Tab = 'all' | 'channels' | 'direct' | 'unread' | 'mentioned' | 'pinned' | 'saved' | 'urgent' | 'noReply' | 'needsTask' | 'unacked' | 'resolved';
 const roleRank: Record<string, number> = { STAFF: 1, SUPERVISOR: 2, MANAGER: 3, OWNER: 4 };
-const viewByTab: Record<Tab, 'ALL' | 'UNREAD' | 'MENTIONED' | 'PINNED' | 'SAVED' | 'URGENT' | 'NO_REPLY' | 'NEEDS_TASK' | 'UNACKED' | 'RESOLVED'> = {
+const viewByTab: Record<Tab, 'ALL' | 'CHANNELS' | 'DIRECT' | 'UNREAD' | 'MENTIONED' | 'PINNED' | 'SAVED' | 'URGENT' | 'NO_REPLY' | 'NEEDS_TASK' | 'UNACKED' | 'RESOLVED'> = {
   all: 'ALL',
+  channels: 'CHANNELS',
+  direct: 'DIRECT',
   unread: 'UNREAD',
   mentioned: 'MENTIONED',
   pinned: 'PINNED',
@@ -29,6 +31,8 @@ const viewByTab: Record<Tab, 'ALL' | 'UNREAD' | 'MENTIONED' | 'PINNED' | 'SAVED'
 };
 const tabs: Array<{ key: Tab; label: string; icon: string }> = [
   { key: 'all', label: 'All', icon: 'forum' },
+  { key: 'direct', label: 'DMs', icon: 'person' },
+  { key: 'channels', label: 'Store', icon: 'storefront' },
   { key: 'unread', label: 'New', icon: 'mark_chat_unread' },
   { key: 'mentioned', label: '@Me', icon: 'alternate_email' },
   { key: 'pinned', label: 'Pinned', icon: 'push_pin' },
@@ -39,8 +43,14 @@ const tabs: Array<{ key: Tab; label: string; icon: string }> = [
   { key: 'unacked', label: 'Unacked', icon: 'check_circle' },
   { key: 'resolved', label: 'Done', icon: 'check_circle' },
 ];
+const primaryTabs = tabs.filter((tab) => ['all', 'direct', 'channels', 'unread'].includes(tab.key));
+const staffFilterTabs = tabs.filter((tab) => ['mentioned', 'pinned', 'saved', 'resolved'].includes(tab.key));
+const managerFilterTabs = tabs.filter((tab) => ['urgent', 'noReply', 'needsTask', 'unacked'].includes(tab.key));
+const primaryTabKeys = new Set(primaryTabs.map((tab) => tab.key));
 const emptyCopy: Record<Tab, { icon: string; title: string; description: string }> = {
-  all: { icon: 'forum', title: 'No threads yet', description: 'Start a conversation with your team' },
+  all: { icon: 'forum', title: 'No messages yet', description: 'Message a staff member or start a store thread.' },
+  channels: { icon: 'storefront', title: 'No store threads yet', description: 'Start a store thread for updates everyone should see.' },
+  direct: { icon: 'person', title: 'No staff messages yet', description: 'Start a private work message with a teammate.' },
   unread: { icon: 'mark_chat_read', title: 'All caught up', description: 'New replies will show here' },
   mentioned: { icon: 'alternate_email', title: 'No mentions', description: 'Messages asking for you will show here' },
   pinned: { icon: 'push_pin', title: 'Nothing pinned', description: 'Supervisors can pin important threads' },
@@ -53,7 +63,7 @@ const emptyCopy: Record<Tab, { icon: string; title: string; description: string 
 };
 
 function validTab(value: string | null): Tab {
-  if (value === 'unread' || value === 'mentioned' || value === 'pinned' || value === 'saved' || value === 'urgent' || value === 'noReply' || value === 'needsTask' || value === 'unacked' || value === 'resolved' || value === 'all') return value;
+  if (value === 'channels' || value === 'direct' || value === 'unread' || value === 'mentioned' || value === 'pinned' || value === 'saved' || value === 'urgent' || value === 'noReply' || value === 'needsTask' || value === 'unacked' || value === 'resolved' || value === 'all') return value;
   return 'all';
 }
 
@@ -75,6 +85,8 @@ function ThreadsContent() {
   const [tab, setTab] = useState<Tab>(() => validTab(searchParams.get('tab')));
   const [cachedThreads, setCachedThreads] = useState<Record<Tab, any[] | undefined>>({
     all: undefined,
+    channels: undefined,
+    direct: undefined,
     unread: undefined,
     mentioned: undefined,
     pinned: undefined,
@@ -133,6 +145,8 @@ function ThreadsContent() {
   useEffect(() => {
     setCachedThreads({
       all: readCachedThreadList<any>('all')?.threads,
+      channels: readCachedThreadList<any>('channels')?.threads,
+      direct: readCachedThreadList<any>('direct')?.threads,
       unread: readCachedThreadList<any>('unread')?.threads,
       mentioned: readCachedThreadList<any>('mentioned')?.threads,
       pinned: readCachedThreadList<any>('pinned')?.threads,
@@ -189,6 +203,8 @@ function ThreadsContent() {
   const usingCache = !liveThreads && !!cachedThreads[tab]?.length && isError;
   const tabCounts: Record<Tab, number> = {
     all: counts?.all ?? (cachedThreads.all ?? []).length,
+    channels: counts?.channels ?? (cachedThreads.channels ?? []).length,
+    direct: counts?.direct ?? (cachedThreads.direct ?? []).length,
     unread: counts?.unread ?? (cachedThreads.unread ?? []).length,
     mentioned: counts?.mentioned ?? (cachedThreads.mentioned ?? []).length,
     pinned: counts?.pinned ?? (cachedThreads.pinned ?? []).length,
@@ -216,7 +232,9 @@ function ThreadsContent() {
     router.replace(`${pathname}?tab=${next}`, { scroll: false });
   };
   const empty = emptyCopy[tab];
+  const activeTabMeta = tabs.find((item) => item.key === tab);
   const activeFilters = [
+    !primaryTabKeys.has(tab) && activeTabMeta?.label,
     authorId && 'author',
     mentionedUserId && '@staff',
     category && category.toLowerCase(),
@@ -228,6 +246,7 @@ function ThreadsContent() {
     health && health.toLowerCase().replace('_', ' '),
   ].filter(Boolean);
   const clearFilters = () => {
+    if (!primaryTabKeys.has(tab)) changeTab('all');
     setAuthorId('');
     setMentionedUserId('');
     setCategory('');
@@ -238,11 +257,59 @@ function ThreadsContent() {
     setDateTo('');
     setHealth('');
   };
+  const emptyAction = tab === 'direct' ? (
+    <button
+      onClick={() => router.push('/hub/threads/direct')}
+      className="min-h-12 rounded-[--radius-lg] bg-brand px-5 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+    >
+      Message Staff
+    </button>
+  ) : tab === 'channels' ? (
+    <button
+      onClick={() => router.push(`/hub/threads/create?from=${tab}`)}
+      className="min-h-12 rounded-[--radius-lg] bg-brand px-5 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+    >
+      Start Store Thread
+    </button>
+  ) : tab === 'all' ? (
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        onClick={() => router.push('/hub/threads/direct')}
+        className="min-h-12 rounded-[--radius-lg] bg-navy px-4 text-sm font-extrabold text-on-navy shadow-sm active:scale-[0.98]"
+      >
+        Message Staff
+      </button>
+      <button
+        onClick={() => router.push('/hub/threads/create?from=channels')}
+        className="min-h-12 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+      >
+        Store Thread
+      </button>
+    </div>
+  ) : null;
 
   return (
     <div>
       <section className="px-5 pt-6 pb-4">
-        <PageHeader title="Threads" subtitle="Store conversations" />
+        <PageHeader title="Messages" subtitle="Staff DMs and store threads" />
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => router.push('/hub/threads/direct')}
+            className="min-h-24 rounded-[--radius-lg] bg-navy p-4 text-left text-on-navy shadow-sm active:scale-[0.98] transition-transform"
+          >
+            <span className="material-symbols-outlined text-[28px]">person_add</span>
+            <span className="mt-2 block text-base font-extrabold">Message Staff</span>
+            <span className="mt-1 block text-xs font-bold text-on-navy/80">Private 1-to-1</span>
+          </button>
+          <button
+            onClick={() => router.push('/hub/threads/create?from=channels')}
+            className="min-h-24 rounded-[--radius-lg] bg-brand p-4 text-left text-on-brand shadow-sm active:scale-[0.98] transition-transform"
+          >
+            <span className="material-symbols-outlined text-[28px]">storefront</span>
+            <span className="mt-2 block text-base font-extrabold">Store Thread</span>
+            <span className="mt-1 block text-xs font-bold text-on-brand/85">Team update</span>
+          </button>
+        </div>
         <div className="mb-3">
           <label className="relative block">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-secondary text-[20px]">search</span>
@@ -254,7 +321,7 @@ function ThreadsContent() {
             />
           </label>
         </div>
-        <div className="mb-3 grid grid-cols-2 gap-2">
+        <div className={`mb-3 grid ${canManage ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
           <button
             onClick={() => setFiltersOpen(!filtersOpen)}
             className="min-h-11 rounded-[--radius-lg] bg-surface-white text-on-surface-secondary font-bold flex items-center justify-center gap-2"
@@ -283,6 +350,26 @@ function ThreadsContent() {
         )}
         {filtersOpen && (
           <div className="mb-3 rounded-[--radius-lg] bg-surface-white p-3 shadow-sm space-y-3">
+            <div>
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-on-surface-secondary">More Views</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[...staffFilterTabs, ...(canManage ? managerFilterTabs : [])].map(({ key, label, icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => changeTab(key)}
+                    className={`min-h-11 rounded-[--radius-lg] px-3 text-sm font-bold flex items-center justify-center gap-2 ${
+                      tab === key
+                        ? 'bg-brand text-on-brand'
+                        : 'bg-surface text-on-surface-secondary'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                    {label}
+                    {tabCounts[key] > 0 && <span className="text-[10px] font-extrabold opacity-85">{tabCounts[key]}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <select value={category} onChange={(event) => setCategory(event.target.value)} className="h-11 rounded-[--radius-lg] border border-outline bg-surface px-3 text-sm font-bold">
                 <option value="">Any Category</option>
@@ -330,7 +417,7 @@ function ThreadsContent() {
           </div>
         )}
         <div className="flex gap-1 overflow-x-auto bg-surface-cream rounded-[--radius-lg] p-1">
-          {tabs.map(({ key, label, icon }) => (
+          {primaryTabs.map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => changeTab(key)}
@@ -406,12 +493,13 @@ function ThreadsContent() {
             <ThreadCard
               key={thread.id}
               title={thread.title}
-              author={thread.author.fullName}
+              author={thread.type === 'DIRECT' ? 'Private message' : thread.type === 'CHANNEL' ? 'Store channel' : thread.author.fullName}
               category={thread.category}
               preview={thread.preview}
               lastSender={thread.lastSender?.fullName}
               messageCount={thread._count.messages}
               attachmentCount={thread.attachmentCount}
+              kind={thread.type === 'DIRECT' ? 'direct' : thread.type === 'CHANNEL' ? 'channel' : 'thread'}
               unreadCount={thread.unreadCount}
               isPinned={thread.isPinned}
               isResolved={thread.isResolved}
@@ -427,18 +515,10 @@ function ThreadsContent() {
             icon={empty.icon}
             title={empty.title}
             description={empty.description}
+            action={emptyAction}
           />
         )}
       </section>
-
-      <button
-        type="button"
-        aria-label="Create thread"
-        onClick={() => router.push(`/hub/threads/create?from=${tab}`)}
-        className="fixed right-6 bottom-24 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-success text-white shadow-lg transition-all duration-200 active:scale-90"
-      >
-        <span aria-hidden="true" className="material-symbols-outlined text-[28px]">add</span>
-      </button>
     </div>
   );
 }
