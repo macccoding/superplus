@@ -263,16 +263,16 @@ function AdminDashboardContent() {
               <h2 className="text-lg font-extrabold text-on-surface">Needs Attention</h2>
               <p className="text-sm text-on-surface-secondary">Highest-risk store work first</p>
             </div>
-            <Link href="/admin/activity" className="rounded-[--radius-lg] bg-surface-cream px-3 py-2 text-sm font-bold text-on-surface">View Feed</Link>
+            <Link href="/admin/activity" className="flex min-h-11 items-center rounded-[--radius-lg] bg-surface-cream px-3 text-sm font-bold text-on-surface">View Feed</Link>
           </div>
 
           <div className="space-y-3">
             {topAttention.map((item: AttentionItem) => (
               <div key={item.id} className={`border-l-4 ${severityStyle[item.severity]} rounded-r-[--radius-lg] p-3`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <button onClick={() => openAttention(item)} className="min-w-0 flex-1 text-left">
+                  <button onClick={() => openAttention(item)} className="min-h-11 min-w-0 flex-1 rounded-[--radius-md] text-left">
                     <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[24px]">{item.icon}</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[24px]">{item.icon}</span>
                       <div className="min-w-0">
                         <p className="truncate font-bold text-on-surface">{item.title}</p>
                         <p className="text-xs text-on-surface-secondary">{item.storeName} · {item.subtitle}</p>
@@ -285,7 +285,7 @@ function AdminDashboardContent() {
             ))}
             {topAttention.length === 0 && (
               <div className="flex items-center gap-3 rounded-[--radius-lg] bg-success/10 p-5 text-success">
-                <span className="material-symbols-outlined">check_circle</span>
+                <span aria-hidden="true" className="material-symbols-outlined">check_circle</span>
                 <span className="font-bold">All clear right now</span>
               </div>
             )}
@@ -541,7 +541,7 @@ function Kpi({ icon, label, value, tone }: { icon: string; label: string; value:
 function TodayTile({ href, icon, label, value, danger }: { href: string; icon: string; label: string; value: number; danger?: boolean }) {
   return (
     <Link href={href} className={`rounded-[--radius-lg] p-3 ${danger ? 'bg-error/10 text-error' : 'bg-surface text-on-surface'}`}>
-      <span className="material-symbols-outlined text-[22px]">{icon}</span>
+      <span aria-hidden="true" className="material-symbols-outlined text-[22px]">{icon}</span>
       <p className="mt-2 text-2xl font-extrabold">{value}</p>
       <p className="text-xs font-bold text-on-surface-secondary">{label}</p>
     </Link>
@@ -555,11 +555,11 @@ function attentionTitle(detail: any) {
 
 function AttentionAction({ item, onRun, busy }: { item: AttentionItem; onRun: (item: AttentionItem) => void; busy: boolean }) {
   if (item.action === 'OPEN') {
-    return <Link href={item.href} className="h-10 rounded-[--radius-lg] bg-surface-white px-3 py-2 text-sm font-bold text-on-surface shadow-sm">Open</Link>;
+    return <Link href={item.href} className="flex min-h-11 items-center rounded-[--radius-lg] bg-surface-white px-3 text-sm font-bold text-on-surface shadow-sm">Open</Link>;
   }
   const label = item.action === 'REMIND' ? 'Remind Store' : item.action === 'ACKNOWLEDGE' ? 'Acknowledge' : item.action === 'MARK_PULLED' ? 'Pulled' : 'Make Task';
   return (
-    <button disabled={busy} onClick={() => onRun(item)} className="h-10 min-w-28 rounded-[--radius-lg] bg-surface-white px-3 text-sm font-bold text-on-surface shadow-sm disabled:opacity-50">
+    <button disabled={busy} onClick={() => onRun(item)} className="min-h-11 min-w-28 rounded-[--radius-lg] bg-surface-white px-3 text-sm font-bold text-on-surface shadow-sm disabled:opacity-50">
       {label}
     </button>
   );

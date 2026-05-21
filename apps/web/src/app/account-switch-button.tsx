@@ -20,9 +20,9 @@ export function AccountSwitchButton({ variant = 'brand', className = '', compact
       type="button"
       onClick={() => signOut({ callbackUrl: '/auth/login' })}
       aria-label="Switch user"
-      className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-[--radius-md] px-3 text-xs font-extrabold transition-all active:scale-[0.98] ${variantClasses[variant]} ${className}`}
+      className={`inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 rounded-[--radius-md] px-3 text-xs font-extrabold transition-all active:scale-[0.98] ${variantClasses[variant]} ${className}`}
     >
-      <span className="material-symbols-outlined text-[20px]">logout</span>
+      <span aria-hidden="true" className="material-symbols-outlined text-[20px]">logout</span>
       <span className={compact ? 'sr-only' : undefined}>Switch</span>
     </button>
   );

@@ -84,7 +84,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [sidebarOpen]);
 
   return (
-    <div className="flex">
+    <div className="flex overflow-x-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -115,20 +115,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Main content */}
-      <main className={`flex-1 min-h-dvh bg-surface p-4 transition-[margin] duration-200 lg:p-8 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+      <main className={`min-w-0 flex-1 min-h-dvh overflow-x-hidden bg-surface p-4 transition-[margin] duration-200 lg:p-8 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         <div className="sticky top-0 z-30 -mx-8 mb-4 hidden items-center justify-between gap-2 border-b border-border bg-surface/95 px-8 py-3 backdrop-blur lg:flex">
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => !current)}
             className="flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-surface-cream px-4 text-sm font-extrabold text-on-surface-secondary active:scale-[0.98]"
           >
-            <span className="material-symbols-outlined text-[20px]">{sidebarCollapsed ? 'menu_open' : 'keyboard_double_arrow_left'}</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">{sidebarCollapsed ? 'menu_open' : 'keyboard_double_arrow_left'}</span>
             {sidebarCollapsed ? 'Show Menu' : 'Hide Menu'}
           </button>
           <NotificationsSlot variant="light" />
         </div>
         {/* Mobile admin bar */}
-        <div className="sticky top-0 z-30 -mx-4 mb-6 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="sticky top-0 z-30 -mx-4 mb-6 flex min-w-0 items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
           {!sidebarOpen && (
             <button
               type="button"
@@ -138,17 +138,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 setSidebarCollapsed(false);
                 setSidebarOpen(true);
               }}
-              className="flex min-h-12 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
+              className="flex min-h-12 shrink-0 items-center gap-2 rounded-[--radius-lg] bg-brand px-4 text-sm font-extrabold text-on-brand shadow-sm active:scale-[0.98]"
             >
-              <span className="material-symbols-outlined text-[20px]">menu</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">menu</span>
               Menu
             </button>
           )}
-          <h1 className="text-lg font-bold text-brand flex-1">SuperPlus Admin</h1>
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold text-brand">Admin</h1>
           <NotificationsSlot variant="light" />
-          <AccountSwitchButton variant="light" />
-          <a href="/hub" className="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-cream">
-            <span className="material-symbols-outlined text-on-surface-secondary">home</span>
+          <AccountSwitchButton variant="light" compact className="min-h-12 w-12 shrink-0 px-0" />
+          <a href="/hub" aria-label="Back to Hub" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-cream">
+            <span aria-hidden="true" className="material-symbols-outlined text-on-surface-secondary">home</span>
           </a>
         </div>
         <PageTransition>{children}</PageTransition>

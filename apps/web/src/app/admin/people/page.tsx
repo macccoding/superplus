@@ -115,7 +115,7 @@ export default function PeoplePage() {
         ].map(([label, value, icon, color]) => (
           <div key={label as string} className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px]">
             <div className="flex items-center justify-between">
-              <span className={`material-symbols-outlined ${color as string}`}>{icon}</span>
+              <span aria-hidden="true" className={`material-symbols-outlined ${color as string}`}>{icon}</span>
               <span className="text-2xl font-extrabold text-on-surface">{value as number}</span>
             </div>
             <p className="text-xs font-bold uppercase tracking-wide text-on-surface-secondary mt-3">{label as string}</p>
@@ -156,7 +156,7 @@ export default function PeoplePage() {
             <option value="ALL">All Statuses</option>
           </select>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-secondary">search</span>
+            <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-secondary">search</span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -244,7 +244,7 @@ export default function PeoplePage() {
                         <select
                           value={user.jobLane}
                           onChange={(e) => updateJobLane.mutate({ id: user.id, jobLane: e.target.value as any })}
-                          className="h-10 px-3 bg-surface border-2 border-outline rounded-[--radius-md] text-xs font-bold text-on-surface"
+                          className="h-11 px-3 bg-surface border-2 border-outline rounded-[--radius-md] text-xs font-bold text-on-surface"
                           aria-label={`Job lane for ${user.fullName}`}
                         >
                           {jobLaneOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -262,8 +262,8 @@ export default function PeoplePage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => { setResetTarget(user); setNewPin(''); setResetDone(false); }} className="h-10 px-3 rounded-[--radius-md] bg-surface-cream text-xs font-bold text-on-surface-secondary">Reset PIN</button>
-                          <button onClick={() => user.isActive && workload.active > 0 ? setToggleTarget({ ...user, workload }) : toggleActive.mutate({ id: user.id })} className={`h-10 px-3 rounded-[--radius-md] text-xs font-bold ${user.isActive ? 'bg-error/10 text-error' : 'bg-success/10 text-success'}`}>
+                          <button onClick={() => { setResetTarget(user); setNewPin(''); setResetDone(false); }} className="h-11 px-3 rounded-[--radius-md] bg-surface-cream text-xs font-bold text-on-surface-secondary">Reset PIN</button>
+                          <button onClick={() => user.isActive && workload.active > 0 ? setToggleTarget({ ...user, workload }) : toggleActive.mutate({ id: user.id })} className={`h-11 px-3 rounded-[--radius-md] text-xs font-bold ${user.isActive ? 'bg-error/10 text-error' : 'bg-success/10 text-success'}`}>
                             {user.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>

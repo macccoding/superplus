@@ -51,31 +51,33 @@ export default function ProductLookupPage() {
       {/* Search bar */}
       <div className="px-5 mb-4">
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-secondary">search</span>
+          <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-secondary">search</span>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or barcode..."
-            className="w-full h-14 pl-12 pr-14 bg-surface-white border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary transition-colors shadow-sm"
+            className="w-full h-14 pl-12 pr-16 bg-surface-white border-2 border-outline rounded-[--radius-lg] focus:border-primary focus:outline-none text-base text-on-surface placeholder:text-on-surface-secondary transition-colors shadow-sm"
             autoFocus
           />
           <button
+            type="button"
+            aria-label="Scan barcode"
             onClick={() => setShowScanner(true)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-surface-cream rounded-lg flex items-center justify-center"
+            className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-lg bg-surface-cream"
           >
-            <span className="material-symbols-outlined text-on-surface-secondary">qr_code_scanner</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-on-surface-secondary">qr_code_scanner</span>
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="px-5 mb-4 flex gap-2 overflow-x-auto pb-1">
+      <div className="px-5 mb-4 flex gap-2 overflow-x-auto pb-2">
         <select
           value={categoryFilter || ''}
           onChange={(e) => setCategoryFilter(e.target.value || undefined)}
-          className="h-9 px-3 bg-surface-cream rounded-lg text-xs font-medium text-on-surface-secondary border-0 focus:outline-none"
+          className="h-12 shrink-0 rounded-lg border-0 bg-surface-cream px-4 text-sm font-bold text-on-surface-secondary focus:outline-none"
         >
           <option value="">All Categories</option>
           {categories?.map((c) => (
@@ -86,7 +88,7 @@ export default function ProductLookupPage() {
           <button
             key={s}
             onClick={() => setStockFilter(stockFilter === s ? undefined : s)}
-            className={`h-9 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+            className={`h-12 shrink-0 rounded-lg px-4 text-sm font-bold whitespace-nowrap transition-all ${
               stockFilter === s ? 'bg-brand text-on-brand' : 'bg-surface-cream text-on-surface-secondary'
             }`}
           >
@@ -135,7 +137,7 @@ export default function ProductLookupPage() {
                 <div className="text-right ml-3">
                   <p className="text-lg font-bold text-on-surface">${Number(product.retailPrice).toFixed(2)}</p>
                   <div className="flex items-center gap-1 mt-1 justify-end">
-                    <span className={`w-2 h-2 rounded-full ${stockDot[product.stockStatus]}`} />
+                    <span aria-hidden="true" className={`w-2 h-2 rounded-full ${stockDot[product.stockStatus]}`} />
                     <span className="text-xs text-on-surface-secondary">{product.stockStatus.replaceAll('_', ' ')}</span>
                   </div>
                 </div>
@@ -223,12 +225,12 @@ function BarcodeScanner({ onScan, onClose }: { onScan: (code: string) => void; o
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-[--spacing-container]">
-      <button onClick={onClose} className="absolute top-6 right-6 text-white">
-        <span className="material-symbols-outlined text-[32px]">close</span>
+      <button type="button" onClick={onClose} aria-label="Close scanner" className="absolute top-6 right-6 flex h-12 w-12 items-center justify-center rounded-full text-white">
+        <span aria-hidden="true" className="material-symbols-outlined text-[32px]">close</span>
       </button>
       {error ? (
         <div className="text-center">
-          <span className="material-symbols-outlined text-[48px] text-white/60 mb-4">no_photography</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[48px] text-white/60 mb-4">no_photography</span>
           <p className="text-white">{error}</p>
           <button onClick={onClose} className="mt-4 px-6 py-3 bg-white text-black font-bold rounded-[--radius-lg]">
             Close

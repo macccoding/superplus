@@ -26,7 +26,7 @@ export function IconGrid({ items }: { items: IconGridItem[] }) {
             className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm"
             style={{ backgroundColor: item.color }}
           >
-            <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
           </div>
           <span className="text-[15px] font-bold text-on-surface">{item.label}</span>
           {item.badge && item.badge > 0 ? (

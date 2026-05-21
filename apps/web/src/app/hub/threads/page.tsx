@@ -432,10 +432,12 @@ function ThreadsContent() {
       </section>
 
       <button
+        type="button"
+        aria-label="Create thread"
         onClick={() => router.push(`/hub/threads/create?from=${tab}`)}
-        className="fixed right-6 bottom-24 w-[--spacing-fab-size] h-[--spacing-fab-size] rounded-full bg-success text-white shadow-lg flex items-center justify-center z-30 active:scale-90 transition-all duration-200"
+        className="fixed right-6 bottom-24 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-success text-white shadow-lg transition-all duration-200 active:scale-90"
       >
-        <span className="material-symbols-outlined text-[28px]">add</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[28px]">add</span>
       </button>
     </div>
   );

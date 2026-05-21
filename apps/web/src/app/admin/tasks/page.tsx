@@ -376,7 +376,7 @@ export default function AdminTasksPage() {
             <button
               key={chip.key}
               onClick={() => applyChip(chip.key as any)}
-              className={`min-h-10 px-3 rounded-[--radius-lg] text-sm font-bold ${
+              className={`min-h-11 px-3 rounded-[--radius-lg] text-sm font-bold ${
                 (chip.key === 'overdue' && due === 'OVERDUE') ||
                 (chip.key === 'help' && status === 'NEEDS_HELP') ||
                 (chip.key === 'review' && status === 'IN_REVIEW') ||
@@ -453,8 +453,13 @@ export default function AdminTasksPage() {
             <div className="divide-y divide-outline/20">
               {tasks.map((task) => (
                 <div key={task.id} className="p-4 flex items-start gap-3">
-                  <button onClick={() => toggleSelected(task.id)} className="mt-1">
-                    <span className={`material-symbols-outlined ${selected.includes(task.id) ? 'text-brand' : 'text-on-surface-secondary'}`}>
+                  <button
+                    type="button"
+                    aria-label={`${selected.includes(task.id) ? 'Deselect' : 'Select'} ${task.title}`}
+                    onClick={() => toggleSelected(task.id)}
+                    className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[--radius-lg] bg-surface-cream"
+                  >
+                    <span aria-hidden="true" className={`material-symbols-outlined ${selected.includes(task.id) ? 'text-brand' : 'text-on-surface-secondary'}`}>
                       {selected.includes(task.id) ? 'check_box' : 'check_box_outline_blank'}
                     </span>
                   </button>
@@ -474,7 +479,7 @@ export default function AdminTasksPage() {
                     <span>{task._count.checklistItems} steps</span>
                     <span>{task._count.attachments} files</span>
                   </div>
-                  <button onClick={() => startEdit(task)} className="h-10 px-3 rounded-[--radius-lg] bg-surface-cream text-sm font-bold text-on-surface">
+                  <button onClick={() => startEdit(task)} className="h-11 px-3 rounded-[--radius-lg] bg-surface-cream text-sm font-bold text-on-surface">
                     Edit
                   </button>
                 </div>
@@ -588,14 +593,14 @@ export default function AdminTasksPage() {
                     <button
                       onClick={() => createFromTemplate.mutate({ templateId: template.id, assignedToId: templateAssignee || undefined, dueDate: toDate(templateDueDate), scope })}
                       disabled={isAllStores}
-                      className="h-10 rounded-[--radius-lg] bg-navy text-on-navy text-sm font-bold disabled:opacity-40"
+                      className="h-11 rounded-[--radius-lg] bg-navy text-on-navy text-sm font-bold disabled:opacity-40"
                     >
                       Use
                     </button>
                     <button
                       onClick={() => updateTemplate.mutate({ id: template.id, isActive: false, scope })}
                       disabled={isAllStores}
-                      className="h-10 rounded-[--radius-lg] bg-surface-cream text-on-surface text-sm font-bold disabled:opacity-40"
+                      className="h-11 rounded-[--radius-lg] bg-surface-cream text-on-surface text-sm font-bold disabled:opacity-40"
                     >
                       Archive
                     </button>
@@ -616,7 +621,7 @@ function StatCard({ icon, label, value, tone }: { icon: string; label: string; v
   return (
     <div className="bg-surface-white rounded-[--radius-lg] p-5 shadow-sm flex items-center gap-3">
       <div className={`w-12 h-12 rounded-[--radius-lg] flex items-center justify-center ${toneClass}`}>
-        <span className="material-symbols-outlined">{icon}</span>
+        <span aria-hidden="true" className="material-symbols-outlined">{icon}</span>
       </div>
       <div>
         <p className="text-2xl font-bold text-on-surface">{value}</p>

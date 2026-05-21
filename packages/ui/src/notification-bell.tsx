@@ -43,10 +43,13 @@ export function NotificationBell({ notifications, unreadCount, onMarkRead, onMar
   return (
     <div className="relative">
       <button
+        type="button"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors relative ${buttonClass}`}
+        className={`relative flex h-12 w-12 items-center justify-center rounded-full transition-colors ${buttonClass}`}
       >
-        <span className={`material-symbols-outlined ${iconClass}`} style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}>notifications</span>
+        <span aria-hidden="true" className={`material-symbols-outlined ${iconClass}`} style={{ fontVariationSettings: unreadCount > 0 ? "'FILL' 1" : "'FILL' 0" }}>notifications</span>
         {unreadCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-5 h-5 bg-brand-light text-on-brand text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -61,7 +64,7 @@ export function NotificationBell({ notifications, unreadCount, onMarkRead, onMar
             <div className="flex items-center justify-between px-4 py-3 border-b border-outline/20">
               <h3 className="font-bold text-on-surface text-sm">Notifications</h3>
               {unreadCount > 0 && (
-                <button onClick={() => { onMarkAllRead(); }} className="text-xs text-brand font-medium">
+                <button type="button" onClick={() => { onMarkAllRead(); }} className="min-h-11 rounded-[--radius-md] px-2 text-xs font-bold text-brand">
                   Mark all read
                 </button>
               )}
@@ -77,7 +80,7 @@ export function NotificationBell({ notifications, unreadCount, onMarkRead, onMar
                     }}
                     className={`w-full text-left px-4 py-3 flex gap-3 hover:bg-surface transition-colors ${!n.isRead ? 'bg-brand/5' : ''}`}
                   >
-                    <span className={`material-symbols-outlined text-[20px] mt-0.5 ${!n.isRead ? 'text-brand' : 'text-outline'}`}>
+                    <span aria-hidden="true" className={`material-symbols-outlined text-[20px] mt-0.5 ${!n.isRead ? 'text-brand' : 'text-outline'}`}>
                       {typeIcons[n.type] || 'notifications'}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -90,7 +93,7 @@ export function NotificationBell({ notifications, unreadCount, onMarkRead, onMar
                 ))
               ) : (
                 <div className="py-8 text-center text-sm text-outline">
-                  <span className="material-symbols-outlined text-[32px] text-outline mb-2 block">notifications_off</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[32px] text-outline mb-2 block">notifications_off</span>
                   No notifications
                 </div>
               )}

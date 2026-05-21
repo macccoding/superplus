@@ -31,7 +31,7 @@ export function BackButton({ href, label = 'Back', className = '' }: BackButtonP
       className={`inline-flex min-h-11 items-center gap-2 rounded-[--radius-lg] bg-surface-white px-3 text-sm font-bold text-on-surface-secondary shadow-sm active:scale-[0.98] ${className}`}
       aria-label={label}
     >
-      <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+      <span aria-hidden="true" className="material-symbols-outlined text-[20px]">arrow_back</span>
       <span>{label}</span>
     </Link>
   );

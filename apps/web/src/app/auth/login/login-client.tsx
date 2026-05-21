@@ -46,6 +46,7 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [staffSearch, setStaffSearch] = useState('');
 
   async function handleSubmit() {
     if (!selected || pin.length < 4) return;
@@ -72,23 +73,46 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
   }
 
   if (!selected) {
+    const normalizedSearch = staffSearch.trim().toLowerCase();
+    const filteredStaff = normalizedSearch
+      ? staff.filter((user) => (
+        user.fullName.toLowerCase().includes(normalizedSearch) ||
+        user.firstName.toLowerCase().includes(normalizedSearch) ||
+        user.role.toLowerCase().includes(normalizedSearch) ||
+        user.storeName.toLowerCase().includes(normalizedSearch)
+      ))
+      : staff;
+
     return (
-      <div className="w-full max-w-lg mx-auto">
+      <div className="w-full max-w-lg mx-auto px-4">
         <div className="text-center mb-8">
           <img src="/logo-transparent.png" alt="SuperPlus" className="h-24 mx-auto mb-3" />
           <h1 className="text-2xl font-extrabold text-on-surface">SuperPlus</h1>
           <p className="text-on-surface-secondary text-sm mt-1">Select your name to sign in</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {staff.map((user) => {
+        {staff.length > 9 && (
+          <div className="mb-4">
+            <label htmlFor="staff-search" className="sr-only">Search staff</label>
+            <input
+              id="staff-search"
+              value={staffSearch}
+              onChange={(event) => setStaffSearch(event.target.value)}
+              placeholder="Search staff"
+              className="h-12 w-full rounded-[--radius-lg] border-2 border-outline bg-surface-white px-4 text-base text-on-surface placeholder:text-on-surface-secondary focus:border-brand focus:outline-none"
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {filteredStaff.map((user) => {
             const color = getAvatarColor(user.fullName);
             const rc = roleColors[user.role] || roleColors.STAFF;
             return (
               <button
                 key={user.loginId}
                 onClick={() => { setSelected(user); setPin(''); setError(''); }}
-                className="flex flex-col items-center gap-2 p-4 bg-surface-white rounded-[--radius-lg] shadow-sm active:scale-95 transition-all duration-150 border-2 border-transparent hover:border-brand/30 focus:border-brand"
+                className="flex min-h-[136px] flex-col items-center gap-2 rounded-[--radius-lg] border-2 border-transparent bg-surface-white p-4 shadow-sm transition-all duration-150 active:scale-95 hover:border-brand/30 focus:border-brand"
               >
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg"
@@ -104,6 +128,18 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
             );
           })}
         </div>
+        {filteredStaff.length === 0 && (
+          <div className="rounded-[--radius-lg] bg-surface-white p-6 text-center shadow-sm">
+            <p className="font-bold text-on-surface">No staff match that search</p>
+            <button
+              type="button"
+              onClick={() => setStaffSearch('')}
+              className="mt-3 min-h-12 rounded-[--radius-lg] bg-brand px-5 font-bold text-on-brand"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
       </div>
     );
   }
