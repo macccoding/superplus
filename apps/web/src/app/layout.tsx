@@ -12,7 +12,7 @@ export const metadata: Metadata = {
       { url: '/icons/favicon-16.png', sizes: '16x16', type: 'image/png' },
       { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
     ],
-    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    apple: [{ url: '/icons/superplus-apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     shortcut: ['/icons/favicon-32.png'],
   },
 };
