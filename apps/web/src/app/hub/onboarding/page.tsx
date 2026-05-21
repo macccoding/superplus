@@ -2,7 +2,7 @@
 
 import { CURRENT_ONBOARDING_VERSION } from '@superplus/config';
 import { trpc } from '@/lib/trpc-client';
-import { OnboardingFlow } from './onboarding-flow';
+import { OnboardingFlow, type SlideData } from './onboarding-flow';
 import manifestV1 from '@/data/onboarding-v1.json';
 
 const manifests: Record<number, typeof manifestV1> = {

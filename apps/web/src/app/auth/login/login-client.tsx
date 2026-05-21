@@ -92,14 +92,14 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
         </div>
 
         {staff.length > 9 && (
-          <div className="mb-4">
-            <label htmlFor="staff-search" className="sr-only">Search staff</label>
+          <div className="relative mb-4">
+            <span aria-hidden="true" className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-secondary">search</span>
             <input
-              id="staff-search"
               value={staffSearch}
               onChange={(event) => setStaffSearch(event.target.value)}
-              placeholder="Search staff"
-              className="h-12 w-full rounded-[--radius-lg] border-2 border-outline bg-surface-white px-4 text-base text-on-surface placeholder:text-on-surface-secondary focus:border-brand focus:outline-none"
+              placeholder="Find your name"
+              aria-label="Find your name"
+              className="h-14 w-full rounded-[--radius-lg] border-2 border-outline bg-surface-white pl-12 pr-4 text-base font-bold text-on-surface shadow-sm placeholder:text-on-surface-secondary focus:border-brand focus:outline-none"
             />
           </div>
         )}
@@ -128,13 +128,14 @@ export function LoginClient({ staff }: { staff: StaffMember[] }) {
             );
           })}
         </div>
+
         {filteredStaff.length === 0 && (
           <div className="rounded-[--radius-lg] bg-surface-white p-6 text-center shadow-sm">
-            <p className="font-bold text-on-surface">No staff match that search</p>
+            <p className="font-bold text-on-surface">No names found</p>
             <button
               type="button"
               onClick={() => setStaffSearch('')}
-              className="mt-3 min-h-12 rounded-[--radius-lg] bg-brand px-5 font-bold text-on-brand"
+              className="mt-3 min-h-12 rounded-[--radius-lg] bg-surface-cream px-4 text-sm font-bold text-on-surface-secondary"
             >
               Clear search
             </button>

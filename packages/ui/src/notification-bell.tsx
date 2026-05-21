@@ -64,7 +64,7 @@ export function NotificationBell({ notifications, unreadCount, onMarkRead, onMar
             <div className="flex items-center justify-between px-4 py-3 border-b border-outline/20">
               <h3 className="font-bold text-on-surface text-sm">Notifications</h3>
               {unreadCount > 0 && (
-                <button type="button" onClick={() => { onMarkAllRead(); }} className="min-h-11 rounded-[--radius-md] px-2 text-xs font-bold text-brand">
+                  <button type="button" onClick={() => { onMarkAllRead(); }} className="min-h-11 rounded-[--radius-md] px-2 text-xs font-bold text-brand">
                   Mark all read
                 </button>
               )}

@@ -180,6 +180,17 @@ model User {
   createdAt         DateTime @default(now())
   onboardedAt       DateTime?
   onboardingVersion Int      @default(0)
+  preferredName     String?
+  birthdayMonth     Int?
+  birthdayDay       Int?
+  favoriteColor     String?
+  favoriteTreat     String?
+  dreamGoal         String?
+  proudMoment       String?
+  learningInterest  String?
+  celebrationPreference String?
+  showBirthday      Boolean  @default(true)
+  profileUpdatedAt  DateTime?
 
   store                Store               @relation(fields: [storeId], references: [id])
   createdThreads       Thread[]            @relation("ThreadAuthor")

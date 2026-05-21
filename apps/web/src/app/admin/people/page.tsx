@@ -24,6 +24,19 @@ function initials(name: string) {
   return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 }
 
+function birthdayLabel(user: any) {
+  if (!user.showBirthday || !user.birthdayMonth || !user.birthdayDay) return 'No birthday';
+  return new Date(2024, user.birthdayMonth - 1, user.birthdayDay).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function profileLabel(user: any) {
+  const completion = user.profileCompletion;
+  if (!completion) return 'Not started';
+  if (completion.isComplete) return 'Complete';
+  if (completion.completed > 0) return `${completion.percent}% done`;
+  return 'Not started';
+}
+
 export default function PeoplePage() {
   const utils = trpc.useUtils();
   const { data: stores } = trpc.stores.list.useQuery();
@@ -84,7 +97,7 @@ export default function PeoplePage() {
     },
   });
 
-  const summary = ops?.summary ?? { active: 0, inactive: 0, managers: 0, supervisors: 0, unassigned: 0, overloaded: 0 };
+  const summary = ops?.summary ?? { active: 0, inactive: 0, managers: 0, supervisors: 0, unassigned: 0, overloaded: 0, profilesComplete: 0, profilesMissing: 0, upcomingBirthdays: 0 };
   const selectedStoreId = activeScope === 'ALL' ? newUser.storeId : activeScope;
   const canCreate = newUser.fullName.trim() && newUser.phone.trim() && newUser.pin.length === 4 && selectedStoreId;
 
@@ -107,10 +120,11 @@ export default function PeoplePage() {
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {[
           ['Active', summary.active, 'groups', 'text-success'],
-          ['Inactive', summary.inactive, 'person_off', 'text-error'],
           ['Leads', summary.managers + summary.supervisors, 'supervisor_account', 'text-navy'],
           ['Unassigned', summary.unassigned, 'assignment_late', 'text-warning'],
           ['Overloaded', summary.overloaded, 'priority_high', 'text-brand'],
+          ['Profiles', summary.profilesComplete, 'badge', 'text-success'],
+          ['Birthdays', summary.upcomingBirthdays, 'cake', 'text-brand'],
           ['Shown', users?.length ?? 0, 'filter_list', 'text-on-surface-secondary'],
         ].map(([label, value, icon, color]) => (
           <div key={label as string} className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm min-h-[96px]">
@@ -121,6 +135,59 @@ export default function PeoplePage() {
             <p className="text-xs font-bold uppercase tracking-wide text-on-surface-secondary mt-3">{label as string}</p>
           </div>
         ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="material-symbols-outlined text-brand" style={{ fontVariationSettings: "'FILL' 1" }}>cake</span>
+            <div>
+              <h2 className="font-extrabold text-on-surface">Upcoming Birthdays</h2>
+              <p className="text-xs text-on-surface-secondary">Next 30 days from visible staff profiles</p>
+            </div>
+          </div>
+          {(ops?.upcomingBirthdays?.length ?? 0) > 0 ? (
+            <div className="space-y-2">
+              {ops?.upcomingBirthdays.map((user: any) => (
+                <div key={user.id} className="min-h-14 rounded-[--radius-lg] bg-surface px-3 py-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-on-surface truncate">{user.preferredName || user.fullName}</p>
+                    <p className="text-xs text-on-surface-secondary">{user.store?.name} · {user.favoriteTreat || 'No treat listed'}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-extrabold text-brand">{birthdayLabel(user)}</p>
+                    <p className="text-[11px] font-bold text-on-surface-secondary">{user.nextBirthdayDays === 0 ? 'Today' : `${user.nextBirthdayDays}d`}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[--radius-lg] bg-surface p-4 text-sm font-bold text-on-surface-secondary">No birthdays coming up yet.</div>
+          )}
+        </div>
+
+        <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="material-symbols-outlined text-navy">psychology</span>
+            <div>
+              <h2 className="font-extrabold text-on-surface">Staff Growth Notes</h2>
+              <p className="text-xs text-on-surface-secondary">Goals and skills staff want to learn</p>
+            </div>
+          </div>
+          {(ops?.staff ?? []).some((user: any) => user.learningInterest || user.dreamGoal) ? (
+            <div className="space-y-2 max-h-[244px] overflow-y-auto pr-1">
+              {(ops?.staff ?? []).filter((user: any) => user.learningInterest || user.dreamGoal).slice(0, 8).map((user: any) => (
+                <div key={user.id} className="rounded-[--radius-lg] bg-surface px-3 py-3">
+                  <p className="text-sm font-bold text-on-surface">{user.preferredName || user.fullName}</p>
+                  {user.learningInterest && <p className="text-xs text-navy mt-1">Learn: {user.learningInterest}</p>}
+                  {user.dreamGoal && <p className="text-xs text-on-surface-secondary mt-1 line-clamp-2">Goal: {user.dreamGoal}</p>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[--radius-lg] bg-surface p-4 text-sm font-bold text-on-surface-secondary">No growth notes added yet.</div>
+          )}
+        </div>
       </div>
 
       <div className="bg-surface-white rounded-[--radius-lg] p-4 shadow-sm">
@@ -191,6 +258,15 @@ export default function PeoplePage() {
                         </div>
                         <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${roleColors[user.role] || roleColors.STAFF}`}>{user.role}</span>
                       </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Badge label={profileLabel(user)} tone={user.profileCompletion?.isComplete ? 'success' : 'warning'} />
+                        <Badge label={birthdayLabel(user)} />
+                      </div>
+                      {(user.favoriteTreat || user.learningInterest) && (
+                        <p className="mt-2 text-xs text-on-surface-secondary">
+                          {user.favoriteTreat ? `Treat: ${user.favoriteTreat}` : `Learn: ${user.learningInterest}`}
+                        </p>
+                      )}
                       <div className="grid grid-cols-3 gap-2 mt-3">
                         <Metric label="Active" value={workload.active} />
                         <Metric label="Late" value={workload.overdue} urgent={workload.overdue > 0} />
@@ -210,13 +286,14 @@ export default function PeoplePage() {
           </div>
 
           <div className="hidden lg:block bg-surface-white rounded-[--radius-lg] shadow-sm overflow-hidden">
-            <table className="w-full min-w-[860px]">
+            <table className="w-full min-w-[1040px]">
               <thead>
                 <tr className="border-b border-outline/30">
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Name</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Store</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Role</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Job Lane</th>
+                  <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Profile</th>
                   <th className="text-center px-5 py-4 text-sm font-medium text-on-surface-secondary">Workload</th>
                   <th className="text-left px-5 py-4 text-sm font-medium text-on-surface-secondary">Status</th>
                   <th className="px-5 py-4"></th>
@@ -249,6 +326,19 @@ export default function PeoplePage() {
                         >
                           {jobLaneOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </select>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge label={profileLabel(user)} tone={user.profileCompletion?.isComplete ? 'success' : 'warning'} />
+                            <Badge label={birthdayLabel(user)} />
+                          </div>
+                          {(user.favoriteTreat || user.learningInterest) && (
+                            <p className="max-w-[220px] truncate text-xs text-on-surface-secondary">
+                              {user.favoriteTreat ? `Treat: ${user.favoriteTreat}` : `Learn: ${user.learningInterest}`}
+                            </p>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-center gap-2">
@@ -362,7 +452,13 @@ function Metric({ label, value, urgent }: { label: string; value: number; urgent
   );
 }
 
-function Badge({ label, tone = 'default' }: { label: string; tone?: 'default' | 'danger' | 'warning' }) {
-  const styles = tone === 'danger' ? 'bg-error/10 text-error' : tone === 'warning' ? 'bg-warning/15 text-warning' : 'bg-surface-cream text-on-surface-secondary';
+function Badge({ label, tone = 'default' }: { label: string; tone?: 'default' | 'danger' | 'warning' | 'success' }) {
+  const styles = tone === 'danger'
+    ? 'bg-error/10 text-error'
+    : tone === 'warning'
+      ? 'bg-warning/15 text-warning'
+      : tone === 'success'
+        ? 'bg-success/10 text-success'
+        : 'bg-surface-cream text-on-surface-secondary';
   return <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${styles}`}>{label}</span>;
 }

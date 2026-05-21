@@ -9,6 +9,93 @@ import { adminStoreIdWhere, adminStoreWhere, resolveAdminScope } from './admin-s
 import { activeTaskStatuses } from './tasks-policy';
 import { logAdminAction } from './admin-audit';
 
+const staffProfileSelect = {
+  preferredName: true,
+  birthdayMonth: true,
+  birthdayDay: true,
+  favoriteColor: true,
+  favoriteTreat: true,
+  dreamGoal: true,
+  proudMoment: true,
+  learningInterest: true,
+  celebrationPreference: true,
+  showBirthday: true,
+  profileUpdatedAt: true,
+};
+
+const myProfileInput = z.object({
+  preferredName: z.string().trim().max(60).optional().nullable(),
+  birthdayMonth: z.number().int().min(1).max(12).optional().nullable(),
+  birthdayDay: z.number().int().min(1).max(31).optional().nullable(),
+  favoriteColor: z.string().trim().max(40).optional().nullable(),
+  favoriteTreat: z.string().trim().max(80).optional().nullable(),
+  dreamGoal: z.string().trim().max(240).optional().nullable(),
+  proudMoment: z.string().trim().max(240).optional().nullable(),
+  learningInterest: z.string().trim().max(160).optional().nullable(),
+  celebrationPreference: z.string().trim().max(120).optional().nullable(),
+  showBirthday: z.boolean().optional(),
+}).refine((input) => {
+  if (!input.birthdayMonth && !input.birthdayDay) return true;
+  if (!input.birthdayMonth || !input.birthdayDay) return false;
+  return input.birthdayDay <= daysInMonth(input.birthdayMonth);
+}, { message: 'Enter a valid birthday month and day' });
+
+function cleanOptionalText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function daysInMonth(month: number) {
+  return new Date(2024, month, 0).getDate();
+}
+
+function hasText(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function getProfileCompletion(user: any) {
+  const fields = [
+    user.preferredName,
+    user.favoriteColor,
+    user.favoriteTreat,
+    user.dreamGoal,
+    user.learningInterest,
+    user.celebrationPreference,
+  ];
+  const completed = fields.filter(hasText).length + (user.birthdayMonth && user.birthdayDay ? 1 : 0);
+  return {
+    completed,
+    total: 7,
+    percent: Math.round((completed / 7) * 100),
+    isComplete: completed >= 5,
+  };
+}
+
+function nextBirthdayDistance(user: any, now = new Date()) {
+  if (!user.showBirthday || !user.birthdayMonth || !user.birthdayDay) return null;
+  const year = now.getFullYear();
+  const birthdayThisYear = new Date(year, user.birthdayMonth - 1, user.birthdayDay);
+  const birthday = birthdayThisYear < startOfDay(now)
+    ? new Date(year + 1, user.birthdayMonth - 1, user.birthdayDay)
+    : birthdayThisYear;
+  const daysUntil = Math.ceil((birthday.getTime() - startOfDay(now).getTime()) / 86400000);
+  return { date: birthday, daysUntil };
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function sanitizeManagerProfile(user: any) {
+  if (user.showBirthday !== false) return user;
+  return {
+    ...user,
+    birthdayMonth: null,
+    birthdayDay: null,
+    nextBirthdayDays: null,
+  };
+}
+
 export const usersRouter = router({
   loginList: publicProcedure.query(async ({ ctx }) => {
     const users = await ctx.db.user.findMany({
@@ -39,7 +126,34 @@ export const usersRouter = router({
           id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
           onboardedAt: true, onboardingVersion: true,
+          ...staffProfileSelect,
           store: { select: { id: true, name: true, parish: true, address: true } },
+        },
+      });
+    }),
+
+  updateMyProfile: protectedProcedure
+    .input(myProfileInput)
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.user.update({
+        where: { id: ctx.user.id },
+        data: {
+          preferredName: cleanOptionalText(input.preferredName),
+          birthdayMonth: input.birthdayMonth ?? null,
+          birthdayDay: input.birthdayDay ?? null,
+          favoriteColor: cleanOptionalText(input.favoriteColor),
+          favoriteTreat: cleanOptionalText(input.favoriteTreat),
+          dreamGoal: cleanOptionalText(input.dreamGoal),
+          proudMoment: cleanOptionalText(input.proudMoment),
+          learningInterest: cleanOptionalText(input.learningInterest),
+          celebrationPreference: cleanOptionalText(input.celebrationPreference),
+          showBirthday: input.showBirthday ?? true,
+          profileUpdatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          fullName: true,
+          ...staffProfileSelect,
         },
       });
     }),
@@ -66,15 +180,17 @@ export const usersRouter = router({
           { phone: { contains: search, mode: 'insensitive' } },
         ];
       }
-      return ctx.db.user.findMany({
+      const users = await ctx.db.user.findMany({
         where,
         select: {
           id: true, fullName: true, phone: true, role: true, jobLane: true,
           storeId: true, isActive: true, createdAt: true,
+          ...staffProfileSelect,
           store: { select: { name: true } },
         },
         orderBy: { fullName: 'asc' },
       });
+      return users.map(sanitizeManagerProfile);
     }),
 
   staffOperations: managerProcedure
@@ -85,7 +201,7 @@ export const usersRouter = router({
       const [users, activeTasks, recentActions] = await Promise.all([
         ctx.db.user.findMany({
           where: { storeId: storeIdWhere },
-          select: { id: true, fullName: true, phone: true, role: true, jobLane: true, storeId: true, isActive: true, createdAt: true, store: { select: { id: true, name: true } } },
+          select: { id: true, fullName: true, phone: true, role: true, jobLane: true, storeId: true, isActive: true, createdAt: true, ...staffProfileSelect, store: { select: { id: true, name: true } } },
           orderBy: { fullName: 'asc' },
         }),
         ctx.db.task.findMany({
@@ -115,10 +231,20 @@ export const usersRouter = router({
         if (!current.lastActivity || task.updatedAt > current.lastActivity) current.lastActivity = task.updatedAt;
         taskCounts.set(task.assignedToId, current);
       }
-      const staff = users.map((user: any) => ({
-        ...user,
-        workload: taskCounts.get(user.id) ?? { active: 0, overdue: 0, help: 0, lastActivity: null },
-      }));
+      const staff = users.map((user: any) => {
+        const profileCompletion = getProfileCompletion(user);
+        const birthday = nextBirthdayDistance(user);
+        return {
+          ...sanitizeManagerProfile(user),
+          profileCompletion,
+          nextBirthdayDays: birthday?.daysUntil ?? null,
+          workload: taskCounts.get(user.id) ?? { active: 0, overdue: 0, help: 0, lastActivity: null },
+        };
+      });
+      const upcomingBirthdays = staff
+        .filter((user: any) => user.nextBirthdayDays !== null && user.nextBirthdayDays <= 30)
+        .sort((a: any, b: any) => a.nextBirthdayDays - b.nextBirthdayDays)
+        .slice(0, 8);
       return {
         summary: {
           active: users.filter((user: any) => user.isActive).length,
@@ -127,8 +253,12 @@ export const usersRouter = router({
           supervisors: users.filter((user: any) => user.role === Role.SUPERVISOR).length,
           unassigned,
           overloaded: staff.filter((user: any) => user.workload.active >= 6 || user.workload.overdue > 0 || user.workload.help > 0).length,
+          profilesComplete: staff.filter((user: any) => user.profileCompletion.isComplete).length,
+          profilesMissing: staff.filter((user: any) => !user.profileUpdatedAt).length,
+          upcomingBirthdays: upcomingBirthdays.length,
         },
         staff,
+        upcomingBirthdays,
         recentActions,
       };
     }),
