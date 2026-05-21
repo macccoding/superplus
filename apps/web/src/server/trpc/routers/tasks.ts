@@ -160,6 +160,7 @@ export const tasksRouter = router({
     .query(async ({ ctx, input }) => {
       const scope = await resolveAdminScope(ctx as any, input?.scope);
       const where: any = adminStoreWhere(scope);
+      const isManager = hasMinRole(ctx.user.role as Role, 'MANAGER');
 
       if (input?.view === 'MINE') {
         where.assignedToId = ctx.user.id;
@@ -172,6 +173,11 @@ export const tasksRouter = router({
       } else if (input?.view === 'DONE') {
         where.status = TaskStatus.DONE;
         if (ctx.user.role === 'STAFF') where.assignedToId = ctx.user.id;
+      } else if (input?.view === 'ALL') {
+        if (!isManager) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Only managers can view all active tasks' });
+        }
+        where.status = { in: activeTaskStatuses };
       } else if (!input?.includeClosed && !input?.status && !input?.statuses) {
         where.status = { in: activeTaskStatuses };
       }
@@ -222,14 +228,15 @@ export const tasksRouter = router({
     const doneWhere: any = { storeId: ctx.storeId, status: TaskStatus.DONE };
     if (ctx.user.role === 'STAFF') doneWhere.assignedToId = ctx.user.id;
 
-    const [mine, available, help, done] = await ctx.db.$transaction([
+    const [mine, allActive, available, help, done] = await ctx.db.$transaction([
       ctx.db.task.count({ where: { storeId: ctx.storeId, assignedToId: ctx.user.id, status: { in: activeTaskStatuses } } }),
+      ctx.db.task.count({ where: { storeId: ctx.storeId, status: { in: activeTaskStatuses } } }),
       ctx.db.task.count({ where: { storeId: ctx.storeId, assignedToId: null, status: TaskStatus.OPEN } }),
       ctx.db.task.count({ where: { storeId: ctx.storeId, status: TaskStatus.NEEDS_HELP } }),
       ctx.db.task.count({ where: doneWhere }),
     ]);
 
-    return { mine, available, help, done };
+    return { mine, allActive, available, help, done };
   }),
 
   getById: protectedProcedure

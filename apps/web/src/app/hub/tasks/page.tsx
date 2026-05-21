@@ -9,7 +9,8 @@ import { TaskCard, EmptyState, PageHeader, PageSkeleton } from '@superplus/ui';
 
 type Tab = 'mine' | 'available' | 'help' | 'done';
 const roleRank: Record<string, number> = { STAFF: 1, SUPERVISOR: 2, MANAGER: 3, OWNER: 4 };
-const listViewByTab: Record<Tab, 'MINE' | 'AVAILABLE' | 'HELP' | 'DONE'> = {
+type TaskListView = 'MINE' | 'AVAILABLE' | 'HELP' | 'DONE' | 'ALL';
+const listViewByTab: Record<Tab, TaskListView> = {
   mine: 'MINE',
   available: 'AVAILABLE',
   help: 'HELP',
@@ -26,6 +27,9 @@ const emptyCopy: Record<Tab, { icon: string; title: string; description: string 
   available: { icon: 'volunteer_activism', title: 'Nothing available to pick up', description: 'All open tasks already have someone on them' },
   help: { icon: 'support_agent', title: 'No one needs help right now', description: 'Tasks asking for supervisor help will show here' },
   done: { icon: 'check_circle', title: 'Completed tasks will show here', description: 'Finished work appears here after it is marked done' },
+};
+const managerEmptyCopy: Partial<Record<Tab, { icon: string; title: string; description: string }>> = {
+  mine: { icon: 'assignment', title: 'No active store tasks right now', description: 'Tasks for this store will show here no matter who created them' },
 };
 
 function validTab(value: string | null): Tab {
@@ -55,11 +59,14 @@ export default function TasksPage() {
     done: undefined,
   });
   const [pendingCount, setPendingCount] = useState(0);
-  const canCreate = roleRank[session?.user?.role || 'STAFF'] >= 2;
+  const currentRoleRank = roleRank[session?.user?.role || 'STAFF'] ?? 1;
+  const canCreate = currentRoleRank >= 2;
+  const canSeeStoreTasks = currentRoleRank >= 3;
   const listInput = useMemo(() => {
-    const view = listViewByTab[tab];
-    return tab === 'done' ? { view, take: 50 } : { view };
-  }, [tab]);
+    const view = canSeeStoreTasks && tab === 'mine' ? 'ALL' : listViewByTab[tab];
+    const scope = canSeeStoreTasks ? session?.user?.storeId : undefined;
+    return tab === 'done' ? { view, take: 50, scope } : { view, scope };
+  }, [canSeeStoreTasks, session?.user?.storeId, tab]);
 
   const { data: liveTasks, isLoading, isError } = trpc.tasks.list.useQuery(listInput);
   const { data: counts } = trpc.tasks.counts.useQuery();
@@ -97,7 +104,7 @@ export default function TasksPage() {
   }, [router, tab, tasks]);
 
   const tabCounts: Record<Tab, number> = {
-    mine: counts?.mine ?? (cachedTasks.mine ?? []).length,
+    mine: (canSeeStoreTasks ? counts?.allActive : counts?.mine) ?? (cachedTasks.mine ?? []).length,
     available: counts?.available ?? (cachedTasks.available ?? []).length,
     help: counts?.help ?? (cachedTasks.help ?? []).length,
     done: counts?.done ?? (cachedTasks.done ?? []).length,
@@ -114,16 +121,18 @@ export default function TasksPage() {
     sessionStorage.setItem(scrollKey(tab), String(window.scrollY));
     router.push(`/hub/tasks/${id}?from=${tab}`);
   };
-  const empty = emptyCopy[tab];
+  const empty = (canSeeStoreTasks && managerEmptyCopy[tab]) || emptyCopy[tab];
+  const mineLabel = canSeeStoreTasks ? 'All' : tabLabels.mine;
+  const subtitle = canSeeStoreTasks ? 'Store work for today' : 'Your work for today';
 
   return (
     <div>
       {/* Header + Tabs */}
       <section className="px-5 pt-6 pb-4">
-        <PageHeader title="Tasks" subtitle="Your work for today" />
+        <PageHeader title="Tasks" subtitle={subtitle} />
         <div className="grid grid-cols-4 gap-1 bg-surface-cream rounded-[--radius-lg] p-1">
           {([
-            { key: 'mine', label: tabLabels.mine },
+            { key: 'mine', label: mineLabel },
             { key: 'available', label: tabLabels.available },
             { key: 'help', label: tabLabels.help },
             { key: 'done', label: tabLabels.done },

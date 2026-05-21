@@ -44,14 +44,18 @@ export default function HubHomePage() {
   const { data: session } = useSession();
   const router = useRouter();
   const { data: me } = trpc.users.me.useQuery();
-  const { data: myTasks } = trpc.tasks.list.useQuery({ view: 'MINE' });
+  const canSeeStoreTasks = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
+  const { data: myTasks } = trpc.tasks.list.useQuery({
+    view: canSeeStoreTasks ? 'ALL' : 'MINE',
+    scope: canSeeStoreTasks ? session?.user?.storeId : undefined,
+  });
   const { data: availableTasks } = trpc.tasks.list.useQuery({ view: 'AVAILABLE' });
   const { data: threadCounts } = trpc.threads.counts.useQuery();
   const { data: releaseModeSetting } = trpc.settings.getReleaseMode.useQuery(undefined, { retry: false });
 
   const releaseMode = normalizeReleaseMode(releaseModeSetting?.mode);
-  const totalTasks = (myTasks?.length || 0) + (availableTasks?.length || 0);
-  const canOpenAdmin = session?.user?.role === 'OWNER' || session?.user?.role === 'MANAGER';
+  const totalTasks = canSeeStoreTasks ? (myTasks?.length || 0) : (myTasks?.length || 0) + (availableTasks?.length || 0);
+  const canOpenAdmin = canSeeStoreTasks;
   const hubItems = getStaffModulesByPlacement(releaseMode, 'main');
   const moreItems = getStaffModulesByPlacement(releaseMode, 'more');
   const hubItemsWithBadges = [...hubItems, profileItem].map((item) => (
@@ -118,7 +122,9 @@ export default function HubHomePage() {
               {totalTasks} task{totalTasks !== 1 ? 's' : ''} need attention
             </h3>
             <p className="text-xs text-on-surface-secondary mt-0.5">
-              {availableTasks?.length || 0} unassigned, {myTasks?.length || 0} assigned to you
+              {canSeeStoreTasks
+                ? 'Open Tasks to see store work across the team'
+                : `${availableTasks?.length || 0} unassigned, ${myTasks?.length || 0} assigned to you`}
             </p>
           </div>
         </div>
